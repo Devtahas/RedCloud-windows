@@ -1,0 +1,592 @@
+[36mINFO[0m[0000] network: updated default interface Ethernet 2, index 6
+[36mINFO[0m[0000] inbound/mixed[0]: tcp server started at 127.0.0.1:2080
+[36mINFO[0m[0002] inbound/tun[1]: started at tun0
+[36mINFO[0m[0002] [[38;5;119m2070732912[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61249
+[36mINFO[0m[0002] [[38;5;119m2070732912[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0002] [[38;5;119m2070732912[0m 1ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0002] [[38;5;67m1835723571[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61251
+[36mINFO[0m[0002] [[38;5;67m1835723571[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0002] [[38;5;49m1005968888[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:52927
+[36mINFO[0m[0002] [[38;5;49m1005968888[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0002] [[38;5;49m1005968888[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0002] [[38;5;81m2475014721[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:52928
+[36mINFO[0m[0002] [[38;5;81m2475014721[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0002] [[38;5;81m2475014721[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0002] [[38;5;81m2475014721[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0002] [[38;5;65m1829326129[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9456
+[36mINFO[0m[0002] [[38;5;65m1829326129[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0002] [[38;5;227m1507813636[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9458
+[36mINFO[0m[0002] [[38;5;227m1507813636[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0002] [[38;5;48m3692311799[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:49482
+[36mINFO[0m[0002] [[38;5;48m3692311799[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0002] [[38;5;65m1829326129[0m 155ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0002] [[38;5;227m1507813636[0m 150ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;119m2070732912[0m 586ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0003] [[38;5;30m2271163662[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:49315
+[36mINFO[0m[0003] [[38;5;30m2271163662[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0003] [[38;5;30m2271163662[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0003] [[38;5;158m717691209[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:49316
+[36mINFO[0m[0003] [[38;5;158m717691209[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;158m717691209[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;158m717691209[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;70m3155214646[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9464
+[36mINFO[0m[0003] [[38;5;70m3155214646[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;106m159600986[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9465
+[36mINFO[0m[0003] [[38;5;106m159600986[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;70m3155214646[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;106m159600986[0m 1ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;48m3692311799[0m 425ms] dns: exchanged A ext2.temp-mail.org. 118 IN A 172.67.73.98
+[36mINFO[0m[0003] [[38;5;48m3692311799[0m 425ms] dns: exchanged A ext2.temp-mail.org. 118 IN A 104.26.7.95
+[36mINFO[0m[0003] [[38;5;48m3692311799[0m 426ms] dns: exchanged A ext2.temp-mail.org. 118 IN A 104.26.6.95
+[36mINFO[0m[0003] [[38;5;67m1835723571[0m 835ms] dns: exchanged A tsst.360totalsecurity.com. 204 IN A 47.251.169.14
+[36mINFO[0m[0003] [[38;5;67m1835723571[0m 835ms] dns: exchanged A tsst.360totalsecurity.com. 204 IN A 47.253.216.242
+[36mINFO[0m[0003] [[38;5;51m2675366580[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9469
+[36mINFO[0m[0003] [[38;5;51m2675366580[0m 0ms] inbound/tun[1]: inbound connection to 172.67.73.98:443
+[36mINFO[0m[0003] [[38;5;29m1302475789[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9470
+[36mINFO[0m[0003] [[38;5;29m1302475789[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0003] [[38;5;51m2675366580[0m 1ms] outbound/vless[proxy-out]: outbound connection to 172.67.73.98:443
+[36mINFO[0m[0003] [[38;5;227m1507813636[0m 553ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;65m1829326129[0m 566ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;29m1302475789[0m 26ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0003] [[38;5;228m3120367066[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:62599
+[36mINFO[0m[0003] [[38;5;228m3120367066[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0003] [[38;5;228m3120367066[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0003] [[38;5;156m1288766604[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9473
+[36mINFO[0m[0003] [[38;5;156m1288766604[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;140m1174851452[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:62600
+[36mINFO[0m[0003] [[38;5;140m1174851452[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;140m1174851452[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;140m1174851452[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;156m1288766604[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;35m838237162[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9477
+[36mINFO[0m[0003] [[38;5;35m838237162[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;35m838237162[0m 1ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;123m363567723[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:62601
+[36mINFO[0m[0003] [[38;5;123m363567723[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;123m363567723[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;123m363567723[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;109m1379244381[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:62602
+[36mINFO[0m[0003] [[38;5;109m1379244381[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0003] [[38;5;109m1379244381[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0003] [[38;5;115m3824202339[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9480
+[36mINFO[0m[0003] [[38;5;115m3824202339[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;115m3824202339[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;146m3800723586[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9483
+[36mINFO[0m[0003] [[38;5;146m3800723586[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;146m3800723586[0m 1ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;106m159600986[0m 385ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;70m3155214646[0m 433ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;173m1271548573[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:49165
+[36mINFO[0m[0003] [[38;5;173m1271548573[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0003] [[38;5;231m3076651735[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64090
+[36mINFO[0m[0003] [[38;5;231m3076651735[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0003] [[38;5;231m3076651735[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0003] [[38;5;156m2185545291[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9485
+[36mINFO[0m[0003] [[38;5;156m2185545291[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;225m3800601297[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64091
+[36mINFO[0m[0003] [[38;5;225m3800601297[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;225m3800601297[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;225m3800601297[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;156m2185545291[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;228m3066999258[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9489
+[36mINFO[0m[0003] [[38;5;228m3066999258[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;228m3066999258[0m 17ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;51m2675366580[0m 422ms] outbound/vless[proxy-out]: outbound connection to 172.67.73.98:443
+[36mINFO[0m[0003] [[38;5;156m1288766604[0m 401ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;29m1302475789[0m 439ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0003] [[38;5;35m838237162[0m 425ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;173m1271548573[0m 152ms] dns: exchanged CNAME mtalk.google.com. 226 IN CNAME mobile-gtalk.l.google.com.
+[36mINFO[0m[0003] [[38;5;173m1271548573[0m 152ms] dns: exchanged A mobile-gtalk.l.google.com. 226 IN A 64.233.184.188
+[36mINFO[0m[0003] [[38;5;192m248784560[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9491
+[36mINFO[0m[0003] [[38;5;192m248784560[0m 0ms] inbound/tun[1]: inbound connection to 64.233.184.188:5228
+[36mINFO[0m[0003] [[38;5;192m248784560[0m 1ms] outbound/vless[proxy-out]: outbound connection to 64.233.184.188:5228
+[36mINFO[0m[0003] [[38;5;224m3267085790[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9493
+[36mINFO[0m[0003] [[38;5;145m673646465[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64092
+[36mINFO[0m[0003] [[38;5;145m673646465[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;121m523733353[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64093
+[36mINFO[0m[0003] [[38;5;121m523733353[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0003] [[38;5;145m673646465[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0003] [[38;5;145m673646465[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0003] [[38;5;121m523733353[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0003] [[38;5;224m3267085790[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;224m3267085790[0m 1ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0003] [[38;5;122m1550524010[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9497
+[36mINFO[0m[0003] [[38;5;122m1550524010[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;122m1550524010[0m 2ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0003] [[38;5;115m3824202339[0m 375ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0004] [[38;5;146m3800723586[0m 417ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0004] clash-api: restful api listening at 127.0.0.1:9090
+[36mINFO[0m[0004] sing-box started (4.08s)
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64943
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0004] [[38;5;156m2185545291[0m 413ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0004] [[38;5;228m3066999258[0m 439ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0004] [[38;5;192m248784560[0m 413ms] outbound/vless[proxy-out]: outbound connection to 64.233.184.188:5228
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 166ms] dns: exchanged CNAME www.msftconnecttest.com. 8 IN CNAME www.msftconnecttest.com.edgesuite.net.
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 166ms] dns: exchanged CNAME www.msftconnecttest.com.edgesuite.net. 8 IN CNAME a39.d.akamai.net.
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 166ms] dns: exchanged A a39.d.akamai.net. 8 IN A 2.16.10.162
+[36mINFO[0m[0004] [[38;5;219m879324107[0m 166ms] dns: exchanged A a39.d.akamai.net. 8 IN A 2.16.10.172
+[36mINFO[0m[0004] [[38;5;170m2639248026[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9499
+[36mINFO[0m[0004] [[38;5;170m2639248026[0m 0ms] inbound/tun[1]: inbound connection to 2.16.10.162:80
+[36mINFO[0m[0004] [[38;5;170m2639248026[0m 0ms] outbound/vless[proxy-out]: outbound connection to 2.16.10.162:80
+[36mINFO[0m[0004] [[38;5;224m3267085790[0m 443ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0004] [[38;5;122m1550524010[0m 484ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0004] [[38;5;170m2639248026[0m 458ms] outbound/vless[proxy-out]: outbound connection to 2.16.10.162:80
+[36mINFO[0m[0006] [[38;5;176m1616679840[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:58069
+[36mINFO[0m[0006] [[38;5;176m1616679840[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0006] [[38;5;176m1616679840[0m 179ms] dns: exchanged A tk.speedyshare.com. 300 IN A 188.114.96.3
+[36mINFO[0m[0006] [[38;5;176m1616679840[0m 179ms] dns: exchanged A tk.speedyshare.com. 300 IN A 188.114.97.3
+[36mINFO[0m[0006] [[38;5;216m3667666120[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9504
+[36mINFO[0m[0006] [[38;5;216m3667666120[0m 0ms] inbound/tun[1]: inbound connection to 64.233.184.188:5228
+[36mINFO[0m[0006] [[38;5;216m3667666120[0m 1ms] outbound/vless[proxy-out]: outbound connection to 64.233.184.188:5228
+[36mINFO[0m[0006] [[38;5;28m2869310947[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9506
+[36mINFO[0m[0006] [[38;5;28m2869310947[0m 0ms] inbound/tun[1]: inbound connection to 188.114.96.3:443
+[36mINFO[0m[0006] [[38;5;28m2869310947[0m 2ms] outbound/vless[proxy-out]: outbound connection to 188.114.96.3:443
+[36mINFO[0m[0007] [[38;5;216m3667666120[0m 447ms] outbound/vless[proxy-out]: outbound connection to 64.233.184.188:5228
+[36mINFO[0m[0007] [[38;5;28m2869310947[0m 432ms] outbound/vless[proxy-out]: outbound connection to 188.114.96.3:443
+[36mINFO[0m[0007] [[38;5;214m2367633862[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:57562
+[36mINFO[0m[0007] [[38;5;214m2367633862[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0007] [[38;5;214m2367633862[0m 0ms] dns: cached A tsst.360totalsecurity.com. 199 IN A 47.251.169.14
+[36mINFO[0m[0007] [[38;5;214m2367633862[0m 0ms] dns: cached A tsst.360totalsecurity.com. 199 IN A 47.253.216.242
+[36mINFO[0m[0007] [[38;5;181m1516210597[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9508
+[36mINFO[0m[0007] [[38;5;181m1516210597[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0007] [[38;5;181m1516210597[0m 20ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0007] [[38;5;171m1154250907[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63350
+[36mINFO[0m[0007] [[38;5;171m1154250907[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0007] [[38;5;31m2259950863[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63349
+[36mINFO[0m[0007] [[38;5;31m2259950863[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0007] [[38;5;171m1154250907[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0007] [[38;5;31m2259950863[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0007] [[38;5;31m2259950863[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;181m1516210597[0m 434ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0008] [[38;5;156m2082899531[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63351
+[36mINFO[0m[0008] [[38;5;156m2082899531[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0008] [[38;5;231m3461545943[0m 1ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63352
+[36mINFO[0m[0008] [[38;5;231m3461545943[0m 1ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0008] [[38;5;156m2082899531[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0008] [[38;5;231m3461545943[0m 1ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;231m3461545943[0m 1ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;63m276038959[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63353
+[36mINFO[0m[0008] [[38;5;63m276038959[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;226m1531927301[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63354
+[36mINFO[0m[0008] [[38;5;226m1531927301[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0008] [[38;5;63m276038959[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;63m276038959[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0008] [[38;5;226m1531927301[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0008] [[38;5;194m3912411173[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63355
+[36mINFO[0m[0008] [[38;5;184m3056450984[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63356
+[36mINFO[0m[0008] [[38;5;194m3912411173[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0008] [[38;5;184m3056450984[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;184m3056450984[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0008] [[38;5;194m3912411173[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0008] [[38;5;184m3056450984[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;31m2763719654[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63357
+[36mINFO[0m[0008] [[38;5;31m2763719654[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0008] [[38;5;30m2573031141[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63358
+[36mINFO[0m[0008] [[38;5;30m2573031141[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0008] [[38;5;31m2763719654[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0008] [[38;5;30m2573031141[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;30m2573031141[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;221m1847306957[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63359
+[36mINFO[0m[0008] [[38;5;222m3840829646[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63360
+[36mINFO[0m[0008] [[38;5;222m3840829646[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;221m1847306957[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[36mINFO[0m[0008] [[38;5;222m3840829646[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0008] [[38;5;222m3840829646[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[31mERROR[0m[0008] [[38;5;221m1847306957[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0009] [[38;5;85m3394504850[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9518
+[36mINFO[0m[0009] [[38;5;85m3394504850[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0009] [[38;5;85m3394504850[0m 21ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0010] [[38;5;85m3394504850[0m 445ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0011] [[38;5;206m750110142[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9520
+[36mINFO[0m[0011] [[38;5;206m750110142[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0011] [[38;5;206m750110142[0m 22ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0012] [[38;5;206m750110142[0m 426ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0012] [[38;5;63m374000687[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:59016
+[36mINFO[0m[0012] [[38;5;63m374000687[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0012] [[38;5;113m3095939169[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51943
+[36mINFO[0m[0012] [[38;5;113m3095939169[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0012] [[38;5;177m1956842145[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51944
+[36mINFO[0m[0012] [[38;5;177m1956842145[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0012] [[38;5;113m3095939169[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0012] [[38;5;113m3095939169[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0012] [[38;5;177m1956842145[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0012] [[38;5;205m3408521405[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9525
+[36mINFO[0m[0012] [[38;5;205m3408521405[0m 0ms] inbound/tun[1]: inbound connection to 172.67.73.98:443
+[36mINFO[0m[0012] [[38;5;205m3408521405[0m 1ms] outbound/vless[proxy-out]: outbound connection to 172.67.73.98:443
+[36mINFO[0m[0013] [[38;5;114m1864437346[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9527
+[36mINFO[0m[0013] [[38;5;114m1864437346[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0013] [[38;5;114m1864437346[0m 19ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0013] [[38;5;221m4148181965[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55250
+[36mINFO[0m[0013] [[38;5;221m4148181965[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;80m3535498048[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55251
+[36mINFO[0m[0013] [[38;5;80m3535498048[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0013] [[38;5;221m4148181965[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;221m4148181965[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0013] [[38;5;80m3535498048[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0013] [[38;5;205m3408521405[0m 425ms] outbound/vless[proxy-out]: outbound connection to 172.67.73.98:443
+[36mINFO[0m[0013] [[38;5;225m3898897885[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55252
+[36mINFO[0m[0013] [[38;5;225m3898897885[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[31mERROR[0m[0013] [[38;5;225m3898897885[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0013] [[38;5;154m3519634058[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55253
+[36mINFO[0m[0013] [[38;5;154m3519634058[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;154m3519634058[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;154m3519634058[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;114m1864437346[0m 417ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0013] [[38;5;107m1161841243[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55254
+[36mINFO[0m[0013] [[38;5;107m1161841243[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0013] [[38;5;215m1402471879[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55255
+[36mINFO[0m[0013] [[38;5;215m1402471879[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0013] [[38;5;107m1161841243[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0013] [[38;5;215m1402471879[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;215m1402471879[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;230m508566230[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55256
+[36mINFO[0m[0013] [[38;5;230m508566230[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;47m3157893919[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55257
+[36mINFO[0m[0013] [[38;5;47m3157893919[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0013] [[38;5;230m508566230[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;230m508566230[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0013] [[38;5;47m3157893919[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0013] [[38;5;175m2506005663[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55259
+[36mINFO[0m[0013] [[38;5;175m2506005663[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0013] [[38;5;195m1966850811[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:55258
+[36mINFO[0m[0013] [[38;5;195m1966850811[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0013] [[38;5;175m2506005663[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0013] [[38;5;195m1966850811[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0013] [[38;5;195m1966850811[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0014] [[38;5;99m3178477907[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9534
+[36mINFO[0m[0014] [[38;5;99m3178477907[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0014] [[38;5;99m3178477907[0m 20ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0015] [[38;5;99m3178477907[0m 449ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0015] [[38;5;154m3517469773[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63041
+[36mINFO[0m[0015] [[38;5;154m3517469773[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0015] [[38;5;154m3517469773[0m 159ms] dns: exchanged CNAME client.wns.windows.com. 78 IN CNAME wns.notify.trafficmanager.net.
+[36mINFO[0m[0015] [[38;5;154m3517469773[0m 159ms] dns: exchanged A wns.notify.trafficmanager.net. 78 IN A 172.211.123.249
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:58571
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.152.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.150.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.157.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.154.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.156.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.155.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.153.119
+[36mINFO[0m[0017] [[38;5;158m2045996942[0m 164ms] dns: exchanged A www.google.com. 243 IN A 142.251.151.119
+[36mINFO[0m[0017] [[38;5;46m439447285[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9539
+[36mINFO[0m[0017] [[38;5;46m439447285[0m 0ms] inbound/tun[1]: inbound connection to 142.251.152.119:443
+[36mINFO[0m[0017] [[38;5;46m439447285[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.152.119:443
+[36mINFO[0m[0017] [[38;5;98m3900650578[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9541
+[36mINFO[0m[0017] [[38;5;98m3900650578[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0017] [[38;5;98m3900650578[0m 37ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0017] [[38;5;46m439447285[0m 521ms] outbound/vless[proxy-out]: outbound connection to 142.251.152.119:443
+[36mINFO[0m[0017] [[38;5;222m3773694926[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51440
+[36mINFO[0m[0017] [[38;5;68m785762868[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51441
+[36mINFO[0m[0017] [[38;5;222m3773694926[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0017] [[38;5;68m785762868[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0017] [[38;5;222m3773694926[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0017] [[38;5;222m3773694926[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0017] [[38;5;68m785762868[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;98m3900650578[0m 457ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0018] [[38;5;78m177146174[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51442
+[36mINFO[0m[0018] [[38;5;169m1579161241[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51443
+[36mINFO[0m[0018] [[38;5;78m177146174[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;169m1579161241[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0018] [[38;5;78m177146174[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;78m177146174[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0018] [[38;5;169m1579161241[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;220m3684070860[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51444
+[36mINFO[0m[0018] [[38;5;220m3684070860[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;220m3684070860[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;220m3684070860[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;193m2504924198[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51445
+[36mINFO[0m[0018] [[38;5;193m2504924198[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[31mERROR[0m[0018] [[38;5;193m2504924198[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;33m1294904808[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51446
+[36mINFO[0m[0018] [[38;5;33m1294904808[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0018] [[38;5;221m2022588897[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51447
+[36mINFO[0m[0018] [[38;5;221m2022588897[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;221m2022588897[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0018] [[38;5;33m1294904808[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;221m2022588897[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;192m2886693374[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51448
+[36mINFO[0m[0018] [[38;5;103m117826391[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51449
+[36mINFO[0m[0018] [[38;5;192m2886693374[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;103m117826391[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[36mINFO[0m[0018] [[38;5;192m2886693374[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[31mERROR[0m[0018] [[38;5;103m117826391[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;192m2886693374[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;119m495005040[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63143
+[36mINFO[0m[0018] [[38;5;119m495005040[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0018] [[38;5;116m1477316196[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:56965
+[36mINFO[0m[0018] [[38;5;116m1477316196[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;116m1477316196[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;116m1477316196[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.77.108.94:1053
+[36mINFO[0m[0018] [[38;5;156m473623180[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:56966
+[36mINFO[0m[0018] [[38;5;156m473623180[0m 0ms] inbound/tun[1]: inbound packet connection to 54.77.108.94:53
+[31mERROR[0m[0018] [[38;5;156m473623180[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0018] [[38;5;49m2938198008[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:58444
+[36mINFO[0m[0018] [[38;5;49m2938198008[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0019] [[38;5;119m495005040[0m 160ms] dns: exchanged A waa-pa.clients6.google.com. 198 IN A 142.251.13.95
+[36mINFO[0m[0019] [[38;5;228m1924037844[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9549
+[36mINFO[0m[0019] [[38;5;228m1924037844[0m 0ms] inbound/tun[1]: inbound connection to 142.251.13.95:443
+[36mINFO[0m[0019] [[38;5;228m1924037844[0m 2ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.95:443
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 166ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.100
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 167ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.138
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 167ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.139
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 167ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.102
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 167ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.113
+[36mINFO[0m[0019] [[38;5;49m2938198008[0m 167ms] dns: exchanged A play.google.com. 229 IN A 142.251.127.101
+[36mINFO[0m[0019] [[38;5;80m1779351616[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9551
+[36mINFO[0m[0019] [[38;5;80m1779351616[0m 0ms] inbound/tun[1]: inbound connection to 142.251.127.100:443
+[36mINFO[0m[0019] [[38;5;80m1779351616[0m 2ms] outbound/vless[proxy-out]: outbound connection to 142.251.127.100:443
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61733
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged CNAME www.youtube.com. 89 IN CNAME youtube-ui.l.google.com.
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 192.178.183.136
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.20.190
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.20.91
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.20.93
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.20.136
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.110.190
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.110.91
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.110.136
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.110.93
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.14.93
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.14.91
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.14.190
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.14.136
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 142.251.127.190
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 192.178.183.93
+[36mINFO[0m[0019] [[38;5;123m4119390315[0m 175ms] dns: exchanged A youtube-ui.l.google.com. 89 IN A 192.178.183.91
+[36mINFO[0m[0019] [[38;5;120m1457903727[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9553
+[36mINFO[0m[0019] [[38;5;120m1457903727[0m 0ms] inbound/tun[1]: inbound connection to 192.178.183.136:443
+[36mINFO[0m[0019] [[38;5;120m1457903727[0m 58ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.136:443
+[36mINFO[0m[0019] [[38;5;80m1779351616[0m 397ms] outbound/vless[proxy-out]: outbound connection to 142.251.127.100:443
+[36mINFO[0m[0019] [[38;5;228m1924037844[0m 496ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.95:443
+[36mINFO[0m[0019] [[38;5;120m1457903727[0m 516ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.136:443
+[36mINFO[0m[0020] [[38;5;224m559921886[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51669
+[36mINFO[0m[0020] [[38;5;224m559921886[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0020] [[38;5;219m3416572107[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:54824
+[36mINFO[0m[0020] [[38;5;219m3416572107[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0021] [[38;5;63m3322996271[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51450
+[36mINFO[0m[0021] [[38;5;63m3322996271[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0021] [[38;5;63m3322996271[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0021] [[38;5;195m2291648179[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9558
+[36mINFO[0m[0021] [[38;5;195m2291648179[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0021] [[38;5;208m1821256896[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:51451
+[36mINFO[0m[0021] [[38;5;208m1821256896[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;208m1821256896[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;208m1821256896[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;51m1324424186[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9560
+[36mINFO[0m[0021] [[38;5;51m1324424186[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0021] [[38;5;51m1324424186[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0021] [[38;5;195m2291648179[0m 1ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0021] [[38;5;224m559921886[0m 176ms] dns: exchanged A fonts.googleapis.com. 15 IN A 192.178.183.95
+[36mINFO[0m[0021] [[38;5;219m3416572107[0m 176ms] dns: exchanged A fonts.gstatic.com. 201 IN A 142.251.14.94
+[36mINFO[0m[0021] [[38;5;47m629369119[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9563
+[36mINFO[0m[0021] [[38;5;47m629369119[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.94:443
+[36mINFO[0m[0021] [[38;5;181m1416435621[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9564
+[36mINFO[0m[0021] [[38;5;181m1416435621[0m 0ms] inbound/tun[1]: inbound connection to 192.178.183.95:443
+[36mINFO[0m[0021] [[38;5;47m629369119[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.94:443
+[36mINFO[0m[0021] [[38;5;181m1416435621[0m 1ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.95:443
+[36mINFO[0m[0021] [[38;5;189m711048746[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9567
+[36mINFO[0m[0021] [[38;5;189m711048746[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0021] [[38;5;189m711048746[0m 21ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:50063
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0021] [[38;5;47m629369119[0m 387ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.94:443
+[36mINFO[0m[0021] [[38;5;195m2291648179[0m 404ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0021] [[38;5;181m1416435621[0m 418ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.95:443
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.100
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.113
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.139
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.138
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.101
+[36mINFO[0m[0021] [[38;5;99m2870762067[0m 145ms] dns: exchanged A aistudio.google.com. 198 IN A 142.251.14.102
+[36mINFO[0m[0021] [[38;5;51m1324424186[0m 441ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0021] [[38;5;226m976076549[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9569
+[36mINFO[0m[0021] [[38;5;226m976076549[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.100:443
+[36mINFO[0m[0021] [[38;5;226m976076549[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.100:443
+[36mINFO[0m[0021] [[38;5;189m711048746[0m 487ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0021] [[38;5;201m2519029945[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:63437
+[36mINFO[0m[0021] [[38;5;201m2519029945[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0021] [[38;5;226m976076549[0m 504ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.100:443
+[36mINFO[0m[0021] [[38;5;117m2815227493[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61540
+[36mINFO[0m[0021] [[38;5;117m2815227493[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0021] [[38;5;117m2815227493[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0021] [[38;5;225m3748592081[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61541
+[36mINFO[0m[0021] [[38;5;225m3748592081[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;225m3748592081[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;225m3748592081[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0021] [[38;5;200m3151352504[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9573
+[36mINFO[0m[0021] [[38;5;200m3151352504[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0021] [[38;5;200m3151352504[0m 2ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.251.14.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.251.127.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.251.13.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.250.154.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 192.178.183.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.251.20.119
+[36mINFO[0m[0022] [[38;5;201m2519029945[0m 173ms] dns: exchanged A i.ytimg.com. 42 IN A 142.251.110.119
+[36mINFO[0m[0022] [[38;5;167m575371159[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9575
+[36mINFO[0m[0022] [[38;5;167m575371159[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0022] [[38;5;167m575371159[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0022] [[38;5;156m353141323[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9577
+[36mINFO[0m[0022] [[38;5;156m353141323[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;65m618341169[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9578
+[36mINFO[0m[0022] [[38;5;65m618341169[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;156m353141323[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;65m618341169[0m 3ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;29m1167211236[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9580
+[36mINFO[0m[0022] [[38;5;29m1167211236[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.94:443
+[36mINFO[0m[0022] [[38;5;29m1167211236[0m 2ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.94:443
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:53758
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged CNAME clients4.google.com. 58 IN CNAME clients.l.google.com.
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.113
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.139
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.101
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.100
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.138
+[36mINFO[0m[0022] [[38;5;182m1405778598[0m 165ms] dns: exchanged A clients.l.google.com. 58 IN A 142.251.14.102
+[36mINFO[0m[0022] [[38;5;205m2251878589[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9583
+[36mINFO[0m[0022] [[38;5;205m2251878589[0m 0ms] inbound/tun[1]: inbound connection to 142.251.14.113:443
+[36mINFO[0m[0022] [[38;5;205m2251878589[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.113:443
+[36mINFO[0m[0022] [[38;5;200m3151352504[0m 406ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0022] [[38;5;219m2521617099[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9585
+[36mINFO[0m[0022] [[38;5;219m2521617099[0m 0ms] inbound/tun[1]: inbound connection to 1.1.1.1:443
+[36mINFO[0m[0022] [[38;5;219m2521617099[0m 1ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0022] [[38;5;167m575371159[0m 391ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0022] [[38;5;65m618341169[0m 419ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;156m353141323[0m 437ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.119:443
+[36mINFO[0m[0022] [[38;5;29m1167211236[0m 455ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.94:443
+[36mINFO[0m[0022] [[38;5;66m609408818[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:54526
+[36mINFO[0m[0022] [[38;5;66m609408818[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0022] [[38;5;66m609408818[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0022] [[38;5;47m932472566[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:54527
+[36mINFO[0m[0022] [[38;5;47m932472566[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0022] [[38;5;47m932472566[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0022] [[38;5;47m932472566[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0022] [[38;5;226m3700985820[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9589
+[36mINFO[0m[0022] [[38;5;226m3700985820[0m 0ms] inbound/tun[1]: inbound connection to 54.76.137.217:80
+[36mINFO[0m[0022] [[38;5;107m692387419[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9590
+[36mINFO[0m[0022] [[38;5;226m3700985820[0m 0ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0022] [[38;5;107m692387419[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0022] [[38;5;107m692387419[0m 1ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0022] [[38;5;205m2251878589[0m 472ms] outbound/vless[proxy-out]: outbound connection to 142.251.14.113:443
+[36mINFO[0m[0022] [[38;5;219m2521617099[0m 443ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0023] [[38;5;226m3700985820[0m 409ms] outbound/vless[proxy-out]: outbound connection to 54.76.137.217:80
+[36mINFO[0m[0023] [[38;5;107m692387419[0m 427ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:52636
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0023] [[38;5;28m1717405923[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9593
+[36mINFO[0m[0023] [[38;5;28m1717405923[0m 0ms] inbound/tun[1]: inbound connection to 1.1.1.1:443
+[36mINFO[0m[0023] [[38;5;28m1717405923[0m 1ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 160ms] dns: exchanged A googleads.g.doubleclick.net. 249 IN A 142.251.110.156
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 160ms] dns: exchanged A googleads.g.doubleclick.net. 249 IN A 142.251.110.157
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 160ms] dns: exchanged A googleads.g.doubleclick.net. 249 IN A 142.251.110.155
+[36mINFO[0m[0023] [[38;5;109m4042860125[0m 160ms] dns: exchanged A googleads.g.doubleclick.net. 249 IN A 142.251.110.154
+[36mINFO[0m[0023] [[38;5;150m3104035206[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9595
+[36mINFO[0m[0023] [[38;5;150m3104035206[0m 0ms] inbound/tun[1]: inbound connection to 142.251.110.156:443
+[36mINFO[0m[0023] [[38;5;150m3104035206[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.110.156:443
+[36mINFO[0m[0023] [[38;5;41m237828633[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9598
+[36mINFO[0m[0023] [[38;5;41m237828633[0m 0ms] inbound/tun[1]: inbound connection to 104.18.0.14:443
+[36mINFO[0m[0023] [[38;5;41m237828633[0m 2ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0023] [[38;5;108m1874477148[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:53166
+[36mINFO[0m[0023] [[38;5;108m1874477148[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0023] [[38;5;28m1717405923[0m 464ms] outbound/vless[proxy-out]: outbound connection to 1.1.1.1:443
+[36mINFO[0m[0023] [[38;5;150m3104035206[0m 388ms] outbound/vless[proxy-out]: outbound connection to 142.251.110.156:443
+[36mINFO[0m[0023] [[38;5;108m1874477148[0m 187ms] dns: exchanged A videodetect.fdown.net. 289 IN A 44.223.254.189
+[36mINFO[0m[0023] [[38;5;108m1874477148[0m 187ms] dns: exchanged A videodetect.fdown.net. 289 IN A 50.19.50.5
+[36mINFO[0m[0023] [[38;5;182m350978214[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9600
+[36mINFO[0m[0023] [[38;5;182m350978214[0m 0ms] inbound/tun[1]: inbound connection to 44.223.254.189:443
+[36mINFO[0m[0023] [[38;5;182m350978214[0m 1ms] outbound/vless[proxy-out]: outbound connection to 44.223.254.189:443
+[36mINFO[0m[0023] [[38;5;184m2640659368[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9602
+[36mINFO[0m[0023] [[38;5;184m2640659368[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0023] [[38;5;40m480039407[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:49885
+[36mINFO[0m[0023] [[38;5;40m480039407[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0023] [[38;5;184m2640659368[0m 44ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0024] [[38;5;41m237828633[0m 466ms] outbound/vless[proxy-out]: outbound connection to 104.18.0.14:443
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.251.13.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.250.154.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 192.178.183.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.251.20.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.251.110.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.251.14.132
+[36mINFO[0m[0024] [[38;5;40m480039407[0m 185ms] dns: exchanged A yt3.ggpht.com. 247 IN A 142.251.127.132
+[36mINFO[0m[0024] [[38;5;82m2466924354[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9604
+[36mINFO[0m[0024] [[38;5;82m2466924354[0m 0ms] inbound/tun[1]: inbound connection to 142.251.13.132:443
+[36mINFO[0m[0024] [[38;5;123m4171066219[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9605
+[36mINFO[0m[0024] [[38;5;123m4171066219[0m 0ms] inbound/tun[1]: inbound connection to 142.251.13.132:443
+[36mINFO[0m[0024] [[38;5;82m2466924354[0m 24ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.132:443
+[36mINFO[0m[0024] [[38;5;123m4171066219[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.132:443
+[36mINFO[0m[0024] [[38;5;182m350978214[0m 450ms] outbound/vless[proxy-out]: outbound connection to 44.223.254.189:443
+[36mINFO[0m[0024] [[38;5;184m2640659368[0m 543ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0024] [[38;5;82m2466924354[0m 429ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.132:443
+[36mINFO[0m[0024] [[38;5;123m4171066219[0m 408ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.132:443
+[36mINFO[0m[0026] [[38;5;109m3954163805[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:57844
+[36mINFO[0m[0026] [[38;5;109m3954163805[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0026] [[38;5;109m3954163805[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0026] [[38;5;97m2678539089[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:57845
+[36mINFO[0m[0026] [[38;5;97m2678539089[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;97m2678539089[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;97m2678539089[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;64m3925215024[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9611
+[36mINFO[0m[0026] [[38;5;64m3925215024[0m 0ms] inbound/tun[1]: inbound connection to 89.187.169.66:1000
+[36mINFO[0m[0026] [[38;5;147m2844758147[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64211
+[36mINFO[0m[0026] [[38;5;188m710983723[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64212
+[36mINFO[0m[0026] [[38;5;147m2844758147[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;64m3925215024[0m 0ms] outbound/vless[proxy-out]: outbound connection to 89.187.169.66:1000
+[36mINFO[0m[0026] [[38;5;147m2844758147[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;147m2844758147[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0026] [[38;5;188m710983723[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0026] [[38;5;188m710983723[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0027] [[38;5;64m3925215024[0m 363ms] outbound/vless[proxy-out]: outbound connection to 89.187.169.66:1000
+[36mINFO[0m[0027] [[38;5;119m2388507751[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64213
+[36mINFO[0m[0027] [[38;5;119m2388507751[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:53
+[31mERROR[0m[0027] [[38;5;119m2388507751[0m 0ms] router: process DNS packet: unpack request: bad question name: dns: bad rdata
+[36mINFO[0m[0027] [[38;5;131m3950906483[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:64214
+[36mINFO[0m[0027] [[38;5;131m3950906483[0m 0ms] inbound/tun[1]: inbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0027] [[38;5;131m3950906483[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0027] [[38;5;131m3950906483[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 54.76.137.217:1053
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:56562
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0028] [[38;5;96m4008765520[0m 1ms] inbound/tun[1]: inbound connection from 172.19.0.1:9615
+[36mINFO[0m[0028] [[38;5;96m4008765520[0m 1ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0028] [[38;5;96m4008765520[0m 35ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged CNAME accounts.youtube.com. 189 IN CNAME www3.l.google.com.
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.100
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.113
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.102
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.139
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 159ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.101
+[36mINFO[0m[0028] [[38;5;187m916362411[0m 160ms] dns: exchanged A www3.l.google.com. 189 IN A 192.178.183.138
+[36mINFO[0m[0028] [[38;5;190m1193740718[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9617
+[36mINFO[0m[0028] [[38;5;190m1193740718[0m 0ms] inbound/tun[1]: inbound connection to 192.178.183.100:443
+[36mINFO[0m[0028] [[38;5;190m1193740718[0m 2ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.100:443
+[36mINFO[0m[0028] [[38;5;114m2209448802[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:61341
+[36mINFO[0m[0028] [[38;5;114m2209448802[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0028] [[38;5;114m2209448802[0m 141ms] dns: exchanged A www.gstatic.com. 222 IN A 142.251.13.94
+[36mINFO[0m[0028] [[38;5;190m1738525358[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:65496
+[36mINFO[0m[0028] [[38;5;190m1738525358[0m 0ms] inbound/tun[1]: inbound packet connection to 142.251.13.94:443
+[36mINFO[0m[0028] [[38;5;190m1738525358[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 142.251.13.94:443
+[36mINFO[0m[0028] [[38;5;190m1738525358[0m 0ms] outbound/vless[proxy-out]: outbound packet connection to 142.251.13.94:443
+[36mINFO[0m[0028] [[38;5;189m1997600685[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9619
+[36mINFO[0m[0028] [[38;5;189m1997600685[0m 0ms] inbound/tun[1]: inbound connection to 142.251.13.94:443
+[36mINFO[0m[0028] [[38;5;189m1997600685[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.94:443
+[36mINFO[0m[0028] [[38;5;201m2273299897[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:56769
+[36mINFO[0m[0028] [[38;5;201m2273299897[0m 0ms] inbound/tun[1]: inbound packet connection to 172.19.0.2:53
+[36mINFO[0m[0028] [[38;5;96m4008765520[0m 476ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
+[36mINFO[0m[0028] [[38;5;190m1193740718[0m 386ms] outbound/vless[proxy-out]: outbound connection to 192.178.183.100:443
+[36mINFO[0m[0028] [[38;5;201m2273299897[0m 176ms] dns: exchanged A static.doubleclick.net. 10 IN A 142.251.110.149
+[36mINFO[0m[0028] [[38;5;201m2273299897[0m 176ms] dns: exchanged A static.doubleclick.net. 10 IN A 142.251.110.148
+[36mINFO[0m[0028] [[38;5;214m3397286342[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9622
+[36mINFO[0m[0028] [[38;5;214m3397286342[0m 0ms] inbound/tun[1]: inbound connection to 142.251.110.149:443
+[36mINFO[0m[0028] [[38;5;214m3397286342[0m 1ms] outbound/vless[proxy-out]: outbound connection to 142.251.110.149:443
+[36mINFO[0m[0029] [[38;5;189m1997600685[0m 406ms] outbound/vless[proxy-out]: outbound connection to 142.251.13.94:443
+[36mINFO[0m[0029] [[38;5;214m3397286342[0m 421ms] outbound/vless[proxy-out]: outbound connection to 142.251.110.149:443
+[36mINFO[0m[0029] [[38;5;220m246937867[0m 0ms] inbound/tun[1]: inbound packet connection from 172.19.0.1:65496
+[36mINFO[0m[0029] [[38;5;220m246937867[0m 0ms] inbound/tun[1]: inbound packet connection to 142.251.13.94:443
+[36mINFO[0m[0029] [[38;5;191m3382006824[0m 0ms] inbound/tun[1]: inbound connection from 172.19.0.1:9626
+[36mINFO[0m[0029] [[38;5;191m3382006824[0m 0ms] inbound/tun[1]: inbound connection to 47.251.169.14:443
+[36mINFO[0m[0029] [[38;5;191m3382006824[0m 20ms] outbound/vless[proxy-out]: outbound connection to 47.251.169.14:443
