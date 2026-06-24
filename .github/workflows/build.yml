@@ -1,15 +1,15 @@
-name: Build and Package RedCloud VPN
+name: Build and Release RedCloud VPN
 
 on:
   push:
-    branches: [ "main" ] # اجرا به محض ثبت کدهای جدید در گیت‌هاب
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # امکان اجرای دستی از داخل سایت گیت‌هاب
+    branches: [ "main" ] # اجرا با هر بار پوش به برنچ اصلی
+
+permissions:
+  contents: write # دسترسی بسیار حیاتی برای اجازه دادن به گیت‌هاب جهت ساخت ریلیز و آپلود فایل‌ها
 
 jobs:
   build:
-    runs-on: windows-latest # استفاده از سرور ویندوز گیت‌هاب
+    runs-on: windows-latest
 
     steps:
     - name: Checkout repository
@@ -23,7 +23,7 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        channel: 'stable' # دریافت خودکار جدیدترین نسخه پایدار فلاتر بدون تداخل با نسخه فیزیکی
+        channel: 'stable'
 
     - name: Install Flutter dependencies
       run: flutter pub get
@@ -33,11 +33,24 @@ jobs:
 
     - name: Compile Installer with Inno Setup
       run: |
-        # اجرای کامپایلر اینستالر که به طور پیش‌فرض روی سرور ویندوز گیت‌هاب نصب است
         iscc installer.iss
 
-    - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: RedCloud-Windows-Installer
-        path: RedCloud_Setup.exe
+        tag_name: latest # تگ ثابت برای اینکه همیشه جدیدترین نسخه ریلیز را اوررایت کند
+        name: "RedCloud VPN Latest Release"
+        body: |
+          این یک نسخهٔ انتشاریافتهٔ خودکار از آخرین بیلد کدهای شما در ویندوز است.
+          
+          **تغییرات این نسخه:**
+          - فعال‌سازی کارت شبکه مجازی (TUN Mode) سیستمی
+          - نمایش زنده و واقعی سرعت آپلود و دانلود
+          - ویرایشگر پیشرفته کانفیگ‌های ویتوری
+          - پایش موازی پینگ و مرتب‌سازی هوشمند سرورها
+        draft: false
+        prerelease: false
+        files: |
+          RedCloud_Setup.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # توکن امنیتی خودکار گیت‌هاب برای احراز هویت
