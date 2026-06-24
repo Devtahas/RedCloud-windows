@@ -1,0 +1,43 @@
+name: Build and Package RedCloud VPN
+
+on:
+  push:
+    branches: [ "main" ] # اجرا به محض ثبت کدهای جدید در گیت‌هاب
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # امکان اجرای دستی از داخل سایت گیت‌هاب
+
+jobs:
+  build:
+    runs-on: windows-latest # استفاده از سرور ویندوز گیت‌هاب
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-pc-windows-msvc
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable' # دریافت خودکار جدیدترین نسخه پایدار فلاتر بدون تداخل با نسخه فیزیکی
+
+    - name: Install Flutter dependencies
+      run: flutter pub get
+
+    - name: Build Windows Application (Release Mode)
+      run: flutter build windows --release
+
+    - name: Compile Installer with Inno Setup
+      run: |
+        # اجرای کامپایلر اینستالر که به طور پیش‌فرض روی سرور ویندوز گیت‌هاب نصب است
+        iscc installer.iss
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: RedCloud-Windows-Installer
+        path: RedCloud_Setup.exe
