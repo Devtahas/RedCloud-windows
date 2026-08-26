@@ -1,0 +1,132 @@
+name: Build and Release RedCloud VPN
+
+on:
+  push:
+    branches: [ "main" ] # اجرا به محض کامیت و پوش روی برنچ اصلی
+  workflow_dispatch: # امکان اجرای دستی بیلد از تب Actions گیت‌هاب
+
+permissions:
+  contents: write # دسترسی لازم برای ساخت Release و آپلود خودکار فایل نصبی
+
+jobs:
+  build:
+    name: Build Windows Release & Package Installer
+    runs-on: windows-latest
+
+    steps:
+    # ۱. کلون کردن کدهای پروژه
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # ۲. راه‌اندازی کامپایلر Rust
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-pc-windows-msvc
+
+    # ۳. راه‌اندازی محیط فلاتر
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        cache: true
+
+    # ۴. نصب ابزار flutter_rust_bridge_codegen
+    - name: Install FRB Codegen
+      run: |
+        cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+
+    # ۵. جنریت کردن کدهای FFI پل ارتباطی
+    - name: Generate Rust Bridge
+      run: |
+        flutter_rust_bridge_codegen generate
+
+    # ۶. دریافت پکیج‌ها و وابستگی‌های فلاتر
+    - name: Install Flutter dependencies
+      run: flutter pub get
+
+    # ۷. بیلد اپلیکیشن ویندوز در حالت Release
+    - name: Build Windows Application (Release Mode)
+      run: flutter build windows --release
+
+    # ۸. دانلود خودکار هسته‌ها و باینری‌های رسمی
+    - name: Download Official Core Binaries (Secure & Untouched)
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path "build\windows\x64\runner\Release"
+
+        # ۱. دانلود موتور Aether (پروتکل MASQUE)
+        Write-Host "Downloading official Aether engine..."
+        try {
+          Invoke-WebRequest -Uri "https://github.com/CluvexStudio/Aether/releases/latest/download/aether-windows-x86_64.zip" -OutFile "aether.zip"
+          Expand-Archive -Path "aether.zip" -DestinationPath "temp-aether" -Force
+          Get-ChildItem -Path "temp-aether" -Filter "aether.exe" -Recurse | Copy-Item -Destination "aether.exe" -Force
+          Copy-Item "aether.exe" -Destination "build\windows\x64\runner\Release\aether.exe" -Force
+        } catch {
+          Write-Host "Aether download fallback..."
+        }
+
+        # ۲. دانلود هسته رسمی Sing-box
+        Write-Host "Downloading official sing-box..."
+        Invoke-WebRequest -Uri "https://github.com/SagerNet/sing-box/releases/download/v1.11.4/sing-box-1.11.4-windows-amd64.zip" -OutFile "sing-box.zip"
+        Expand-Archive -Path "sing-box.zip" -DestinationPath "temp-singbox" -Force
+        Get-ChildItem -Path "temp-singbox" -Filter "sing-box.exe" -Recurse | Copy-Item -Destination "sing-box.exe" -Force
+        Copy-Item "sing-box.exe" -Destination "build\windows\x64\runner\Release\sing-box.exe" -Force
+
+        # ۳. دانلود درایور رسمی Wintun برای TUN Mode
+        Write-Host "Downloading official wintun.dll..."
+        Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile "wintun.zip"
+        Expand-Archive -Path "wintun.zip" -DestinationPath "temp-wintun" -Force
+        Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "wintun.dll" -Force
+        Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "build\windows\x64\runner\Release\wintun.dll" -Force
+
+        # ۴. دانلود هسته رسمی Tor Expert Bundle
+        Write-Host "Downloading official Tor Expert Bundle..."
+        Invoke-WebRequest -Uri "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.8/tor-expert-bundle-windows-x86_64-14.0.8.tar.gz" -OutFile "tor.tar.gz"
+        tar -xzf "tor.tar.gz" -C "."
+        Get-ChildItem -Path "tor" -Filter "tor.exe" -Recurse | Copy-Item -Destination "tor.exe" -Force
+        Copy-Item "tor.exe" -Destination "build\windows\x64\runner\Release\tor.exe" -Force
+
+        # ۵. دانلود هسته رسمی Psiphon
+        Write-Host "Downloading official Psiphon Core..."
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
+        Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
+
+    # ۹. نصب Inno Setup و ساخت فایل Setup نهایی
+    - name: Compile Installer with Inno Setup
+      shell: pwsh
+      run: |
+        choco install innosetup --no-progress
+        $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        if (-not (Test-Path $iscc)) {
+          $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe"
+        }
+        & $iscc installer.iss
+
+    # ۱۰. انتشار خودکار در تب Releases گیت‌هاب
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v3.5
+        name: "RedCloud VPN v3.5 (Hybrid Release)"
+        body: |
+          🚀 **انتشار خودکار نسخه جدید نرم‌افزار RedCloud VPN**
+          
+          ### ✨ ویژگی‌های این نسخه:
+          - مجهز به پروتکل نسل جدید **MASQUE H3 (QUIC)** و موتور ضدسانسور **Aether**
+          - اتصال هیبریدی زنجیره‌سازی‌شده (**Aether + VLESS Reality / Hysteria 2**)
+          - کارت شبکه مجازی سیستم (**TUN Mode**) با درایور Wintun
+          - تونل اختصاصی **Tor over MASQUE** و **Psiphon over MASQUE**
+          - اسکنر دوحالته سریع و عمیق آی‌پی‌های کلودفلر
+          - تغییر‌دهنده هوشمند دی‌ان‌اس و مخزن نجات ضد مسمومیت DNS
+          
+          📦 *تمامی باینری‌ها حین بیلد مستقیماً از مخازن اصلی دانلود و به صورت امن پکیج شده‌اند.*
+        draft: false
+        prerelease: false
+        make_latest: true
+        files: |
+          RedCloud_VPN_Setup_*.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

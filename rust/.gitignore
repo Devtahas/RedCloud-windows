@@ -1,0 +1,23 @@
+# Flutter & Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Rust & Cargo
+rust/target/
+target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE & Windows Temp
+.idea/
+.vscode/
+*.iml
+*.log
+temp-*/
+
+# Setup output & big generated binaries (They will be downloaded & created in CI)
+RedCloud_Setup.exe
+RedCloud_VPN_Setup_*.exe

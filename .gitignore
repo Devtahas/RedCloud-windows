@@ -1,0 +1,77 @@
+# =====================================================================
+# RedCloud VPN - Complete .gitignore File
+# =====================================================================
+
+# 1. فایل‌های اجرایی و باینری‌های هسته (دانلود خودکار در CI/CD انجام می‌شود)
+aether.exe
+sing-box.exe
+tor.exe
+psiphon-tunnel-core.exe
+wintun.dll
+*.exe
+*.dll
+*.so
+*.dylib
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
+# استثناها: فایل‌های دیتا و دیتابیس‌ها نباید ایگنور شوند
+!assets/app_icon.ico
+!cloudflare_IPs.txt
+!DNS.txt
+!geoip
+!geoip6
+!geoip-plus-asn
+!geoip6-plus-asn
+
+# 2. خروجی‌ها و کش فلاتر و دارت (Flutter & Dart Artifacts)
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+windows/flutter/ephemeral/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# 3. خروجی‌ها و کامپایل راست (Rust & Cargo Artifacts)
+target/
+rust/target/
+rust_builder/target/
+**/*.rs.bk
+Cargo.lock
+
+# 4. فایل‌های ذخیره محلی کاربر و تست
+saved_nodes.json
+saved_dns.json
+saved_anti_dpi.json
+redcloud_temp_*
+
+# 5. خروجی‌های ستاپ و پکیجینگ اینو ستاپ (Inno Setup Outputs)
+Output/
+RedCloud_Setup*.exe
+RedCloud_VPN_Setup*.exe
+
+# 6. فایل‌های محیط توسعه و ادیتورها (IDEs & Editors)
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.iml
+*.iws
+*.ipr
+
+# 7. فایل‌های موقت، لاگ‌ها و سیستم‌عامل (OS & Temp Files)
+temp-*/
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
