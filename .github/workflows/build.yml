@@ -49,45 +49,72 @@ jobs:
     - name: Build Windows Application (Release Mode)
       run: flutter build windows --release
 
-    # ۸. دانلود خودکار و مستقیم تمام هسته‌های باینری از مخازن رسمی
+    # ۸. دانلود خودکار و مستقیم تمام هسته‌های باینری از منابع اصلی و رسمی
     - name: Download Official Core Binaries (Secure & Untouched)
       shell: pwsh
       run: |
         # ایجاد پوشه مقصد Release
         New-Item -ItemType Directory -Force -Path "build\windows\x64\runner\Release"
 
-        # ۱. دانلود آخرین نسخه رسمی موتور Aether (موتور MASQUE ضدسانسور)
-        Write-Host "Downloading official Aether engine..."
+        # ۱. دانلود آخرین نسخه رسمی موتور Aether (موتور MASQUE) از CluvexStudio
+        Write-Host "Downloading official Aether engine from CluvexStudio..."
         Invoke-WebRequest -Uri "https://github.com/CluvexStudio/Aether/releases/latest/download/aether-windows-x86_64.zip" -OutFile "aether.zip"
         Expand-Archive -Path "aether.zip" -DestinationPath "temp-aether" -Force
-        Get-ChildItem -Path "temp-aether" -Filter "aether.exe" -Recurse | Copy-Item -Destination "aether.exe" -Force
-        Copy-Item "aether.exe" -Destination "build\windows\x64\runner\Release\aether.exe" -Force
+        $aetherExe = (Get-ChildItem -Path "temp-aether" -Filter "aether.exe" -Recurse | Select-Object -First 1).FullName
+        Copy-Item $aetherExe -Destination "aether.exe" -Force
+        Copy-Item $aetherExe -Destination "build\windows\x64\runner\Release\aether.exe" -Force
 
         # ۲. دانلود نسخه رسمی sing-box 1.13.13 از مخزن رسمی SagerNet
-        Write-Host "Downloading official sing-box 1.13.13..."
+        Write-Host "Downloading official sing-box 1.13.13 from SagerNet..."
         Invoke-WebRequest -Uri "https://github.com/SagerNet/sing-box/releases/download/v1.13.13/sing-box-1.13.13-windows-amd64.zip" -OutFile "sing-box.zip"
         Expand-Archive -Path "sing-box.zip" -DestinationPath "temp-singbox" -Force
-        Get-ChildItem -Path "temp-singbox" -Filter "sing-box.exe" -Recurse | Copy-Item -Destination "sing-box.exe" -Force
-        Copy-Item "sing-box.exe" -Destination "build\windows\x64\runner\Release\sing-box.exe" -Force
+        $singboxExe = (Get-ChildItem -Path "temp-singbox" -Filter "sing-box.exe" -Recurse | Select-Object -First 1).FullName
+        Copy-Item $singboxExe -Destination "sing-box.exe" -Force
+        Copy-Item $singboxExe -Destination "build\windows\x64\runner\Release\sing-box.exe" -Force
 
-        # ۳. دانلود درایور رسمی Wintun (حیاتی برای کارت شبکه مجازی TUN Mode)
-        Write-Host "Downloading official wintun.dll..."
+        # ۳. دانلود درایور رسمی Wintun 0.14.1 مستقیماً از وبسایت رسمی Wintun.net
+        Write-Host "Downloading official wintun.dll from Wintun.net..."
         Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile "wintun.zip"
         Expand-Archive -Path "wintun.zip" -DestinationPath "temp-wintun" -Force
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "wintun.dll" -Force
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "build\windows\x64\runner\Release\wintun.dll" -Force
 
-        # ۴. دانلود نسخه رسمی Tor Expert Bundle از آرشیو رسمی Tor Project
-        Write-Host "Downloading official Tor Expert Bundle..."
+        # ۴. دانلود پکیج رسمی Tor Expert Bundle به همراه دیتابیس‌های geoip از آرشیو رسمی Tor Project
+        Write-Host "Downloading official Tor Expert Bundle from torproject.org..."
         Invoke-WebRequest -Uri "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.8/tor-expert-bundle-windows-x86_64-14.0.8.tar.gz" -OutFile "tor.tar.gz"
         tar -xzf "tor.tar.gz" -C "."
-        Get-ChildItem -Path "tor" -Filter "tor.exe" -Recurse | Copy-Item -Destination "tor.exe" -Force
-        Copy-Item "tor.exe" -Destination "build\windows\x64\runner\Release\tor.exe" -Force
+        $torExe = (Get-ChildItem -Path "tor" -Filter "tor.exe" -Recurse | Select-Object -First 1).FullName
+        Copy-Item $torExe -Destination "tor.exe" -Force
+        Copy-Item $torExe -Destination "build\windows\x64\runner\Release\tor.exe" -Force
+        
+        # استخراج قطعی دیتابیس‌های مکان‌یابی تور برای جلوگیری از توقف در ۵۰٪
+        $geoipFile = (Get-ChildItem -Path "tor" -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -First 1).FullName
+        if ($geoipFile) {
+            Copy-Item $geoipFile -Destination "geoip" -Force
+            Copy-Item $geoipFile -Destination "build\windows\x64\runner\Release\geoip" -Force
+        }
+        $geoip6File = (Get-ChildItem -Path "tor" -Filter "geoip6" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -First 1).FullName
+        if ($geoip6File) {
+            Copy-Item $geoip6File -Destination "geoip6" -Force
+            Copy-Item $geoip6File -Destination "build\windows\x64\runner\Release\geoip6" -Force
+        }
 
-        # ۵. دانلود نسخه رسمی ویندوز سایفون
-        Write-Host "Downloading official Psiphon Core..."
+        # ۵. دانلود نسخه رسمی ویندوز سایفون از مخزن رسمی آزمایشگاه Psiphon-Labs
+        Write-Host "Downloading official Psiphon Core from Psiphon-Labs..."
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
         Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
+
+        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS
+        Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
+        Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3-2/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
+        Expand-Archive -Path "goodbyedpi.zip" -DestinationPath "temp-goodbyedpi" -Force
+        $gdpiX64 = (Get-ChildItem -Path "temp-goodbyedpi" -Recurse -Directory -Filter "x86_64" | Select-Object -First 1).FullName
+        Copy-Item "$gdpiX64\goodbyedpi.exe" -Destination "goodbyedpi.exe" -Force
+        Copy-Item "$gdpiX64\WinDivert.dll" -Destination "WinDivert.dll" -Force
+        Copy-Item "$gdpiX64\WinDivert64.sys" -Destination "WinDivert64.sys" -Force
+        Copy-Item "$gdpiX64\goodbyedpi.exe" -Destination "build\windows\x64\runner\Release\goodbyedpi.exe" -Force
+        Copy-Item "$gdpiX64\WinDivert.dll" -Destination "build\windows\x64\runner\Release\WinDivert.dll" -Force
+        Copy-Item "$gdpiX64\WinDivert64.sys" -Destination "build\windows\x64\runner\Release\WinDivert64.sys" -Force
 
     # ۹. نصب Inno Setup و ساخت فایل نصبی
     - name: Compile Installer with Inno Setup
@@ -96,23 +123,23 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار در تب Releases گیت‌هاب
+    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.6
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: latest
-        name: "RedCloud VPN Latest Release (v3.5)"
+        tag_name: v3.6
+        name: "RedCloud VPN v3.6 - Hybrid & Anti-DPI Edition"
         body: |
-          🚀 **انتشار خودکار نسخه جدید نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۳.۶ نرم‌افزار RedCloud VPN**
           
-          ### ✨ ویژگی‌های این بیلد:
-          - مجهز به آخرین نسخه موتور ضدسانسور **Aether (MASQUE H3/QUIC)**
-          - پشتیبانی از **Sing-box 1.13.13** و پروتکل‌های **Hysteria 2** و **VLESS Reality**
-          - کارت شبکه مجازی سیستمی (**TUN Mode**) با درایور Wintun
-          - تب **راهنمای جامع کاربری** درون‌برنامه‌ای
-          - پایش موازی پینگ و چرخش خودکار اکانت‌ها
+          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۶:
+          - 🛡️ اضافه شدن لایه افکت ضد DPI به کمک هسته **GoodbyeDPI** و درایور **WinDivert**
+          - ⚡ افزایش پایداری شبکه **اِتر (MASQUE H3/QUIC)** با پروتکل‌های چرخشی
+          - 🧅 بهینه‌سازی کامل شبکه **تور (Tor)** و اتصال بدون معطلی با بارگذاری کامل GeoIP
+          - 🔒 پشتیبانی از پروتکل‌های **Hysteria 2**, **VLESS Reality** و **Sing-box 1.13.13**
+          - 🌐 رفع خطای بیرون‌زدگی ابعاد (RenderFlex Overflow) و بهینه‌سازی رابط کاربری
           
-          *تمامی هسته‌ها (Aether, Sing-box, Wintun, Tor, Psiphon) حین فرآیند بیلد مستقیماً از منابع رسمی دانلود و بسته‌بندی شده‌اند.*
+          *تمامی هسته‌ها حین فرآیند بیلد ابری مستقیماً از مراجع رسمی (CluvexStudio, SagerNet, TorProject, Psiphon-Labs, ValdikSS, Wintun.net) دانلود و بسته‌بندی شده‌اند.*
         draft: false
         prerelease: false
         files: |

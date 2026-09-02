@@ -6,16 +6,83 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_global_job_object`, `get_safe_work_dir`, `notify_windows_proxy_change`, `process_aether_line`, `resolve_binary_path`, `scan_single_ip`, `set_windows_system_proxy`, `spawn_single_aether_mode`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_global_job_object`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
+
+Future<bool> isGoodbyedpiRunning() =>
+    RustLib.instance.api.crateApiSimpleIsGoodbyedpiRunning();
+
+Future<String> startGoodbyedpiCore({
+  required String binaryPath,
+  required String args,
+}) => RustLib.instance.api.crateApiSimpleStartGoodbyedpiCore(
+  binaryPath: binaryPath,
+  args: args,
+);
+
+Future<String> stopGoodbyedpiCore() =>
+    RustLib.instance.api.crateApiSimpleStopGoodbyedpiCore();
+
+Future<List<String>> getAllLocalIpAddresses() =>
+    RustLib.instance.api.crateApiSimpleGetAllLocalIpAddresses();
+
+Future<String> getLocalIpAddress() =>
+    RustLib.instance.api.crateApiSimpleGetLocalIpAddress();
+
+Future<String> startLanRelay({required int port}) =>
+    RustLib.instance.api.crateApiSimpleStartLanRelay(port: port);
+
+Future<String> stopLanRelay() =>
+    RustLib.instance.api.crateApiSimpleStopLanRelay();
+
+Future<bool> isLanRelayRunning() =>
+    RustLib.instance.api.crateApiSimpleIsLanRelayRunning();
+
+Future<int> getLanRelayPort() =>
+    RustLib.instance.api.crateApiSimpleGetLanRelayPort();
+
+Future<void> writeLog({
+  required String level,
+  required String tag,
+  required String message,
+}) => RustLib.instance.api.crateApiSimpleWriteLog(
+  level: level,
+  tag: tag,
+  message: message,
+);
+
+Future<void> writeAppLog({
+  required String level,
+  required String tag,
+  required String message,
+}) => RustLib.instance.api.crateApiSimpleWriteAppLog(
+  level: level,
+  tag: tag,
+  message: message,
+);
+
+Future<String> getLogFilePath() =>
+    RustLib.instance.api.crateApiSimpleGetLogFilePath();
+
+Future<String> openLogDirectory() =>
+    RustLib.instance.api.crateApiSimpleOpenLogDirectory();
+
+Future<String> clearLogFile() =>
+    RustLib.instance.api.crateApiSimpleClearLogFile();
 
 Future<bool> isConnected() => RustLib.instance.api.crateApiSimpleIsConnected();
 
 Future<bool> isTorConnected() =>
     RustLib.instance.api.crateApiSimpleIsTorConnected();
 
+Future<bool> isTorMasqueConnected() =>
+    RustLib.instance.api.crateApiSimpleIsTorMasqueConnected();
+
 Future<bool> isPsiphonConnected() =>
     RustLib.instance.api.crateApiSimpleIsPsiphonConnected();
+
+Future<bool> isPsiphonMasqueConnected() =>
+    RustLib.instance.api.crateApiSimpleIsPsiphonMasqueConnected();
 
 Future<bool> isAetherConnected() =>
     RustLib.instance.api.crateApiSimpleIsAetherConnected();
@@ -31,6 +98,9 @@ Future<int> getTorBootstrapProgress() =>
 Future<bool> isPsiphonBootstrapDone() =>
     RustLib.instance.api.crateApiSimpleIsPsiphonBootstrapDone();
 
+Future<String> getPsiphonStatusText() =>
+    RustLib.instance.api.crateApiSimpleGetPsiphonStatusText();
+
 Future<int> getAetherBootstrapProgress() =>
     RustLib.instance.api.crateApiSimpleGetAetherBootstrapProgress();
 
@@ -39,6 +109,17 @@ Future<bool> isAetherBootstrapDone() =>
 
 Future<String> getAetherStatusText() =>
     RustLib.instance.api.crateApiSimpleGetAetherStatusText();
+
+Future<VerifiedDns?> verifyDnsIp({required String ip}) =>
+    RustLib.instance.api.crateApiSimpleVerifyDnsIp(ip: ip);
+
+Future<List<VerifiedDns>> runDnsRescueScan({String? customDnsList}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleRunDnsRescueScan(customDnsList: customDnsList);
+
+Future<List<VerifiedDns>> getVaultDnsList() =>
+    RustLib.instance.api.crateApiSimpleGetVaultDnsList();
 
 Future<int> pingDnsServer({required String ip}) =>
     RustLib.instance.api.crateApiSimplePingDnsServer(ip: ip);
@@ -76,7 +157,6 @@ Future<String> startAetherCore({
 Future<String> stopAetherCore() =>
     RustLib.instance.api.crateApiSimpleStopAetherCore();
 
-/// شروع اتصال هیبریدی کاملاً منطبق بر استاندارد Sing-box 1.10 - 1.14+ با فیلد مدرن address آرایه‌ای
 Future<String> startHybridConnection({
   required String singboxPath,
   required String aetherPath,
@@ -122,6 +202,29 @@ Future<String> startTorCore({
   useSystemProxy: useSystemProxy,
 );
 
+Future<String> startTorOverMasque({
+  required String torPath,
+  required String aetherPath,
+  required String countryCode,
+  required String aetherMode,
+  required String aetherNoize,
+  String? aetherWarpKey,
+  String? aetherTeam,
+  required bool useSystemProxy,
+}) => RustLib.instance.api.crateApiSimpleStartTorOverMasque(
+  torPath: torPath,
+  aetherPath: aetherPath,
+  countryCode: countryCode,
+  aetherMode: aetherMode,
+  aetherNoize: aetherNoize,
+  aetherWarpKey: aetherWarpKey,
+  aetherTeam: aetherTeam,
+  useSystemProxy: useSystemProxy,
+);
+
+Future<String> stopTorOverMasque() =>
+    RustLib.instance.api.crateApiSimpleStopTorOverMasque();
+
 Future<String> stopTorCore() =>
     RustLib.instance.api.crateApiSimpleStopTorCore();
 
@@ -135,17 +238,50 @@ Future<String> startPsiphonCore({
   useSystemProxy: useSystemProxy,
 );
 
+Future<String> startPsiphonOverMasque({
+  required String psiphonPath,
+  required String aetherPath,
+  required String countryCode,
+  required String aetherMode,
+  required String aetherNoize,
+  String? aetherWarpKey,
+  String? aetherTeam,
+  required bool useSystemProxy,
+}) => RustLib.instance.api.crateApiSimpleStartPsiphonOverMasque(
+  psiphonPath: psiphonPath,
+  aetherPath: aetherPath,
+  countryCode: countryCode,
+  aetherMode: aetherMode,
+  aetherNoize: aetherNoize,
+  aetherWarpKey: aetherWarpKey,
+  aetherTeam: aetherTeam,
+  useSystemProxy: useSystemProxy,
+);
+
+Future<String> stopPsiphonOverMasque() =>
+    RustLib.instance.api.crateApiSimpleStopPsiphonOverMasque();
+
 Future<String> stopPsiphonCore() =>
     RustLib.instance.api.crateApiSimpleStopPsiphonCore();
+
+Future<void> stopCloudflareScanner() =>
+    RustLib.instance.api.crateApiSimpleStopCloudflareScanner();
+
+Future<ScannerStats> getScannerStats() =>
+    RustLib.instance.api.crateApiSimpleGetScannerStats();
 
 Future<List<ProxyNode>> runCloudflareScanner({
   required String uuid,
   required String path,
   required String worker,
+  required String scanMode,
+  required bool earlyStop,
 }) => RustLib.instance.api.crateApiSimpleRunCloudflareScanner(
   uuid: uuid,
   path: path,
   worker: worker,
+  scanMode: scanMode,
+  earlyStop: earlyStop,
 );
 
 Future<String> startProxyWithNode({
@@ -210,4 +346,71 @@ class ProxyNode {
           name == other.name &&
           protocol == other.protocol &&
           rawUrl == other.rawUrl;
+}
+
+class ScannerStats {
+  final int totalScanned;
+  final int aliveCount;
+  final int deadCount;
+  final bool isRunning;
+
+  const ScannerStats({
+    required this.totalScanned,
+    required this.aliveCount,
+    required this.deadCount,
+    required this.isRunning,
+  });
+
+  @override
+  int get hashCode =>
+      totalScanned.hashCode ^
+      aliveCount.hashCode ^
+      deadCount.hashCode ^
+      isRunning.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ScannerStats &&
+          runtimeType == other.runtimeType &&
+          totalScanned == other.totalScanned &&
+          aliveCount == other.aliveCount &&
+          deadCount == other.deadCount &&
+          isRunning == other.isRunning;
+}
+
+/// مدل داده دی‌ان‌اس‌های تاییدشده و ضد مسمومیت در مخزن پنهان
+class VerifiedDns {
+  final String ip;
+  final int latencyMs;
+  final bool worksSingbox;
+  final bool worksTor;
+  final bool worksPsiphon;
+
+  const VerifiedDns({
+    required this.ip,
+    required this.latencyMs,
+    required this.worksSingbox,
+    required this.worksTor,
+    required this.worksPsiphon,
+  });
+
+  @override
+  int get hashCode =>
+      ip.hashCode ^
+      latencyMs.hashCode ^
+      worksSingbox.hashCode ^
+      worksTor.hashCode ^
+      worksPsiphon.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VerifiedDns &&
+          runtimeType == other.runtimeType &&
+          ip == other.ip &&
+          latencyMs == other.latencyMs &&
+          worksSingbox == other.worksSingbox &&
+          worksTor == other.worksTor &&
+          worksPsiphon == other.worksPsiphon;
 }
