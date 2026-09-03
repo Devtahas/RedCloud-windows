@@ -87,7 +87,7 @@ jobs:
         Copy-Item $torExe -Destination "tor.exe" -Force
         Copy-Item $torExe -Destination "build\windows\x64\runner\Release\tor.exe" -Force
         
-        # استخراج قطعی دیتابیس‌های مکان‌یابی تور برای جلوگیری از توقف در ۵۰٪
+        # استخراج دیتابیس‌های مکان‌یابی تور برای حل خطای لودینگ
         $geoipFile = (Get-ChildItem -Path "tor" -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -First 1).FullName
         if ($geoipFile) {
             Copy-Item $geoipFile -Destination "geoip" -Force
@@ -106,7 +106,7 @@ jobs:
 
         # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS
         Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
-        Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3-2/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
+        Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
         Expand-Archive -Path "goodbyedpi.zip" -DestinationPath "temp-goodbyedpi" -Force
         $gdpiX64 = (Get-ChildItem -Path "temp-goodbyedpi" -Recurse -Directory -Filter "x86_64" | Select-Object -First 1).FullName
         Copy-Item "$gdpiX64\goodbyedpi.exe" -Destination "goodbyedpi.exe" -Force
