@@ -436,6 +436,67 @@ pub fn write_app_log(level: String, tag: String, message: String) {
     write_log(&level, &tag, &message);
 }
 
+/// ارسال ایمن و بدون توقف گزارش کرش هسته راست به ورکر تلگرام (بدون استفاده از unwrap)
+fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_trace: &str) {
+    let level_owned = level.to_string();
+    let module_owned = module.to_string();
+    let err_owned = error_message.to_string();
+    let stack_owned = stack_trace.to_string();
+    let timestamp = get_timestamp();
+
+    thread::spawn(move || {
+        let os_info = if cfg!(target_os = "windows") {
+            "Windows 64-bit (Rust Native Core)"
+        } else {
+            "Non-Windows (Rust Native Core)"
+        };
+
+        let payload = serde_json::json!({
+            "app_version": "3.6",
+            "os_info": os_info,
+            "os_arch": "x64",
+            "module": module_owned,
+            "level": level_owned,
+            "error_message": err_owned,
+            "stack_trace": stack_owned,
+            "timestamp": timestamp,
+        }).to_string();
+
+        let host = "log.redcloudir.workers.dev";
+        let addr_str = format!("{}:443", host);
+
+        if let Ok(mut addrs) = addr_str.to_socket_addrs() {
+            if let Some(socket_addr) = addrs.next() {
+                if let Ok(stream) = TcpStream::connect_timeout(&socket_addr, Duration::from_millis(3500)) {
+                    let _ = stream.set_read_timeout(Some(Duration::from_millis(3500)));
+                    let _ = stream.set_write_timeout(Some(Duration::from_millis(3500)));
+
+                    if let Ok(connector) = native_tls::TlsConnector::builder()
+                        .danger_accept_invalid_certs(true)
+                        .build() 
+                    {
+                        if let Ok(mut tls_stream) = connector.connect(host, stream) {
+                            let request = format!(
+                                "POST /api/crash-report HTTP/1.1\r\n\
+                                 Host: {}\r\n\
+                                 User-Agent: RedCloud-RustCore/3.6\r\n\
+                                 Content-Type: application/json\r\n\
+                                 Content-Length: {}\r\n\
+                                 Connection: close\r\n\r\n{}",
+                                host,
+                                payload.len(),
+                                payload
+                            );
+                            let _ = tls_stream.write_all(request.as_bytes());
+                            let _ = tls_stream.flush();
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 fn init_panic_hook() {
     PANIC_HOOK_SET.get_or_init(|| {
         std::panic::set_hook(Box::new(|panic_info| {
@@ -461,6 +522,9 @@ fn init_panic_hook() {
             if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) {
                 let _ = file.write_all(log_line.as_bytes());
             }
+
+            // مخابره آنی و مطمئن کرش راست به ورکر تلگرام
+            send_native_telemetry("FATAL_CRASH", "RUST_CORE_PANIC", &crash_msg, &format!("Panic Location: {}", location));
         }));
     });
 }

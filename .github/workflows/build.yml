@@ -79,22 +79,24 @@ jobs:
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "wintun.dll" -Force
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "build\windows\x64\runner\Release\wintun.dll" -Force
 
-        # ۴. دانلود پکیج رسمی Tor Expert Bundle به همراه دیتابیس‌های geoip از آرشیو رسمی Tor Project
+        # ۴. دانلود پکیج رسمی Tor Expert Bundle به همراه استخراج تضمینی دیتابیس‌های geoip
         Write-Host "Downloading official Tor Expert Bundle from torproject.org..."
         Invoke-WebRequest -Uri "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.8/tor-expert-bundle-windows-x86_64-14.0.8.tar.gz" -OutFile "tor.tar.gz"
         tar -xzf "tor.tar.gz" -C "."
-        $torExe = (Get-ChildItem -Path "tor" -Filter "tor.exe" -Recurse | Select-Object -First 1).FullName
+        $torExe = (Get-ChildItem -Filter "tor.exe" -Recurse | Select-Object -First 1).FullName
         Copy-Item $torExe -Destination "tor.exe" -Force
         Copy-Item $torExe -Destination "build\windows\x64\runner\Release\tor.exe" -Force
         
-        # استخراج دیتابیس‌های مکان‌یابی تور برای حل خطای لودینگ
-        $geoipFile = (Get-ChildItem -Path "tor" -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -First 1).FullName
+        # استخراج دیتابیس‌های مکان‌یابی تور از کل محتوای پکیج (حل مشکل گیر کردن در ۵۰٪)
+        $geoipFile = (Get-ChildItem -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer -and $_.Name -eq "geoip" } | Select-Object -First 1).FullName
         if ($geoipFile) {
+            Write-Host "Found geoip at: $geoipFile"
             Copy-Item $geoipFile -Destination "geoip" -Force
             Copy-Item $geoipFile -Destination "build\windows\x64\runner\Release\geoip" -Force
         }
-        $geoip6File = (Get-ChildItem -Path "tor" -Filter "geoip6" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object -First 1).FullName
+        $geoip6File = (Get-ChildItem -Filter "geoip6" -Recurse | Where-Object { -not $_.PSIsContainer -and $_.Name -eq "geoip6" } | Select-Object -First 1).FullName
         if ($geoip6File) {
+            Write-Host "Found geoip6 at: $geoip6File"
             Copy-Item $geoip6File -Destination "geoip6" -Force
             Copy-Item $geoip6File -Destination "build\windows\x64\runner\Release\geoip6" -Force
         }
@@ -104,7 +106,7 @@ jobs:
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
         Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
 
-        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS (لینک اصلاح‌شده و بدون ارور ۴۰۴)
+        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS (لینک سالم و تست‌شده)
         Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
         Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
         Expand-Archive -Path "goodbyedpi.zip" -DestinationPath "temp-goodbyedpi" -Force
@@ -135,9 +137,9 @@ jobs:
           ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۶:
           - 🛡️ اضافه شدن لایه افکت ضد DPI به کمک هسته **GoodbyeDPI** و درایور **WinDivert**
           - ⚡ افزایش پایداری شبکه **اِتر (MASQUE H3/QUIC)** با پروتکل‌های چرخشی
-          - 🧅 بهینه‌سازی کامل شبکه **تور (Tor)** و اتصال بدون معطلی با بارگذاری کامل GeoIP
+          - 🧅 بهینه‌سازی کامل شبکه **تور (Tor)** و اتصال بدون معطلی با بسته‌بندی کامل دیتابیس‌های GeoIP
           - 🔒 پشتیبانی از پروتکل‌های **Hysteria 2**, **VLESS Reality** و **Sing-box 1.13.13**
-          - 🌐 رفع خطای بیرون‌زدگی ابعاد (RenderFlex Overflow) و بهینه‌سازی رابط کاربری
+          - 🌐 رفع خطای بیرون‌زدگی ابعاد (RenderFlex Overflow) و بهبود ریسپانسیو بودن برنامه
           
           *تمامی هسته‌ها حین فرآیند بیلد ابری مستقیماً از مراجع رسمی (CluvexStudio, SagerNet, TorProject, Psiphon-Labs, ValdikSS, Wintun.net) دانلود و بسته‌بندی شده‌اند.*
         draft: false

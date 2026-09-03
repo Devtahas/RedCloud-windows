@@ -1,1 +1,33 @@
-/target
+Set-Content -Path .gitignore -Value @"
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# هسته‌ها، درایورها و ستاپ‌ها (که گیت‌هاب اکشنز خودش دانلود میکنه)
+*.exe
+*.dll
+*.sys
+*.zip
+*.tar.gz
+
+# دیتابیس‌های حجیم تور و کانفیگ‌های موقت اِتر
+geoip*
+aether*.toml
+build_installer.ps1
+
+# لاگ‌ها و کش
+*.log
+log.txt
+saved_nodes.json
+saved_sub_groups.json
+saved_dns.json
+saved_anti_dpi.json
+rust/target/
+target/
+
+# فایل‌های متنی که باید حتماً بمانند
+!DNS.txt
+!cloudflare_IPs.txt
+!asn.txt
+"@

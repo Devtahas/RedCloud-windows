@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_global_job_object`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`
+// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_global_job_object`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
 
 Future<bool> isGoodbyedpiRunning() =>

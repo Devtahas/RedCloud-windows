@@ -12,43 +12,115 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'src/rust/api/simple.dart';
 import 'src/rust/frb_generated.dart';
 
+const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
 const String appCurrentVersion = "3.6";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
 
-/// سیستم ثبت لاگ اختصاصی فلاتر به هسته راست و فایل متمرکز log.txt
+/// سیستم هوشمند و سبک ثبت لاگ و مخابره خودکار کرش‌ها به ربات تلگرام ادمین
 class AppLogger {
-  static void log(String level, String tag, String message) {
+  // حافظه موقت کش برای جلوگیری از ارسال خطاهای تکراری در یک بازه زمانی
+  static final Map<String, DateTime> _recentErrorsCache = {};
+
+  /// استخراج نگارش دقیق سیستم‌عامل و شماره بیلد ویندوز
+  static String get _osInfo {
     try {
-      writeAppLog(level: level, tag: tag, message: message);
+      if (Platform.isWindows) {
+        return "Windows (${Platform.operatingSystemVersion})";
+      }
+      return "${Platform.operatingSystem} (${Platform.operatingSystemVersion})";
+    } catch (_) {
+      return "Windows Unknown";
+    }
+  }
+
+  /// استخراج معماری پردازنده سیستم (مثلاً AMD64 یا ARM64)
+  static String get _osArch {
+    try {
+      final arch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '';
+      return arch.isNotEmpty ? arch : 'x64';
+    } catch (_) {
+      return 'x64';
+    }
+  }
+
+  /// متد پایه ثبت لاگ
+  static void log(String level, String tag, String message, [dynamic error, StackTrace? stackTrace]) {
+    // ۱. ثبت در فایل متمرکز محلی روی سیستم (log.txt) از طریق هسته راست
+    try {
+      String localMsg = message;
+      if (error != null) localMsg += " | جزئیات: $error";
+      if (stackTrace != null) localMsg += "\nStackTrace:\n$stackTrace";
+      writeAppLog(level: level, tag: tag, message: localMsg);
     } catch (e) {
       debugPrint("[$level] [$tag] $message (Fallback: $e)");
+    }
+
+    // ۲. فیلتر مصرف منابع: فقط خطاهای ارور و کرش‌های بحرانی به اینترنت مخابره شوند
+    if (level == "ERROR" || level == "FATAL_CRASH") {
+      _dispatchTelemetry(level, tag, message, error, stackTrace);
     }
   }
 
   static void info(String tag, String message) => log("INFO", tag, message);
-  
-  static void warn(String tag, String message, [dynamic error, StackTrace? stackTrace]) {
-    String fullMsg = message;
-    if (error != null) fullMsg += " | جزئیات: $error";
-    if (stackTrace != null) fullMsg += "\nStackTrace:\n$stackTrace";
-    log("WARN", tag, fullMsg);
-  }
-  
-  static void error(String tag, String message, [dynamic error, StackTrace? stackTrace]) {
-    String fullMsg = message;
-    if (error != null) fullMsg += " | جزئیات خطا: $error";
-    if (stackTrace != null) fullMsg += "\nStackTrace:\n$stackTrace";
-    log("ERROR", tag, fullMsg);
-  }
 
-  static void fatal(String tag, String message, [dynamic error, StackTrace? stackTrace]) {
-    String fullMsg = message;
-    if (error != null) fullMsg += " | خطای بحرانی: $error";
-    if (stackTrace != null) fullMsg += "\nStackTrace:\n$stackTrace";
-    log("FATAL_CRASH", tag, fullMsg);
+  static void warn(String tag, String message, [dynamic error, StackTrace? stackTrace]) =>
+      log("WARN", tag, message, error, stackTrace);
+
+  static void error(String tag, String message, [dynamic error, StackTrace? stackTrace]) =>
+      log("ERROR", tag, message, error, stackTrace);
+
+  static void fatal(String tag, String message, [dynamic error, StackTrace? stackTrace]) =>
+      log("FATAL_CRASH", tag, message, error, stackTrace);
+
+  /// ارسال ناهمگام و کاملاً امن به ورکر تلگرام با مصرف منابع صفر
+  static void _dispatchTelemetry(
+    String level,
+    String module,
+    String message,
+    dynamic error,
+    StackTrace? stackTrace,
+  ) {
+    try {
+      final String fullError = error != null ? "$message | جزئیات خطا: $error" : message;
+      final String trace = stackTrace?.toString() ?? "";
+
+      // ساخت کلید یکتا برای شناسایی خطای تکراری
+      final String errorSignature = "$module|$fullError";
+      final DateTime now = DateTime.now();
+
+      // پاکسازی رکوردهای قدیمی‌تر از ۱۰ دقیقه از حافظه کلاینت
+      _recentErrorsCache.removeWhere((_, time) => now.difference(time).inMinutes > 10);
+
+      // اگر همین خطا در ۱۰ دقیقه گذشته ارسال شده باشد، ارسال مجدد را لغو کن
+      if (_recentErrorsCache.containsKey(errorSignature)) {
+        return;
+      }
+      _recentErrorsCache[errorSignature] = now;
+
+      final Map<String, dynamic> payload = {
+        "app_version": appCurrentVersion,
+        "os_info": _osInfo,
+        "os_arch": _osArch,
+        "module": module,
+        "level": level,
+        "error_message": fullError,
+        "stack_trace": trace.isNotEmpty ? trace : "استک‌تریس ثبت نشده است.",
+        "timestamp": now.toUtc().toIso8601String(),
+      };
+
+      // ارسال مستقیم در پس‌زمینه (Fire-and-forget با محدودیت زمانی ۴ ثانیه)
+      http.post(
+        Uri.parse("$telemetryWorkerUrl/api/crash-report"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 4)).catchError((_) {
+        // در صورت قطع بودن اینترنت، هیچ اروری در نرم‌افزار بالا نمی‌آید
+        return http.Response('', 500);
+      });
+    } catch (_) {}
   }
 }
 

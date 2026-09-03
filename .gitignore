@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+*.exe
+*.dll
+*.sys
+*.zip
+*.tar.gz
+geoip*
+aether*.toml
+build_installer.ps1
+build/
+.dart_tool/
