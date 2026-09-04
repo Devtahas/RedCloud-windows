@@ -1,18 +1,22 @@
 ; =====================================================================
-; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN (نسخه 3.5 Hybrid)
+; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN (نسخه 3.6 Hybrid)
 ; مجهز به سیستم یکپارچه لاگ‌نویسی و هسته اختصاصی ضد DPI (GoodbyeDPI + WinDivert)
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "3.6"
+#define AppVersion "3.7"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
+#define AppURL "https://github.com/Devtahas/RedCloud-windows"
+#define AppSupportURL "https://t.me/DevTaha_project"
 
 [Setup]
 AppId={{9F2C0E8D-D8A1-4F43-9831-C7D4E75A22E1}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+AppPublisherURL={#AppURL}
+AppSupportURL={#AppSupportURL}
 
 DefaultDirName={autopf}\{#AppName}
 DisableProgramGroupPage=yes
@@ -20,6 +24,14 @@ DisableProgramGroupPage=yes
 OutputDir=.
 OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
+
+; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
+VersionInfoVersion=3.6.0.0
+VersionInfoCompany={#AppPublisher}
+VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
+VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion=3.6.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -53,6 +65,9 @@ Source: "tor.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexis
 Source: "psiphon-tunnel-core.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "wintun.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
+; فایل‌های کانفیگ احتمالی اِتر (جهت حفظ ارتباط در ستاپ لوکال)
+Source: "aether*.toml"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+
 ; هسته محافظتی و افکت ضد DPI به همراه درایور پکت ویندوز
 Source: "goodbyedpi.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "WinDivert.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -70,8 +85,9 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename:
 Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: autostart
 
 [Registry]
-; تنظیم اجرای همیشگی برنامه به عنوان Administrator
+; تنظیم اجرای همیشگی برنامه به عنوان Administrator در سطح ماشین و کاربر
 Root: "HKLM"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; Flags: uninsdeletevalue
+Root: "HKCU"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; Flags: uninsdeletevalue
 
 [Run]
 ; بستن تمام پروسه‌های قدیمی قبل از اجرای برنامه
@@ -89,8 +105,8 @@ Filename: "net.exe"; Parameters: "stop WinDivert14"; Flags: runhidden
 ; بازنشانی پروکسی سیستم در رجیستری ویندوز
 Filename: "reg.exe"; Parameters: "add ""HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"" /v ProxyEnable /t REG_DWORD /d 0 /f"; Flags: runhidden
 
-; بازگرداندن تنظیمات DNS تمامی کارت‌های شبکه به DHCP خودکار
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""Get-NetAdapter | Where-Object {{$_.Status -eq 'Up'} | Set-DnsClientServerAddress -ResetServerAddresses"""; Flags: runhidden
+; بازگرداندن تنظیمات DNS تمامی کارت‌های شبکه فعال به DHCP خودکار (سینتکس استاندارد بدون خطای براکت)
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""Get-NetAdapter | Where-Object Status -eq 'Up' | Set-DnsClientServerAddress -ResetServerAddresses"""; Flags: runhidden
 
 [Code]
 // تابع ثبت گزارش‌ها در فایل مشترک log.txt
@@ -113,7 +129,7 @@ end;
 function InitializeSetup(): Boolean;
 begin
   WriteSetupLog('INFO', 'SETUP', '==================================================');
-  WriteSetupLog('INFO', 'SETUP', 'آغاز فرآیند نصب نرم‌افزار RedCloud VPN نسخه 3.5');
+  WriteSetupLog('INFO', 'SETUP', 'آغاز فرآیند نصب نرم‌افزار RedCloud VPN نسخه 3.6');
   WriteSetupLog('INFO', 'SETUP', 'دسترسی روت / ادمین: تایید شد');
   Result := True;
 end;
@@ -126,7 +142,7 @@ begin
     ssPostInstall:
       WriteSetupLog('INFO', 'SETUP', 'تمامی فایل‌ها با موفقیت کپی و کلیدهای ریجستری ثبت شدند.');
     ssDone:
-      WriteSetupLog('INFO', 'SETUP', 'نصب برنامه با موفقیت به پایان رسید.');
+      WriteSetupLog('INFO', 'SETUP', 'نصب برنامه نسخه 3.6 با موفقیت به پایان رسید.');
   end;
 end;
 

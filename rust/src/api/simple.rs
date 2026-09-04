@@ -452,7 +452,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
         };
 
         let payload = serde_json::json!({
-            "app_version": "3.6",
+            "app_version": "3.7",
             "os_info": os_info,
             "os_arch": "x64",
             "module": module_owned,
@@ -1267,7 +1267,7 @@ pub fn start_aether_core(
         ) {
             Ok(mut child) => {
                 let mut mode_success = false;
-                for _ in 0..40 {
+                for _ in 0..100 {
                     thread::sleep(Duration::from_millis(350));
                     
                     if let Ok(Some(exit_status)) = child.try_wait() {

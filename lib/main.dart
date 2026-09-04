@@ -11,10 +11,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'src/rust/api/simple.dart';
 import 'src/rust/frb_generated.dart';
+import 'translations.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "3.6";
+const String appCurrentVersion = "3.7";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -456,6 +457,8 @@ class MainLayoutContent extends StatefulWidget {
 
 class _MainLayoutContentState extends State<MainLayoutContent> with WindowListener, TrayListener, TickerProviderStateMixin {
   int _selectedMenuIndex = 0;
+  String _selectedLanguage = 'fa';
+  bool _hasLanguageBeenSet = false;
   
   final TextEditingController _binaryPathController = TextEditingController(text: 'sing-box.exe');
   final TextEditingController _aetherPathController = TextEditingController(text: 'aether.exe');
@@ -532,7 +535,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   bool _isAetherRunning = false;
   bool _isAetherConnecting = false;
   int _aetherProgressPercent = 0;
-  String _aetherStatusText = "آماده اتصال";
+  String _aetherStatusText = AppTranslations.currentLang == 'en' ? "Ready to connect" : "آماده اتصال";
   Timer? _aetherProgressTimer;
   
   String _selectedAetherMode = "auto";
@@ -676,6 +679,81 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 
   bool _useSystemProxy = true; 
   String _statusMessage = "سیستم آماده اتصال است";
+  /// ترجمه خودکار و بلادرنگ تمامی پیام‌های وضعیت و خروجی هسته‌ها به انگلیسی
+  /// ترجمه خودکار و بلادرنگ تمامی پیام‌های وضعیت و خروجی هسته‌ها به انگلیسی
+  String get _localizedStatusMessage {
+    if (AppTranslations.currentLang != 'en') return _statusMessage;
+    
+    final msg = _statusMessage;
+    if (msg.contains("متوقف و سیستم به حالت عادی")) {
+      if (msg.contains("تور بر بستر مسک")) return "Tor over MASQUE disconnected.";
+      if (msg.contains("تور")) return "Tor disconnected.";
+      if (msg.contains("سایفون بر بستر مسک")) return "Psiphon over MASQUE disconnected.";
+      if (msg.contains("سایفون")) return "Psiphon disconnected.";
+      if (msg.contains("هیبریدی")) return "Hybrid connection stopped.";
+      if (msg.contains("پروکسی")) return "Proxy disconnected.";
+      if (msg.contains("اتر")) return "Aether disconnected.";
+      return "Disconnected.";
+    }
+    if (msg.contains("در حال ایجاد پل ضدسانسور مسک و برقراری ارتباط با سایفون")) {
+      return "Establishing MASQUE bridge & connecting Psiphon...";
+    }
+    if (msg.contains("در حال برقراری پل مسک و تونل سایفون")) return "Establishing MASQUE bridge & Psiphon tunnel...";
+    if (msg.contains("در حال اتصال به سرورهای سایفون")) return "Connecting to Psiphon servers...";
+    if (msg.contains("در حال دریافت لیست سرورهای فعال سایفون")) return "Fetching Psiphon active servers...";
+    if (msg.contains("در حال دست‌دهی امن با سرور مقصد سایفون")) return "Handshaking with Psiphon server...";
+    if (msg.contains("اتصال پایدار شد و ترافیک برقرار است")) return "Connection stable, traffic active.";
+    if (msg.contains("در حال اسکن و آزمایش") && msg.contains("سرور سایفون")) {
+      return msg.replaceAll("در حال اسکن و آزمایش", "Probing").replaceAll("سرور سایفون...", "Psiphon candidate servers...");
+    }
+    if (msg.contains("کشور آماده اتصال است")) {
+      return msg.replaceAll("تعداد", "").replaceAll("کشور آماده اتصال است.", "regions available to connect.").trim();
+    }
+    if (msg.contains("تانل سایفون با") && msg.contains("مسیر فعال برقرار شد")) {
+      return msg.replaceAll("تانل سایفون با", "Psiphon tunnel active with").replaceAll("مسیر فعال برقرار شد!", "tunnels!");
+    }
+    if (msg.contains("در حال اسکن و آزمایش خودکار پروتکل‌های ضدسانسور")) {
+      return "Scanning and probing anti-censorship protocols...";
+    }
+    if (msg.contains("پل ارتباطی با پروتکل")) return "Bridge connected with stable protocol!";
+    if (msg.contains("اتصال با موفقیت برقرار شد")) return "Connected successfully.";
+    if (msg.contains("اتصال ترکیبی هیبریدی با موفقیت برقرار شد")) return "Hybrid tunnel connected successfully!";
+    if (msg.contains("اتصال به شبکه اتر با موفقیت برقرار شد")) return "Aether network connected successfully!";
+    if (msg.contains("اتصال به شبکه اتر آغاز شد")) return "Aether connection initiated...";
+    if (msg.contains("در حال ایجاد پل چرخشی اِتر")) return "Creating Aether bridge & chaining with Sing-box...";
+    if (msg.contains("در حال ایجاد پل مسک و راه‌اندازی شبکه پیاز تور")) return "Creating MASQUE bridge & starting Tor...";
+    if (msg.contains("در حال اجرای هسته تور")) return "Starting Tor core...";
+    if (msg.contains("پیشرفت اتصال تور:")) {
+      return msg.replaceAll("پیشرفت اتصال تور:", "Tor bootstrap progress:").replaceAll("٪", "%");
+    }
+    if (msg.contains("در حال اتصال به سرورهای سایفون؛ لطفاً چند لحظه شکیبا باشید")) {
+      return "Connecting to Psiphon servers, please wait...";
+    }
+    if (msg.contains("اتصال ترکیبی سایفون بر بستر مسک") && msg.contains("با موفقیت برقرار شد")) {
+      return "Psiphon over MASQUE connected successfully!";
+    }
+    if (msg.contains("اتصال ترکیبی تور بر بستر مسک") && msg.contains("با موفقیت برقرار شد")) {
+      return "Tor over MASQUE connected successfully!";
+    }
+    if (msg.contains("قطع اتصال")) return "Disconnected";
+    if (msg.contains("سیستم آماده اتصال است")) return "System is ready to connect";
+    if (msg.contains("در حال اعمال دی‌ان‌اس")) return "Applying DNS...";
+    if (msg.contains("دی‌ان‌اس با موفقیت روی سیستم فعال شد")) return "DNS applied to system successfully.";
+    if (msg.contains("تنظیمات دی‌ان‌اس سیستم به حالت خودکار (DHCP) بازگشت")) return "DNS reset to DHCP successfully.";
+    if (msg.contains("ظرفیت اکانت به پایان رسید")) return "Account quota reached! Auto-rotating...";
+    if (msg.contains("دستور توقف اسکن ارسال شد")) return "Stopping scan; collecting clean IPs...";
+    if (msg.contains("اسکن پایان یافت؛ هیچ آی‌پی تمیزی یافت نشد")) return "Scan finished; no clean IPs found.";
+    if (msg.contains("اسکن پایان یافت!")) return msg.replaceAll("اسکن پایان یافت! تعداد", "Scan finished! Found").replaceAll("آی‌پی تمیز و پرسرعت یافت شد.", "clean IPs.");
+    if (msg.contains("در حال اجرای اسکن سریع کلودفلر")) return "Running quick Cloudflare scan...";
+    if (msg.contains("در حال اسکن عمیق و چندنخی")) return "Running deep multi-threaded scan...";
+    if (msg.contains("تعداد") && msg.contains("اکانت بارگذاری شد")) {
+      return msg.replaceAll("تعداد", "").replaceAll("اکانت بارگذاری شد.", "accounts loaded.").trim();
+    }
+    if (msg.contains("روی فیلدها اعمال شد")) {
+      return msg.replaceAll("اطلاعات", "").replaceAll("روی فیلدها اعمال شد.", "applied to fields.").trim();
+    }
+    return msg;
+  }
 
   bool _showDnsRescueToast = false;
   String _dnsRescueToastMsg = "";
@@ -861,6 +939,189 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     }
   }
 
+  /// ذخیره دائمی زبان انتخابی در فایل دیسک
+  Future<void> _saveLanguageToDisk() async {
+    try {
+      final file = await _getLocalFile('saved_language.json');
+      await file.writeAsString(jsonEncode({'lang': _selectedLanguage}));
+      AppTranslations.currentLang = _selectedLanguage;
+      AppLogger.info("STORAGE", "زبان برنامه روی $_selectedLanguage ذخیره شد.");
+    } catch (e, st) {
+      AppLogger.error("STORAGE", "خطا در ذخیره زبان برنامه", e, st);
+    }
+  }
+
+  /// بارگذاری زبان از دیسک یا نمایش دیالوگ در اولین اجرا
+  Future<void> _loadLanguageFromDisk() async {
+    try {
+      final file = await _getLocalFile('saved_language.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final decoded = jsonDecode(content);
+        final lang = decoded['lang'] ?? 'fa';
+        setState(() {
+          _selectedLanguage = lang;
+          AppTranslations.currentLang = lang;
+          _hasLanguageBeenSet = true;
+        });
+      } else {
+        // برنامه برای بار اول اجرا شده است
+        setState(() {
+          _hasLanguageBeenSet = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showFirstRunLanguageDialog();
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _hasLanguageBeenSet = true;
+      });
+    }
+  }
+
+  /// دیالوگ انتخاب زبان برای اولین اجرای نرم‌افزار
+  void _showFirstRunLanguageDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        String tempLang = _selectedLanguage;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: const BorderSide(color: Color(0xFF00D2FF), width: 1.5),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00D2FF), Color(0xFFFF8008)]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.language_rounded, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('انتخاب زبان / Language Selection', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text('RedCloud VPN Multi-Language Setup', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'لطفاً زبان پیش‌فرض محیط کاربری برنامه را انتخاب کنید:\nPlease select your preferred interface language:',
+                      style: TextStyle(fontSize: 12, color: Colors.white70, height: 1.6),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildLanguageSelectCard(
+                      title: 'فارسی (Persian)',
+                      subtitle: 'راست‌چین و زبان پیش‌فرض',
+                      flag: '🇮🇷',
+                      isSelected: tempLang == 'fa',
+                      onTap: () => setDialogState(() => tempLang = 'fa'),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildLanguageSelectCard(
+                      title: 'English (انگلیسی)',
+                      subtitle: 'Left-to-Right layout',
+                      flag: '🇬🇧',
+                      isSelected: tempLang == 'en',
+                      onTap: () => setDialogState(() => tempLang = 'en'),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      setState(() {
+                        _selectedLanguage = tempLang;
+                        AppTranslations.currentLang = tempLang;
+                        _hasLanguageBeenSet = true;
+                      });
+                      await _saveLanguageToDisk();
+                      Navigator.of(ctx).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D2FF),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text(
+                      tempLang == 'fa' ? 'ورود به برنامه' : 'Start Application',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLanguageSelectCard({
+    required String title,
+    required String subtitle,
+    required String flag,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF00D2FF).withValues(alpha: 0.15) : const Color(0xFF090B10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF00D2FF) : Colors.white12,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF00D2FF), size: 22)
+            else
+              const Icon(Icons.radio_button_unchecked_rounded, color: Colors.grey, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
   // مدیریت فرآیند GoodbyeDPI به عنوان افکت لایه اول
   Future<void> _maybeStartGoodbyeDpi(bool shouldStart) async {
     if (!Platform.isWindows) return;
@@ -892,6 +1153,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   void _openGoodbyeDpiConfigDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
     showDialog(
       context: context,
       builder: (context) {
@@ -903,11 +1165,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 borderRadius: BorderRadius.circular(20),
                 side: const BorderSide(color: Color(0xFF2DCA73), width: 1.2),
               ),
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.shield_rounded, color: Color(0xFF2DCA73)),
-                  SizedBox(width: 12),
-                  Text('پیکربندی افکت ضد DPI (GoodbyeDPI)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Icon(Icons.shield_rounded, color: Color(0xFF2DCA73)),
+                  const SizedBox(width: 12),
+                  Text(
+                    isEn ? 'Configure GoodbyeDPI (Anti-DPI Effect)' : 'پیکربندی افکت ضد DPI (GoodbyeDPI)', 
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               content: SizedBox(
@@ -916,12 +1181,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'هسته GoodbyeDPI بدون تغییر پروکسی، در سطح کرنل و کارت شبکه پکت‌ها را دستکاری و فرگمنت می‌کند تا از سد فیلترینگ DPI عبور کند.',
-                      style: TextStyle(fontSize: 12, color: Colors.white70, height: 1.5),
+                    Text(
+                      isEn 
+                          ? 'GoodbyeDPI manipulates and fragments packets at the Windows kernel level (WinDivert) without altering system proxies to bypass DPI filters.'
+                          : 'هسته GoodbyeDPI بدون تغییر پروکسی، در سطح کرنل و کارت شبکه پکت‌ها را دستکاری و فرگمنت می‌کند تا از سد فیلترینگ DPI عبور کند.',
+                      style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.5),
                     ),
                     const SizedBox(height: 18),
-                    const Text('انتخاب پریست (Preset):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text(
+                      isEn ? 'Select Preset:' : 'انتخاب پریست (Preset):', 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                    ),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -950,11 +1220,23 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             });
                           }
                         },
-                        items: const [
-                          DropdownMenuItem(value: 'iran_recommended', child: Text('پیش‌فرض پیشنهادی ایران (حالت تهاجمی -9 و فرگمنت کامل)')),
-                          DropdownMenuItem(value: 'mode_1', child: Text('مد ۱ (بسیار سازگار -1)')),
-                          DropdownMenuItem(value: 'mode_5', child: Text('مد ۵ (ضد مسدودسازی استاندارد -5)')),
-                          DropdownMenuItem(value: 'custom', child: Text('تنظیمات و پارامترهای دستی (Custom)')),
+                        items: [
+                          DropdownMenuItem(
+                            value: 'iran_recommended', 
+                            child: Text(isEn ? 'Iran Recommended (Aggressive -9 & full fragmentation)' : 'پیش‌فرض پیشنهادی ایران (حالت تهاجمی -9 و فرگمنت کامل)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'mode_1', 
+                            child: Text(isEn ? 'Mode 1 (Most compatible -1)' : 'مد ۱ (بسیار سازگار -1)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'mode_5', 
+                            child: Text(isEn ? 'Mode 5 (Standard anti-blocking -5)' : 'مد ۵ (ضد مسدودسازی استاندارد -5)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'custom', 
+                            child: Text(isEn ? 'Custom Parameters (Manual)' : 'تنظیمات و پارامترهای دستی (Custom)'),
+                          ),
                         ],
                       ),
                     ),
@@ -962,9 +1244,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     TextField(
                       controller: _goodbyedpiArgsController,
                       style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                      decoration: const InputDecoration(
-                        labelText: 'آرگومان‌های خط فرمان (CLI Arguments)',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: isEn ? 'Command-line Arguments (CLI)' : 'آرگومان‌های خط فرمان (CLI Arguments)',
+                        border: const OutlineInputBorder(),
                         isDense: true,
                         hintText: '-9 -p -r -s -f 2 -k 2 -n -e 2',
                       ),
@@ -978,7 +1260,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+                  child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -986,12 +1268,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     if (context.mounted) Navigator.of(context).pop();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تنظیمات GoodbyeDPI با موفقیت ذخیره شد.'), backgroundColor: Color(0xFF2DCA73)),
+                        SnackBar(
+                          content: Text(isEn ? 'GoodbyeDPI settings saved successfully.' : 'تنظیمات GoodbyeDPI با موفقیت ذخیره شد.'), 
+                          backgroundColor: const Color(0xFF2DCA73),
+                        ),
                       );
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2DCA73), foregroundColor: Colors.black),
-                  child: const Text('ذخیره تغییرات', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(isEn ? 'Save Changes' : 'ذخیره تغییرات', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -1006,6 +1291,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final bool isEn = AppTranslations.currentLang == 'en';
     return _buildGlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       borderRadius: 16,
@@ -1015,11 +1301,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         children: [
           Icon(Icons.shield_outlined, size: 18, color: value ? const Color(0xFF2DCA73) : Colors.grey),
           const SizedBox(width: 8),
-          const Text('افکت ضد DPI (GoodbyeDPI):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text('goodbyedpi_effect'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(width: 6),
           IconButton(
             icon: const Icon(Icons.settings_outlined, size: 16, color: Colors.grey),
-            tooltip: 'تنظیمات و پارامترهای GoodbyeDPI',
+            tooltip: isEn ? 'GoodbyeDPI Settings & Parameters' : 'تنظیمات و پارامترهای GoodbyeDPI',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: _openGoodbyeDpiConfigDialog,
@@ -1053,6 +1339,30 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     }
   }
 
+  /// تابع مقایسه هوشمند نگارش‌ها (Semantic Versioning)
+  /// اگر v1 بزرگتر باشد: مثبت | اگر مساوی باشند: صفر | اگر v1 کوچکتر باشد: منفی
+  int _compareVersions(String v1, String v2) {
+    String clean(String v) => v.toLowerCase().replaceAll('v', '').trim();
+
+    final parts1 = clean(v1).split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final parts2 = clean(v2).split('.').map((e) => int.tryParse(e) ?? 0).toList();
+
+    final maxLen = parts1.length > parts2.length ? parts1.length : parts2.length;
+
+    for (int i = 0; i < maxLen; i++) {
+      final p1 = i < parts1.length ? parts1[i] : 0;
+      final p2 = i < parts2.length ? parts2[i] : 0;
+      if (p1 > p2) return 1;
+      if (p1 < p2) return -1;
+    }
+    return 0;
+  }
+
+  /// بررسی هوشمند اینکه آیا نسخه سرور از نسخه فعلی برنامه جدیدتر است یا خیر
+  bool _isNewerVersion(String remote, String current) {
+    return _compareVersions(remote, current) > 0;
+  }
+
   Future<void> _checkForUpdates({bool showSnackbarIfNoUpdate = false}) async {
     setState(() => _isCheckingUpdate = true);
     try {
@@ -1066,18 +1376,19 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         final String tagName = (data['tag_name'] ?? '').toString().replaceAll('v', '').trim();
         final String htmlUrl = data['html_url'] ?? githubRepoReleasesUrl;
 
-        if (tagName.isNotEmpty && tagName != appCurrentVersion) {
+        // فقط در صورتی که نسخه گیت‌هاب اکیداً جدیدتر از نسخه فعلی کلاینت باشد
+        if (tagName.isNotEmpty && _isNewerVersion(tagName, appCurrentVersion)) {
           setState(() {
             _hasUpdate = true;
             _latestVersion = tagName;
             _latestReleaseUrl = htmlUrl;
           });
-          AppLogger.info("UPDATER", "نسخه جدید یافت شد: $tagName");
+          AppLogger.info("UPDATER", "نسخه جدیدتر یافت شد: $tagName (نسخه فعلی: $appCurrentVersion)");
         } else {
           setState(() => _hasUpdate = false);
           if (showSnackbarIfNoUpdate && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('شما از آخرین نسخه برنامه (v$appCurrentVersion) استفاده می‌کنید.')),
+              SnackBar(content: Text('already_latest_version'.tr(params: {'version': appCurrentVersion}))),
             );
           }
         }
@@ -1095,7 +1406,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF121520),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Color(0xFFFFC837), width: 1.5)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24), 
+            side: const BorderSide(color: Color(0xFFFFC837), width: 1.5),
+          ),
           title: Row(
             children: [
               Container(
@@ -1107,7 +1421,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 child: const Icon(Icons.favorite_rounded, color: Colors.amberAccent, size: 24),
               ),
               const SizedBox(width: 14),
-              const Text('حمایت مالی از پروژه RedCloud', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('donation_title'.tr(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SizedBox(
@@ -1116,9 +1430,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'از اینکه با حمایت مالی خود به توسعه، بقا و ارتقای سرورهای ضدسانسور RedCloud کمک می‌کنید، بی‌نهایت سپاسگزاریم.\nحمایت‌های ارزشمند شما انگیزه اصلی ما برای مبارزه با فیلترینگ و حفظ اینترنت آزاد برای همه است. ❤️',
-                  style: TextStyle(fontSize: 13, height: 1.6, color: Colors.white70),
+                Text(
+                  'donation_desc'.tr(),
+                  style: const TextStyle(fontSize: 13, height: 1.6, color: Colors.white70),
                   textAlign: TextAlign.justify,
                 ),
                 const SizedBox(height: 20),
@@ -1135,11 +1449,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.currency_bitcoin_rounded, color: Colors.greenAccent, size: 18),
-                              SizedBox(width: 8),
-                              Text('آدرس تتر (USDT)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.greenAccent)),
+                              const Icon(Icons.currency_bitcoin_rounded, color: Colors.greenAccent, size: 18),
+                              const SizedBox(width: 8),
+                              Text('usdt_label'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.greenAccent)),
                             ],
                           ),
                           Container(
@@ -1149,14 +1463,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                             ),
-                            child: const Text('شبکه BNB Smart Chain (BEP20)', style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold)),
+                            child: Text('bep20_network'.tr(), style: const TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold)),
                           )
                         ],
                       ),
                       const SizedBox(height: 12),
-                      SelectableText(
+                      const SelectableText(
                         usdtBnbAddress,
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -1165,9 +1479,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                           onPressed: () {
                             Clipboard.setData(const ClipboardData(text: usdtBnbAddress));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('آدرس ولت با موفقیت کپی شد! تشکر از حمایت شما ❤️'),
-                                backgroundColor: Color(0xFF2DCA73),
+                              SnackBar(
+                                content: Text('copied_wallet_toast'.tr()),
+                                backgroundColor: const Color(0xFF2DCA73),
                               ),
                             );
                             Navigator.of(context).pop();
@@ -1178,7 +1492,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
-                          label: const Text('کپی آدرس ولت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text('btn_copy_wallet'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       )
                     ],
@@ -1190,7 +1504,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('بستن', style: TextStyle(color: Colors.grey)),
+              child: Text('close'.tr(), style: const TextStyle(color: Colors.grey)),
             ),
           ],
         );
@@ -1202,6 +1516,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   void initState() {
     super.initState();
     _selectedDns = _dnsList[0];
+    _loadLanguageFromDisk();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -1405,12 +1720,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Future<void> _bulkPingAndSort() async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     final targets = _filteredNodeItems;
     if (targets.isEmpty) return;
 
     setState(() {
       _isBulkPinging = true;
-      _statusMessage = "در حال پایش موازی تاخیر پینگ سرورها با هسته راست...";
+      _statusMessage = isEn 
+          ? "Parallel ping testing with Rust core in progress..." 
+          : "در حال پایش موازی تاخیر پینگ سرورها با هسته راست...";
     });
 
     final List<Future<void>> pingFutures = [];
@@ -1444,13 +1762,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           return pingA.compareTo(pingB);
         });
         _isBulkPinging = false;
-        _statusMessage = "تست پینگ موازی پایان یافت؛ سرورهای پایدار در صدر لیست قرار گرفتند.";
+        _statusMessage = isEn 
+            ? "Parallel ping test completed; stable servers moved to the top." 
+            : "تست پینگ موازی پایان یافت؛ سرورهای پایدار در صدر لیست قرار گرفتند.";
       });
       _saveNodesToDisk();
     }
   }
 
   Future<void> _updateSubscription(SubscriptionGroup group) async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     setState(() => _isUpdatingSubs = true);
     try {
       final response = await http.get(Uri.parse(group.url), headers: {
@@ -1466,7 +1787,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             _savedNodeItems.add(SavedNodeItem(node: n, groupId: group.id));
           }
           group.lastUpdated = DateTime.now();
-          _statusMessage = "ساب‌اسکریپشن '${group.name}' با ${parsed.length} سرور بروزرسانی شد.";
+          _statusMessage = isEn 
+              ? "Subscription '${group.name}' updated with ${parsed.length} servers."
+              : "ساب‌اسکریپشن '${group.name}' با ${parsed.length} سرور بروزرسانی شد.";
           _selectedNode ??= _savedNodeItems.first.node;
         });
 
@@ -1475,19 +1798,21 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("ساب '${group.name}' با موفقیت بروزرسانی شد (${parsed.length} سرور)."),
+              content: Text(isEn 
+                  ? "Subscription '${group.name}' updated successfully (${parsed.length} servers)."
+                  : "ساب '${group.name}' با موفقیت بروزرسانی شد (${parsed.length} سرور)."),
               backgroundColor: const Color(0xFF2DCA73),
             ),
           );
         }
       } else {
-        throw Exception("کد وضعیت سرور: ${response.statusCode}");
+        throw Exception("Status code: ${response.statusCode}");
       }
     } catch (e, st) {
-      AppLogger.error("SUB_UPDATE", "خطا در بروزرسانی ساب ${group.name}", e, st);
+      AppLogger.error("SUB_UPDATE", "Error updating subscription ${group.name}", e, st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("خطا در بروزرسانی ساب '${group.name}': $e")),
+          SnackBar(content: Text(isEn ? "Error updating sub '${group.name}': $e" : "خطا در بروزرسانی ساب '${group.name}': $e")),
         );
       }
     } finally {
@@ -1496,16 +1821,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Future<void> _updateAllSubscriptions() async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     if (_subGroups.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("هیچ گروه ساب‌اسکریپشنی تعریف نشده است.")),
+        SnackBar(content: Text(isEn ? "No subscription groups defined." : "هیچ گروه ساب‌اسکریپشنی تعریف نشده است.")),
       );
       return;
     }
 
     setState(() {
       _isUpdatingSubs = true;
-      _statusMessage = "در حال بروزرسانی تمامی ساب‌اسکریپشن‌ها...";
+      _statusMessage = isEn ? "Updating all subscriptions..." : "در حال بروزرسانی تمامی ساب‌اسکریپشن‌ها...";
     });
 
     for (var group in _subGroups) {
@@ -1517,12 +1843,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     if (mounted) {
       setState(() {
         _isUpdatingSubs = false;
-        _statusMessage = "بروزرسانی تمام ساب‌اسکریپشن‌ها به پایان رسید.";
+        _statusMessage = isEn ? "All subscriptions updated successfully." : "بروزرسانی تمام ساب‌اسکریپشن‌ها به پایان رسید.";
       });
     }
   }
 
   void _removeDeadServers() {
+    final bool isEn = AppTranslations.currentLang == 'en';
     final int before = _savedNodeItems.length;
     setState(() {
       _savedNodeItems.removeWhere((item) => _nodePings[item.node.rawUrl] == -1);
@@ -1531,13 +1858,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     _saveNodesToDisk();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("تعداد $removed سرور قطع و تایم‌اوت حذف شد."),
+        content: Text(isEn ? "Removed $removed timeout/dead servers." : "تعداد $removed سرور قطع و تایم‌اوت حذف شد."),
         backgroundColor: const Color(0xFF6C5DD3),
       ),
     );
   }
 
   void _openAddOrEditSubGroupDialog({SubscriptionGroup? editGroup}) {
+    final bool isEn = AppTranslations.currentLang == 'en';
     final nameController = TextEditingController(text: editGroup?.name ?? '');
     final urlController = TextEditingController(text: editGroup?.url ?? '');
 
@@ -1550,7 +1878,12 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             children: [
               Icon(editGroup == null ? Icons.add_link_rounded : Icons.edit_rounded, color: const Color(0xFF00D2FF)),
               const SizedBox(width: 12),
-              Text(editGroup == null ? 'افزودن گروه ساب جدید (Subscription Group)' : 'ویرایش گروه ساب', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              Text(
+                editGroup == null 
+                    ? (isEn ? 'Add New Subscription Group' : 'افزودن گروه ساب جدید (Subscription Group)')
+                    : (isEn ? 'Edit Subscription Group' : 'ویرایش گروه ساب'), 
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: SizedBox(
@@ -1558,16 +1891,22 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildDialogField('نام گروه / ساب (مانند: سرورهای آلمان، ساب شخصی)', nameController),
+                _buildDialogField(
+                  isEn ? 'Group / Subscription Name (e.g. Germany, Private Sub)' : 'نام گروه / ساب (مانند: سرورهای آلمان، ساب شخصی)', 
+                  nameController,
+                ),
                 const SizedBox(height: 14),
-                _buildDialogField('لینک ساب‌اسکریپشن (https://...) یا آدرس گیت‌هاب', urlController),
+                _buildDialogField(
+                  isEn ? 'Subscription URL (https://...) or GitHub link' : 'لینک ساب‌اسکریپشن (https://...) یا آدرس گیت‌هاب', 
+                  urlController,
+                ),
               ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+              child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -1575,7 +1914,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 final url = urlController.text.trim();
                 if (name.isEmpty || url.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('نام گروه و لینک ساب نمی‌توانند خالی باشند.')),
+                    SnackBar(content: Text(isEn ? 'Group name and URL cannot be empty.' : 'نام گروه و لینک ساب نمی‌توانند خالی باشند.')),
                   );
                   return;
                 }
@@ -1591,7 +1930,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     _selectedGroupId = newGroup.id;
                   });
                   await _saveSubGroupsToDisk();
-                  Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                   _updateSubscription(newGroup);
                 } else {
                   setState(() {
@@ -1599,11 +1938,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     editGroup.url = url;
                   });
                   await _saveSubGroupsToDisk();
-                  Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00D2FF), foregroundColor: Colors.black),
-              child: Text(editGroup == null ? 'افزودن و دانلود' : 'ذخیره تغییرات', style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(
+                editGroup == null 
+                    ? (isEn ? 'Add & Download' : 'افزودن و دانلود')
+                    : (isEn ? 'Save Changes' : 'ذخیره تغییرات'), 
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -1612,6 +1956,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   void _openAddConfigDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
     final textController = TextEditingController();
 
     showDialog(
@@ -1619,11 +1964,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF121520),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_circle_outline_rounded, color: Color(0xFF2DCA73)),
-              SizedBox(width: 12),
-              Text('افزودن کانفیگ تکی یا متنی', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF2DCA73)),
+              const SizedBox(width: 12),
+              Text(
+                isEn ? 'Add Single / Raw Config' : 'افزودن کانفیگ تکی یا متنی', 
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: SizedBox(
@@ -1635,9 +1983,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   controller: textController,
                   maxLines: 5,
                   style: const TextStyle(fontSize: 12),
-                  decoration: const InputDecoration(
-                    labelText: 'لینک کانفیگ (vless / trojan / hy2) یا کد Base64',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isEn ? 'Config link (vless / trojan / hy2) or Base64' : 'لینک کانفیگ (vless / trojan / hy2) یا کد Base64',
+                    border: const OutlineInputBorder(),
                     hintText: 'vless://uuid@host:port?params#name',
                   ),
                 ),
@@ -1653,7 +2001,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         }
                       },
                       icon: const Icon(Icons.paste_rounded, size: 16),
-                      label: const Text('جای‌گذاری از کلیپ‌بورد', style: TextStyle(fontSize: 12)),
+                      label: Text(isEn ? 'Paste from Clipboard' : 'جای‌گذاری از کلیپ‌بورد', style: const TextStyle(fontSize: 12)),
                     )
                   ],
                 )
@@ -1663,7 +2011,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+              child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -1682,18 +2030,25 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     _selectedNode ??= _savedNodeItems.first.node;
                   });
                   await _saveNodesToDisk();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('تعداد ${parsed.length} کانفیگ اضافه شد.'), backgroundColor: const Color(0xFF2DCA73)),
-                  );
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isEn ? '${parsed.length} configs added successfully.' : 'تعداد ${parsed.length} کانفیگ اضافه شد.'), 
+                        backgroundColor: const Color(0xFF2DCA73),
+                      ),
+                    );
+                  }
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('خطا در پارس کانفیگ: $e')),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(isEn ? 'Error parsing config: $e' : 'خطا در پارس کانفیگ: $e')),
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2DCA73)),
-              child: const Text('افزودن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text(isEn ? 'Add' : 'افزودن', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -1702,6 +2057,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   void _openEditDialog(ProxyNode node, int itemIndex) {
+    final bool isEn = AppTranslations.currentLang == 'en';
     final config = V2rayConfig.parse(node.rawUrl);
     
     final aliasController = TextEditingController(text: config.alias);
@@ -1734,7 +2090,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 children: [
                   Icon(Icons.edit_rounded, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 12),
-                  const Text('ویرایش پیکربندی سرور (VLESS / Trojan / Hysteria2)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  Text(
+                    isEn ? 'Edit Server Configuration (VLESS / Trojan / Hysteria2)' : 'ویرایش پیکربندی سرور (VLESS / Trojan / Hysteria2)', 
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               content: SizedBox(
@@ -1745,7 +2104,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Row(
                         children: [
-                          const Text('پروتکل اتصال:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(isEn ? 'Connection Protocol:' : 'پروتکل اتصال:', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           const SizedBox(width: 16),
                           DropdownButton<String>(
                             value: selectedProtocol,
@@ -1763,18 +2122,20 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       ),
                       const Divider(color: Colors.white12, height: 24),
                       
-                      _buildDialogField('نام مستعار (Alias / Remarks)', aliasController),
+                      _buildDialogField(isEn ? 'Alias / Remarks' : 'نام مستعار (Alias / Remarks)', aliasController),
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Expanded(flex: 3, child: _buildDialogField('آدرس سرور (Address)', addressController)),
+                          Expanded(flex: 3, child: _buildDialogField(isEn ? 'Server Address' : 'آدرس سرور (Address)', addressController)),
                           const SizedBox(width: 12),
-                          Expanded(flex: 1, child: _buildDialogField('پورت (Port)', portController, isNumeric: true)),
+                          Expanded(flex: 1, child: _buildDialogField(isEn ? 'Port' : 'پورت (Port)', portController, isNumeric: true)),
                         ],
                       ),
                       const SizedBox(height: 12),
                       _buildDialogField(
-                        selectedProtocol == 'hysteria2' ? 'رمز عبور احراز هویت (Auth Password)' : 'شناسه کاربر (UUID / Password)', 
+                        selectedProtocol == 'hysteria2' 
+                            ? (isEn ? 'Auth Password' : 'رمز عبور احراز هویت (Auth Password)')
+                            : (isEn ? 'UUID / Password' : 'شناسه کاربر (UUID / Password)'), 
                         uuidController
                       ),
                       const SizedBox(height: 12),
@@ -1783,7 +2144,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('پروتکل انتقال (Transport):', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(isEn ? 'Transport Protocol:' : 'پروتکل انتقال (Transport):', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             DropdownButton<String>(
                               value: selectedTransport,
                               dropdownColor: const Color(0xFF090B10),
@@ -1800,21 +2161,24 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         ),
                         const SizedBox(height: 12),
 
-                        _buildDialogField('میزبان وب‌ساکت (Host)', hostController),
+                        _buildDialogField(isEn ? 'WebSocket Host' : 'میزبان وب‌ساکت (Host)', hostController),
                         const SizedBox(height: 12),
-                        _buildDialogField('مسیر وب‌ساکت (Path)', pathController),
+                        _buildDialogField(isEn ? 'WebSocket Path' : 'مسیر وب‌ساکت (Path)', pathController),
                         const SizedBox(height: 12),
                       ],
 
                       const Divider(color: Colors.white12, height: 24),
-                      const Text('تنظیمات امنیت لایه اتصال (TLS / Reality)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      Text(
+                        isEn ? 'TLS & Reality Security Settings' : 'تنظیمات امنیت لایه اتصال (TLS / Reality)', 
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
                       const SizedBox(height: 12),
 
                       if (selectedProtocol != 'hysteria2') ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('نوع امنیت (Security):', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(isEn ? 'Security Type:' : 'نوع امنیت (Security):', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             DropdownButton<String>(
                               value: selectedSecurity,
                               dropdownColor: const Color(0xFF090B10),
@@ -1832,15 +2196,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         const SizedBox(height: 12),
                       ],
 
-                      _buildDialogField('نام سرور امن (SNI / Peer)', sniController),
+                      _buildDialogField(isEn ? 'Server Name (SNI / Peer)' : 'نام سرور امن (SNI / Peer)', sniController),
                       const SizedBox(height: 12),
 
                       if (selectedSecurity == 'reality') ...[
-                        _buildDialogField('کلید عمومی ریالیتی (Public Key / pbk)', pbkController),
+                        _buildDialogField(isEn ? 'Reality Public Key (pbk)' : 'کلید عمومی ریالیتی (Public Key / pbk)', pbkController),
                         const SizedBox(height: 12),
-                        _buildDialogField('شناسه کوتاه ریالیتی (Short ID / sid)', sidController),
+                        _buildDialogField(isEn ? 'Reality Short ID (sid)' : 'شناسه کوتاه ریالیتی (Short ID / sid)', sidController),
                         const SizedBox(height: 12),
-                        _buildDialogField('مسیر اسپایدر (SpiderX / spx)', spxController),
+                        _buildDialogField(isEn ? 'SpiderX Path (spx)' : 'مسیر اسپایدر (SpiderX / spx)', spxController),
                         const SizedBox(height: 12),
                       ],
 
@@ -1848,7 +2212,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('اثر انگشت مرورگر (Fingerprint):', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(isEn ? 'Browser Fingerprint:' : 'اثر انگشت مرورگر (Fingerprint):', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             DropdownButton<String>(
                               value: selectedFingerprint,
                               dropdownColor: const Color(0xFF090B10),
@@ -1868,7 +2232,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('پروتکل ALPN:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(isEn ? 'ALPN Protocol:' : 'پروتکل ALPN:', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             DropdownButton<String>(
                               value: selectedAlpn,
                               dropdownColor: const Color(0xFF090B10),
@@ -1888,7 +2252,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('نادیده گرفتن خطای گواهی امنیتی (Allow Insecure)', style: TextStyle(fontSize: 12)),
+                        title: Text(
+                          isEn ? 'Allow Insecure Certificates' : 'نادیده گرفتن خطای گواهی امنیتی (Allow Insecure)', 
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         value: allowInsecure,
                         activeThumbColor: const Color(0xFF6C5DD3),
                         onChanged: (val) {
@@ -1896,7 +2263,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         },
                       ),
                       const SizedBox(height: 12),
-                      _buildDialogField('رشته پیکربندی رمزنگاری هدر (EchConfigList)', echController, hint: 'کد Base64 یا لیست ECH Config'),
+                      _buildDialogField(
+                        isEn ? 'ECH Config List (EchConfigList)' : 'رشته پیکربندی رمزنگاری هدر (EchConfigList)', 
+                        echController, 
+                        hint: isEn ? 'Base64 ECH Config list' : 'کد Base64 یا لیست ECH Config',
+                      ),
                     ],
                   ),
                 ),
@@ -1904,7 +2275,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+                  child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -1938,7 +2309,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       if (_selectedNode == node) {
                         _selectedNode = updatedNode;
                       }
-                      _statusMessage = "تنظیمات سرور '${updatedConfig.alias}' به‌روزرسانی شد.";
+                      _statusMessage = isEn ? "Server '${updatedConfig.alias}' updated." : "تنظیمات سرور '${updatedConfig.alias}' به‌روزرسانی شد.";
                     });
                     
                     final navigator = Navigator.of(context);
@@ -1946,7 +2317,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     navigator.pop();
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C5DD3)),
-                  child: const Text('ثبت تغییرات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(isEn ? 'Save Changes' : 'ثبت تغییرات', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -2162,12 +2533,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   @override
+  @override
   void onWindowClose() async {
     bool isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
       await windowManager.hide();
       setState(() {
-        _statusMessage = "برنامه در پس‌زمینه و کنار ساعت فعال است.";
+        _statusMessage = AppTranslations.currentLang == 'en'
+            ? "App is running in background (System Tray)."
+            : "برنامه در پس‌زمینه و کنار ساعت فعال است.";
       });
     }
   }
@@ -2224,6 +2598,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       final activeDns = await isDnsActive();
       final activeLan = await isLanRelayRunning();
       final activeGoodbye = await isGoodbyedpiRunning();
+      final bool isEn = AppTranslations.currentLang == 'en';
       
       if (mounted) {
         setState(() {
@@ -2239,33 +2614,33 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           _isGoodbyeDpiRunning = activeGoodbye;
           
           if (activeHybrid) {
-            _statusMessage = "متصل به اتصال هیبریدی RedCloud (پل اِتر + Sing-box)";
+            _statusMessage = isEn ? "Connected to RedCloud Hybrid (Aether + Sing-box)" : "متصل به اتصال هیبریدی RedCloud (پل اِتر + Sing-box)";
             _startTrafficMonitoring();
             _fetchIpInfo();
           } else if (activeTorMasque) {
-            _statusMessage = "متصل به شبکه پیاز تور بر بستر مسک (Tor over MASQUE)";
+            _statusMessage = isEn ? "Connected to Tor over MASQUE Bridge" : "متصل به شبکه پیاز تور بر بستر مسک (Tor over MASQUE)";
             _fetchIpInfo();
           } else if (activePsiphonMasque) {
-            _statusMessage = "متصل به شبکه سایفون بر بستر مسک (Psiphon over MASQUE)";
+            _statusMessage = isEn ? "Connected to Psiphon over MASQUE Bridge" : "متصل به شبکه سایفون بر بستر مسک (Psiphon over MASQUE)";
             _fetchIpInfo();
           } else if (activeAether) {
-            _statusMessage = "متصل به شبکه ضدسانسور اِتر (MASQUE)";
+            _statusMessage = isEn ? "Connected to Aether Network (MASQUE)" : "متصل به شبکه ضدسانسور اِتر (MASQUE)";
             _fetchIpInfo();
           } else if (activeProxy) {
-            _statusMessage = "متصل به سرور ویتوری";
+            _statusMessage = isEn ? "Connected to V2Ray Direct Server" : "متصل به سرور ویتوری";
             _startTrafficMonitoring();
             _startTelemetryReporting();
             _fetchIpInfo();
           } else if (activeTor) {
-            _statusMessage = "متصل به شبکه پیاز تور";
+            _statusMessage = isEn ? "Connected to Tor Onion Network" : "متصل به شبکه پیاز تور";
             _fetchIpInfo();
           } else if (activePsiphon) {
-            _statusMessage = "متصل به شبکه سایفون";
+            _statusMessage = isEn ? "Connected to Psiphon Network" : "متصل به شبکه سایفون";
             _fetchIpInfo();
           } else if (activeDns) {
-            _statusMessage = "تنظیمات دی‌ان‌اس بر روی سیستم فعال است.";
+            _statusMessage = isEn ? "System DNS is active." : "تنظیمات دی‌ان‌اس بر روی سیستم فعال است.";
           } else {
-            _statusMessage = "قطع اتصال";
+            _statusMessage = 'status_disconnected'.tr();
           }
         });
       }
@@ -2324,14 +2699,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             String? country = data['country'] ?? data['countryName'];
             String? city = data['city'] ?? data['cityName'];
 
+            final bool isEn = AppTranslations.currentLang == 'en';
             if (ip != null && countryCode != null && mounted) {
               setState(() {
                 _publicIp = ip;
                 _countryCode = countryCode;
-                _countryName = country ?? 'ناشناس';
-                _cityName = city ?? 'ناشناس';
+                _countryName = country ?? (isEn ? 'Unknown' : 'ناشناس');
+                _cityName = city ?? (isEn ? 'Unknown' : 'ناشناس');
                 _isLoadingIpInfo = false;
-                _statusMessage = "اتصال پایدار و ترافیک فعال است (لوکیشن: $_countryName).";
+                _statusMessage = isEn 
+                    ? "Connection stable, traffic active (Location: $_countryName)." 
+                    : "اتصال پایدار و ترافیک فعال است (لوکیشن: $_countryName).";
               });
               AppLogger.info("IP_GEO", "اطلاعات آی‌پی دریافت شد: $ip ($country)");
               return;
@@ -2349,9 +2727,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Future<void> _fetchGithubAccounts() async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     setState(() {
       _isLoadingAccounts = true;
-      _statusMessage = "در حال دریافت لیست اکانت‌های فعال از گیت‌هاب...";
+      _statusMessage = isEn ? "Fetching active accounts from GitHub..." : "در حال دریافت لیست اکانت‌های فعال از گیت‌هاب...";
     });
 
     try {
@@ -2378,7 +2757,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         }
 
         if (parsedList.isEmpty) {
-          throw Exception("تمام سرورهای اشتراکی پر هستند.");
+          throw Exception(isEn ? "All shared accounts are full." : "تمام سرورهای اشتراکی پر هستند.");
         }
 
         parsedList.sort((a, b) {
@@ -2398,14 +2777,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             path: selectedRandoms[i].path,
             status: selectedRandoms[i].status,
             usedBytes: selectedRandoms[i].usedBytes,
-            name: 'اکانت ${i + 1} (${selectedRandoms[i].status == 'full' ? 'فول شارژ' : 'ظرفیت متوسط'})',
+            name: isEn 
+                ? 'Account ${i + 1} (${selectedRandoms[i].status == 'full' ? 'Full' : 'Medium'})'
+                : 'اکانت ${i + 1} (${selectedRandoms[i].status == 'full' ? 'فول شارژ' : 'ظرفیت متوسط'})',
           ));
         }
 
         setState(() {
           _githubAccounts = finalAccounts;
           _isLoadingAccounts = false;
-          _statusMessage = "تعداد ${_githubAccounts.length} اکانت بارگذاری شد.";
+          _statusMessage = isEn ? "${_githubAccounts.length} accounts loaded." : "تعداد ${_githubAccounts.length} اکانت بارگذاری شد.";
           
           if (_githubAccounts.isNotEmpty) {
             _selectAccount(_githubAccounts.first);
@@ -2413,24 +2794,27 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         });
 
       } else {
-        throw Exception("خطا در پاسخ سرور گیت‌هاب: کد ${response.statusCode}");
+        throw Exception("GitHub API Error: ${response.statusCode}");
       }
     } catch (e, st) {
-      AppLogger.error("GITHUB_ACCOUNTS", "خطا در دریافت اکانت‌ها از گیت‌هاب", e, st);
+      AppLogger.error("GITHUB_ACCOUNTS", "Error fetching accounts", e, st);
       setState(() {
         _isLoadingAccounts = false;
-        _statusMessage = "خطا در دریافت اکانت‌ها: $e";
+        _statusMessage = isEn ? "Error fetching accounts: $e" : "خطا در دریافت اکانت‌ها: $e";
       });
     }
   }
 
   void _selectAccount(VlessAccount account) {
+    final bool isEn = AppTranslations.currentLang == 'en';
     setState(() {
       _selectedGithubAccount = account;
       _uuidController.text = account.uuid;
       _workerController.text = account.worker;
       _pathController.text = account.path;
-      _statusMessage = "اطلاعات ${account.name} روی فیلدها اعمال شد.";
+      _statusMessage = isEn 
+          ? "${account.name} applied to fields." 
+          : "اطلاعات ${account.name} روی فیلدها اعمال شد.";
     });
   }
 
@@ -2464,8 +2848,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Future<void> _startCloudflareScan({String mode = "quick", bool earlyStop = false}) async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     if (_uuidController.text.isEmpty || _pathController.text.isEmpty || _workerController.text.isEmpty) {
-      setState(() => _statusMessage = "خطا: لطفاً ابتدا اطلاعات اکانت را پر کنید.");
+      setState(() => _statusMessage = isEn 
+          ? "Error: Please fill in account details first." 
+          : "خطا: لطفاً ابتدا اطلاعات اکانت را پر کنید.");
       return;
     }
 
@@ -2475,9 +2862,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       _scannedTotal = 0;
       _scannedAlive = 0;
       _scannedDead = 0;
-      _statusMessage = mode == "deep" 
-          ? "در حال اسکن عمیق و چندنخی از فایل cloudflare_IPs.txt..." 
-          : "در حال اجرای اسکن سریع کلودفلر...";
+      _statusMessage = isEn 
+          ? (mode == "deep" 
+              ? "Running deep multi-threaded scan from cloudflare_IPs.txt..." 
+              : "Running quick Cloudflare scan...")
+          : (mode == "deep" 
+              ? "در حال اسکن عمیق و چندنخی از فایل cloudflare_IPs.txt..." 
+              : "در حال اجرای اسکن سریع کلودفلر...");
     });
 
     _scanStatsTimer = Timer.periodic(const Duration(milliseconds: 250), (timer) async {
@@ -2511,9 +2902,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       setState(() {
         _isScanning = false;
         if (cleanNodes.isEmpty) {
-          _statusMessage = "اسکن پایان یافت؛ هیچ آی‌پی تمیزی یافت نشد.";
+          _statusMessage = isEn 
+              ? "Scan finished; no clean IPs found." 
+              : "اسکن پایان یافت؛ هیچ آی‌پی تمیزی یافت نشد.";
         } else {
-          _statusMessage = "اسکن پایان یافت! تعداد ${cleanNodes.length} آی‌پی تمیز و پرسرعت یافت شد.";
+          _statusMessage = isEn 
+              ? "Scan finished! Found ${cleanNodes.length} clean, high-speed IPs." 
+              : "اسکن پایان یافت! تعداد ${cleanNodes.length} آی‌پی تمیز و پرسرعت یافت شد.";
           
           _savedNodeItems.removeWhere((item) => item.groupId == 'scanner');
           for (var node in cleanNodes) {
@@ -2533,23 +2928,26 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       await _saveNodesToDisk();
     } catch (e, st) {
       _scanStatsTimer?.cancel();
-      AppLogger.error("SCANNER", "خطا در حین اسکن کلودفلر", e, st);
+      AppLogger.error("SCANNER", "Error during scan", e, st);
       setState(() {
         _isScanning = false;
-        _statusMessage = "خطا در اسکن: $e";
+        _statusMessage = isEn ? "Scan error: $e" : "خطا در اسکن: $e";
       });
     }
   }
 
   void _stopCloudflareScan() async {
+    final bool isEn = AppTranslations.currentLang == 'en';
     try {
       await stopCloudflareScanner();
       _scanStatsTimer?.cancel();
       setState(() {
-        _statusMessage = "دستور توقف اسکن ارسال شد. در حال جمع‌آوری آی‌پی‌های سفید...";
+        _statusMessage = isEn 
+            ? "Stop command sent. Collecting clean IPs..." 
+            : "دستور توقف اسکن ارسال شد. در حال جمع‌آوری آی‌پی‌های سفید...";
       });
     } catch (e, st) {
-      AppLogger.error("SCANNER", "خطا در توقف اسکن", e, st);
+      AppLogger.error("SCANNER", "Error stopping scan", e, st);
     }
   }
 
@@ -3147,100 +3545,100 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   _TabTheme _getTabTheme(int index) {
     switch (index) {
       case 0:
-        return const _TabTheme(
-          gradient: [Color(0xFF00D2FF), Color(0xFFFF8008)],
-          accent: Color(0xFF00D2FF),
-          glow: Color(0xFFFF8008),
+        return _TabTheme(
+          gradient: const [Color(0xFF00D2FF), Color(0xFFFF8008)],
+          accent: const Color(0xFF00D2FF),
+          glow: const Color(0xFFFF8008),
           icon: Icons.dashboard_rounded,
-          title: 'داشبورد ویتوری',
+          title: 'menu_dashboard'.tr(),
         );
       case 1:
-        return const _TabTheme(
-          gradient: [Color(0xFF00D2FF), Color(0xFF0072FF)],
-          accent: Color(0xFF00D2FF),
-          glow: Color(0xFF00D2FF),
+        return _TabTheme(
+          gradient: const [Color(0xFF00D2FF), Color(0xFF0072FF)],
+          accent: const Color(0xFF00D2FF),
+          glow: const Color(0xFF00D2FF),
           icon: Icons.bolt_rounded,
-          title: 'شبکه اِتر (MASQUE)',
+          title: 'menu_aether'.tr(),
         );
       case 2:
-        return const _TabTheme(
-          gradient: [Color(0xFF6C5DD3), Color(0xFF2DCA73)],
-          accent: Color(0xFF2DCA73),
-          glow: Color(0xFF6C5DD3),
+        return _TabTheme(
+          gradient: const [Color(0xFF6C5DD3), Color(0xFF2DCA73)],
+          accent: const Color(0xFF2DCA73),
+          glow: const Color(0xFF6C5DD3),
           icon: Icons.tune_rounded,
-          title: 'پیکربندی و سرورها',
+          title: 'menu_configs'.tr(),
         );
       case 3:
-        return const _TabTheme(
-          gradient: [Color(0xFF8A2387), Color(0xFFE94057)],
-          accent: Color(0xFFE94057),
-          glow: Color(0xFF8A2387),
+        return _TabTheme(
+          gradient: const [Color(0xFF8A2387), Color(0xFFE94057)],
+          accent: const Color(0xFFE94057),
+          glow: const Color(0xFF8A2387),
           icon: Icons.blur_circular_rounded,
-          title: 'شبکه پیاز تور (Tor)',
+          title: 'menu_tor'.tr(),
         );
       case 4:
-        return const _TabTheme(
-          gradient: [Color(0xFF11998E), Color(0xFF38EF7D)],
-          accent: Color(0xFF38EF7D),
-          glow: Color(0xFF11998E),
+        return _TabTheme(
+          gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
+          accent: const Color(0xFF38EF7D),
+          glow: const Color(0xFF11998E),
           icon: Icons.security_rounded,
-          title: 'شبکه سایفون (Psiphon)',
+          title: 'menu_psiphon'.tr(),
         );
       case 5:
-        return const _TabTheme(
-          gradient: [Color(0xFFFF8008), Color(0xFFFFC837)],
-          accent: Color(0xFFFF8008),
-          glow: Color(0xFFFFC837),
+        return _TabTheme(
+          gradient: const [Color(0xFFFF8008), Color(0xFFFFC837)],
+          accent: const Color(0xFFFF8008),
+          glow: const Color(0xFFFFC837),
           icon: Icons.radar_rounded,
-          title: 'اسکنر کلودفلر',
+          title: 'menu_scanner'.tr(),
         );
       case 6:
-        return const _TabTheme(
-          gradient: [Color(0xFF2193B0), Color(0xFF6DD5ED)],
-          accent: Color(0xFF6DD5ED),
-          glow: Color(0xFF2193B0),
+        return _TabTheme(
+          gradient: const [Color(0xFF2193B0), Color(0xFF6DD5ED)],
+          accent: const Color(0xFF6DD5ED),
+          glow: const Color(0xFF2193B0),
           icon: Icons.dns_rounded,
-          title: 'تغییر دهنده DNS',
+          title: 'menu_dns'.tr(),
         );
       case 7:
-        return const _TabTheme(
-          gradient: [Color(0xFF00C6FF), Color(0xFF0072FF)],
-          accent: Color(0xFF00C6FF),
-          glow: Color(0xFF0072FF),
+        return _TabTheme(
+          gradient: const [Color(0xFF00C6FF), Color(0xFF0072FF)],
+          accent: const Color(0xFF00C6FF),
+          glow: const Color(0xFF0072FF),
           icon: Icons.qr_code_2_rounded,
-          title: 'اشتراک‌گذاری LAN و QR',
+          title: 'menu_lan'.tr(),
         );
       case 8:
-        return const _TabTheme(
-          gradient: [Color(0xFF4A5568), Color(0xFF718096)],
-          accent: Color(0xFFA0AEC0),
-          glow: Color(0xFF718096),
+        return _TabTheme(
+          gradient: const [Color(0xFF4A5568), Color(0xFF718096)],
+          accent: const Color(0xFFA0AEC0),
+          glow: const Color(0xFF718096),
           icon: Icons.settings_rounded,
-          title: 'تنظیمات برنامه',
+          title: 'menu_settings'.tr(),
         );
       case 9:
-        return const _TabTheme(
-          gradient: [Color(0xFFF9D423), Color(0xFFFF4E50)],
-          accent: Color(0xFFF9D423),
-          glow: Color(0xFFFF4E50),
+        return _TabTheme(
+          gradient: const [Color(0xFFF9D423), Color(0xFFFF4E50)],
+          accent: const Color(0xFFF9D423),
+          glow: const Color(0xFFFF4E50),
           icon: Icons.menu_book_rounded,
-          title: 'راهنمای جامع کاربری',
+          title: 'menu_help'.tr(),
         );
       case 10:
-        return const _TabTheme(
-          gradient: [Color(0xFFED213A), Color(0xFF93291E)],
-          accent: Color(0xFFFF4B4B),
-          glow: Color(0xFFED213A),
+        return _TabTheme(
+          gradient: const [Color(0xFFED213A), Color(0xFF93291E)],
+          accent: const Color(0xFFFF4B4B),
+          glow: const Color(0xFFED213A),
           icon: Icons.shield_rounded,
-          title: 'تنظیمات Anti-DPI',
+          title: 'menu_anti_dpi'.tr(),
         );
       default:
-        return const _TabTheme(
-          gradient: [Color(0xFF6C5DD3), Color(0xFF00D2FF)],
-          accent: Color(0xFF00D2FF),
-          glow: Color(0xFF6C5DD3),
+        return _TabTheme(
+          gradient: const [Color(0xFF6C5DD3), Color(0xFF00D2FF)],
+          accent: const Color(0xFF00D2FF),
+          glow: const Color(0xFF6C5DD3),
           icon: Icons.dashboard_rounded,
-          title: 'داشبورد',
+          title: 'menu_dashboard'.tr(),
         );
     }
   }
@@ -3316,7 +3714,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Directionality(
+      textDirection: AppTranslations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
       body: Stack(
         children: [
           Row(
@@ -3429,7 +3829,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             icon: const Icon(Icons.send_rounded, size: 14),
-                            label: const Text('تلگرام', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text('telegram'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -3445,15 +3845,18 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             icon: const Icon(Icons.favorite_rounded, size: 14, color: Colors.amberAccent),
-                            label: const Text('حمایت', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: Text('donate'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    const Center(
-                      child: Text('نسخه ضدسانسور ۳.۵ (Hybrid)', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                    Center(
+                      child: Text(
+                        'app_edition'.tr(params: {'version': appCurrentVersion}),
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
+                      ),
                     )
                   ],
                 ),
@@ -3474,12 +3877,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildUpdateCard() {
     if (_hasUpdate && _pulseAnimation != null) {
-      final displayVer = _latestVersion.isNotEmpty ? _latestVersion : 'جدید';
+      final displayVer = _latestVersion.isNotEmpty ? _latestVersion : 'new';
       return AnimatedBuilder(
         animation: _pulseAnimation!,
         builder: (context, child) {
@@ -3508,8 +3912,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'آپدیت نسخه $displayVer آماده است',
-                      textDirection: TextDirection.rtl,
+                      'update_available'.tr(params: {'version': displayVer}),
                       style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3541,7 +3944,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 Icon(Icons.sync_rounded, size: 14, color: _isCheckingUpdate ? Colors.amberAccent : Colors.grey),
                 const SizedBox(width: 6),
                 Text(
-                  _isCheckingUpdate ? 'بررسی...' : 'بررسی آپدیت نرم‌افزار',
+                  _isCheckingUpdate ? 'checking_update'.tr() : 'check_update'.tr(),
                   style: const TextStyle(color: Colors.grey, fontSize: 11),
                 ),
               ],
@@ -3677,21 +4080,20 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // هدر ریسپانسیو و ضد overflow با اضافه شدن Expanded
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('داشبورد ویتوری و اتصال هیبریدی', 
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                  Text('dash_title'.tr(), 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text('کنترل ترافیک با قابلیت زنجیره‌سازی خودکار از دل پل ضدسانسور اِتر', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12.5),
+                  const SizedBox(height: 4),
+                  Text('dash_subtitle'.tr(), 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12.5),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -3701,7 +4103,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             Row(
               children: [
                 _buildGoodbyeDpiSwitchTile(
-                  tabName: 'داشبورد',
+                  tabName: 'dash_title'.tr(),
                   value: _useGoodbyeDpiDashboard,
                   onChanged: (val) {
                     setState(() => _useGoodbyeDpiDashboard = val);
@@ -3718,7 +4120,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Icon(Icons.hub_rounded, size: 18, color: _isHybridModeEnabled ? const Color(0xFF00D2FF) : Colors.grey),
                       const SizedBox(width: 8),
-                      const Text('اتصال هیبریدی:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('hybrid_mode'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(width: 6),
                       Switch(
                         value: _isHybridModeEnabled,
@@ -3797,10 +4199,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 22),
                       Text(
                         _isHybridRunning 
-                            ? 'متصل به اتصال هیبریدی (پل اِتر + Sing-box)' 
+                            ? 'connected_hybrid'.tr() 
                             : _isProxyRunning 
-                                ? 'متصل به ویتوری مستقیم' 
-                                : (_isHybridModeEnabled ? 'جهت اتصال هیبریدی ضربه بزنید' : 'جهت اتصال ویتوری مستقیم ضربه بزنید'),
+                                ? 'connected_direct'.tr() 
+                                : (_isHybridModeEnabled ? 'tap_to_connect_hybrid'.tr() : 'tap_to_connect_direct'.tr()),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14.5, 
@@ -3821,9 +4223,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Row(
                         children: [
-                          Expanded(child: _buildStatCard('دانلود', _downloadSpeed, Icons.arrow_downward_rounded, const Color(0xFF00D2FF))),
+                          Expanded(child: _buildStatCard('download'.tr(), _downloadSpeed, Icons.arrow_downward_rounded, const Color(0xFF00D2FF))),
                           const SizedBox(width: 16),
-                          Expanded(child: _buildStatCard('آپلود', _uploadSpeed, Icons.arrow_upward_rounded, const Color(0xFFFF8008))),
+                          Expanded(child: _buildStatCard('upload'.tr(), _uploadSpeed, Icons.arrow_upward_rounded, const Color(0xFFFF8008))),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -3831,8 +4233,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: SwitchListTile(
-                          title: const Text('تنظیم اتوماتیک پروکسی سیستم‌عامل', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('فعال‌سازی رجیستری ویندوز جهت عبور کل ترافیک سیستم', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          title: Text('sys_proxy_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           value: _useSystemProxy,
                           activeThumbColor: const Color(0xFF00D2FF),
                           onChanged: _useTunMode ? null : (bool value) {
@@ -3847,8 +4249,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: SwitchListTile(
-                          title: const Text('فعال‌سازی کارت شبکه مجازی (TUN Mode)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('عبور ترافیک کل سیستم (حتی بازی‌ها و برنامه‌های بدون پروکسی)', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          title: Text('tun_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('tun_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           value: _useTunMode,
                           activeThumbColor: const Color(0xFFFF8008),
                           onChanged: (bool value) {
@@ -3879,13 +4281,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'تنظیمات پیشرفته ضدسانسور (Anti-DPI)',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  Text(
+                                    'anti_dpi_box_title'.tr(),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'جعل اثر انگشت مرورگر، فرگمنت ترافیک و تزریق اس‌ان‌آی فیک',
+                                    'anti_dpi_box_sub'.tr(),
                                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                                   ),
                                 ],
@@ -3902,7 +4304,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: const Text('پیکربندی', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              child: Text('configure'.tr(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
@@ -3927,10 +4329,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('سرور فعال برای خروجی ویتوری', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  Text('active_server_outbound'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _selectedNode?.name ?? "سرور خودکار (دریافت اتوماتیک از گیت‌هاب)", 
+                                    _selectedNode?.name ?? 'auto_github_server'.tr(), 
                                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -3950,7 +4352,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _statusMessage, 
+                                _localizedStatusMessage, 
                                 style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'monospace'),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -3972,6 +4374,33 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   Widget _buildAetherPage() {
     final bool isActive = _isAetherRunning;
     final bool isLoading = _isAetherConnecting;
+    final bool isEn = AppTranslations.currentLang == 'en';
+
+    String getModeName(String key) {
+      if (isEn) {
+        switch (key) {
+          case 'auto': return 'Smart Auto Failover (Recommended)';
+          case 'masque_h3': return 'MASQUE H3 (QUIC) - High Speed';
+          case 'masque_h2': return 'MASQUE H2 + Fragment - Anti-UDP Throttle';
+          case 'gool': return 'Gool (WARP-in-WARP) - Dual Tunnel';
+          case 'wireguard': return 'WireGuard - Standard Protocol';
+          default: return key;
+        }
+      }
+      return _aetherModes[key] ?? key;
+    }
+
+    String getNoizeName(String key) {
+      if (isEn) {
+        switch (key) {
+          case 'firewall': return 'Firewall (Anti-filtering & advanced blocking)';
+          case 'light': return 'Light (Max speed & low latency)';
+          case 'aggressive': return 'Aggressive (Bypass severe disruption)';
+          default: return key;
+        }
+      }
+      return _aetherNoizeProfiles[key] ?? key;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3988,10 +4417,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   BoxShadow(color: const Color(0xFF00D2FF).withValues(alpha: 0.35), blurRadius: 10),
                 ],
               ),
-              child: const Text('پروتکل نسل جدید MASQUE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              child: Text('aether_badge'.tr(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             _buildGoodbyeDpiSwitchTile(
-              tabName: 'اِتر',
+              tabName: 'aether_title'.tr(),
               value: _useGoodbyeDpiAether,
               onChanged: (val) {
                 setState(() => _useGoodbyeDpiAether = val);
@@ -4001,8 +4430,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           ],
         ),
         const SizedBox(height: 8),
-        const Text('شبکه ضدسانسور اِتر (Aether Engine)', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
-        const Text('اتصال مستقیم و مقاوم به شبکه Cloudflare Zero Trust بر بستر HTTP/3 QUIC بدون نیاز به دامنه شخصی', style: TextStyle(color: Colors.grey, fontSize: 13)),
+        Text('aether_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+        Text('aether_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(height: 28),
         Expanded(
           child: Row(
@@ -4064,10 +4493,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 22),
                       Text(
                         isActive 
-                            ? 'متصل به شبکه اِتر (MASQUE)' 
+                            ? 'aether_connected'.tr() 
                             : isLoading 
-                                ? 'در حال اسکن و تایید عبور داده: $_aetherProgressPercent٪' 
-                                : 'جهت اتصال به شبکه اِتر ضربه بزنید',
+                                ? 'aether_connecting'.tr(params: {'percent': '$_aetherProgressPercent'}) 
+                                : 'aether_tap_to_connect'.tr(),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15.5, 
@@ -4091,11 +4520,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.tune_rounded, color: Color(0xFF00D2FF), size: 18),
-                                SizedBox(width: 10),
-                                Text('حالت پروتکل ضدسانسور (Mode):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.tune_rounded, color: Color(0xFF00D2FF), size: 18),
+                                const SizedBox(width: 10),
+                                Text('aether_mode_label'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -4109,24 +4538,24 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 if (newValue != null) {
                                   setState(() {
                                     _selectedAetherMode = newValue;
-                                    _statusMessage = "حالت پروتکل اتر به ${_aetherModes[newValue]} تغییر کرد.";
+                                    _statusMessage = "Aether mode changed to $newValue";
                                   });
                                 }
                               },
-                              items: _aetherModes.entries.map((entry) {
+                              items: _aetherModes.keys.map((key) {
                                 return DropdownMenuItem<String>(
-                                  value: entry.key,
-                                  child: Text(entry.value),
+                                  value: key,
+                                  child: Text(getModeName(key)),
                                 );
                               }).toList(),
                             ),
                             const Divider(color: Colors.white10, height: 20),
                             
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.waves_rounded, color: Color(0xFF00D2FF), size: 18),
-                                SizedBox(width: 10),
-                                Text('پروفایل پارازیت ضد DPI (Noize):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.waves_rounded, color: Color(0xFF00D2FF), size: 18),
+                                const SizedBox(width: 10),
+                                Text('aether_noise_label'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -4144,10 +4573,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                   _saveAntiDpiToDisk();
                                 }
                               },
-                              items: _aetherNoizeProfiles.entries.map((entry) {
+                              items: _aetherNoizeProfiles.keys.map((key) {
                                 return DropdownMenuItem<String>(
-                                  value: entry.key,
-                                  child: Text(entry.value),
+                                  value: key,
+                                  child: Text(getNoizeName(key)),
                                 );
                               }).toList(),
                             ),
@@ -4160,17 +4589,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: ExpansionTile(
-                          title: const Text('تنظیمات پیشرفته (اکانت WARP+ و Zero Trust)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          title: Text('aether_adv_title'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           leading: const Icon(Icons.vpn_key_rounded, color: Colors.amberAccent, size: 18),
                           childrenPadding: const EdgeInsets.all(16),
                           children: [
                             TextField(
                               controller: _aetherWarpKeyController,
                               style: const TextStyle(fontSize: 12),
-                              decoration: const InputDecoration(
-                                labelText: 'کلید لایسنس WARP+ (اختیاری)',
-                                hintText: 'لایسنس ۲۴ کاراکتری وارپ پلاس',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: 'aether_warp_key'.tr(),
+                                hintText: 'aether_warp_hint'.tr(),
+                                border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
                               onChanged: (_) => _saveAntiDpiToDisk(),
@@ -4179,10 +4608,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             TextField(
                               controller: _aetherTeamController,
                               style: const TextStyle(fontSize: 12),
-                              decoration: const InputDecoration(
-                                labelText: 'نام سازمان یا توکن Team کلودفلر (اختیاری)',
-                                hintText: 'مثلاً myteam.cloudflarewarp.com',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: 'aether_team_token'.tr(),
+                                hintText: 'aether_team_hint'.tr(),
+                                border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
                               onChanged: (_) => _saveAntiDpiToDisk(),
@@ -4195,8 +4624,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: SwitchListTile(
-                          title: const Text('تنظیم اتوماتیک پروکسی سیستم‌عامل (HTTP 1820 & SOCKS 1819)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('هدایت خودکار ترافیک کروم و ویندوز به درگاه Aether', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          title: Text('aether_sys_proxy'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('aether_sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           value: _useSystemProxy,
                           activeThumbColor: const Color(0xFF00D2FF),
                           onChanged: isActive || isLoading ? null : (bool value) {
@@ -4215,20 +4644,26 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.terminal_rounded, size: 16, color: Color(0xFF00D2FF)),
-                                SizedBox(width: 8),
-                                Text('وضعیت زنده اسکنر Data-Plane اتر:', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.terminal_rounded, size: 16, color: Color(0xFF00D2FF)),
+                                const SizedBox(width: 8),
+                                Text('aether_live_status'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _aetherStatusText, 
-                              style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+  isEn 
+      ? (_aetherStatusText.contains("در حال اسکن") 
+          ? "Scanning & probing anti-censorship protocols..." 
+          : (_aetherStatusText.contains("پل ارتباطی") 
+              ? "Bridge connected successfully!" 
+              : (_aetherStatusText == "آماده اتصال" ? "Ready to connect" : _aetherStatusText)))
+      : _aetherStatusText,
+  style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
+  maxLines: 2,
+  overflow: TextOverflow.ellipsis,
+),
                           ],
                         ),
                       )
@@ -4252,17 +4687,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('مدیریت پیشرفته سرورها و ساب‌اسکریپشن', 
-                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                  Text('configs_title'.tr(), 
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text('دسته‌بندی گروه‌های ساب، بروزرسانی خودکار، فیلتر آنی و تست پینگ فوق‌سریع', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 4),
+                  Text('configs_subtitle'.tr(), 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -4280,7 +4715,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('افزودن کانفیگ تکی', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text('add_single_config'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
@@ -4292,7 +4727,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.playlist_add_rounded, size: 18),
-                  label: const Text('افزودن ساب جدید', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text('add_new_sub'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             )
@@ -4308,14 +4743,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             children: [
               _buildSubGroupTab(
                 id: 'all',
-                label: 'همه سرورها',
+                label: 'tab_all_servers'.tr(),
                 count: _savedNodeItems.length,
                 isSelected: _selectedGroupId == 'all',
               ),
               const SizedBox(width: 8),
               _buildSubGroupTab(
                 id: 'manual',
-                label: 'دستی و اسکنر',
+                label: 'tab_manual_scanner'.tr(),
                 count: _savedNodeItems.where((i) => i.groupId == 'manual' || i.groupId.startsWith('scanner')).length,
                 isSelected: _selectedGroupId == 'manual',
               ),
@@ -4356,7 +4791,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     },
                     style: const TextStyle(fontSize: 12),
                     decoration: InputDecoration(
-                      hintText: 'جستجوی سرور بر اساس نام، پورت، آی‌پی، پروتکل...',
+                      hintText: 'search_placeholder'.tr(),
                       hintStyle: const TextStyle(fontSize: 11, color: Colors.white30),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Colors.grey),
                       suffixIcon: _serverSearchQuery.isNotEmpty
@@ -4388,7 +4823,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 icon: _isUpdatingSubs 
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D2FF)))
                     : const Icon(Icons.sync_rounded, size: 16),
-                label: const Text('بروزرسانی ساب‌ها', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text('update_all_subs'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
@@ -4403,12 +4838,12 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 icon: _isBulkPinging 
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2DCA73)))
                     : const Icon(Icons.flash_on_rounded, size: 16),
-                label: Text(_isBulkPinging ? 'در حال پایش...' : 'تست پینگ و مرتب‌سازی', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(_isBulkPinging ? 'pinging_in_progress'.tr() : 'ping_and_sort'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.cleaning_services_rounded, size: 18, color: Colors.amberAccent),
-                tooltip: 'حذف سرورهای قطع (Timeout)',
+                tooltip: 'clean_dead_nodes'.tr(),
                 onPressed: _removeDeadServers,
               ),
             ],
@@ -4424,7 +4859,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Icon(Icons.dns_outlined, size: 54, color: Colors.grey[700]),
                       const SizedBox(height: 12),
-                      const Text('سروری در این دسته یافت نشد.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      Text('no_servers_found'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
                 )
@@ -4446,7 +4881,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                           onTap: () {
                             setState(() {
                               _selectedNode = item.node;
-                              _statusMessage = "سرور فعال تغییر کرد به: ${item.node.name}";
+                              _statusMessage = "Active server changed to: ${item.node.name}";
                             });
                           },
                           borderRadius: BorderRadius.circular(12),
@@ -4541,17 +4976,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 ],
                                 IconButton(
                                   icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
-                                  tooltip: 'کپی لینک',
+                                  tooltip: 'copied_config_link'.tr(),
                                   onPressed: () {
                                     Clipboard.setData(ClipboardData(text: item.node.rawUrl));
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('لینک کانفیگ کپی شد!')),
+                                      SnackBar(content: Text('copied_config_link'.tr())),
                                     );
                                   },
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.grey),
-                                  tooltip: 'ویرایش',
+                                  tooltip: 'edit'.tr(),
                                   onPressed: () {
                                     final origIndex = _savedNodeItems.indexOf(item);
                                     _openEditDialog(item.node, origIndex);
@@ -4559,7 +4994,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
-                                  tooltip: 'حذف',
+                                  tooltip: 'delete'.tr(),
                                   onPressed: () async {
                                     setState(() {
                                       _savedNodeItems.remove(item);
@@ -4688,6 +5123,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     final int port = int.tryParse(_lanPortController.text.trim()) ?? 10808;
     final String proxyHttpUrl = "http://$_lanIp:$port";
     final String tgProxyLink = "https://t.me/socks?server=$_lanIp&port=$port";
+    final bool isEn = AppTranslations.currentLang == 'en';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4695,17 +5131,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('اشتراک‌گذاری اینترنت در شبکه محلی (LAN Share)', 
-                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                  Text('lan_title'.tr(), 
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text('تبدیل سیستم به گذرگاه پروکسی خانگی و اتصال گوشی، تلویزیون و کنسول با QR Code', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 4),
+                  Text('lan_subtitle'.tr(), 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -4721,7 +5157,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 children: [
                   Icon(Icons.wifi_tethering_rounded, size: 20, color: _isLanShareRunning ? const Color(0xFF00C6FF) : Colors.grey),
                   const SizedBox(width: 8),
-                  const Text('وضعیت اشتراک‌گذاری:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text('lan_status'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   const SizedBox(width: 6),
                   Switch(
                     value: _isLanShareRunning,
@@ -4771,8 +5207,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 18),
                       Text(
                         _isLanShareRunning 
-                            ? 'پروکسی فعال است! بارکد را اسکن کنید' 
-                            : 'اشتراک‌گذاری خاموش است (سوییچ بالا را روشن کنید)',
+                            ? 'lan_active_qr'.tr() 
+                            : 'lan_disabled_qr'.tr(),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -4781,7 +5217,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'آدرس شبکه محلی: $_lanIp:$port',
+                        'lan_local_ip_label'.tr(params: {'ip': _lanIp, 'port': port.toString()}),
                         style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white70),
                       ),
                     ],
@@ -4801,11 +5237,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.router_rounded, color: Color(0xFF00C6FF), size: 18),
-                                SizedBox(width: 8),
-                                Text('مشخصات اتصال پروکسی محلی', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                const Icon(Icons.router_rounded, color: Color(0xFF00C6FF), size: 18),
+                                const SizedBox(width: 8),
+                                Text('lan_proxy_specs'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               ],
                             ),
                             const SizedBox(height: 14),
@@ -4823,7 +5259,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('آی‌پی محلی سیستم (Proxy Host):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                        Text('lan_host_label'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                         const SizedBox(height: 4),
                                         SelectableText(_lanIp, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'monospace', color: Colors.white)),
                                       ],
@@ -4840,9 +5276,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                       keyboardType: TextInputType.number,
                                       enabled: !_isLanShareRunning,
                                       style: const TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.bold),
-                                      decoration: const InputDecoration(
-                                        labelText: 'پورت LAN',
-                                        border: OutlineInputBorder(),
+                                      decoration: InputDecoration(
+                                        labelText: 'lan_port_label'.tr(),
+                                        border: const OutlineInputBorder(),
                                         isDense: true,
                                       ),
                                     ),
@@ -4858,7 +5294,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                     onPressed: () {
                                       Clipboard.setData(ClipboardData(text: "$_lanIp:$port"));
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('آدرس IP:Port کپی شد!')),
+                                        SnackBar(content: Text('copied_ipport_toast'.tr())),
                                       );
                                     },
                                     style: OutlinedButton.styleFrom(
@@ -4867,7 +5303,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
                                     icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
-                                    label: const Text('کپی IP:Port', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                    label: Text('copy_ipport'.tr(), style: const TextStyle(color: Colors.white, fontSize: 11)),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -4876,7 +5312,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                     onPressed: () {
                                       Clipboard.setData(ClipboardData(text: tgProxyLink));
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('لینک اتصال پروکسی تلگرام کپی شد!')),
+                                        SnackBar(content: Text('copied_tg_toast'.tr())),
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -4886,7 +5322,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
                                     icon: const Icon(Icons.send_rounded, size: 16),
-                                    label: const Text('کپی پروکسی تلگرام', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                    label: Text('copy_tg_proxy'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                   ),
                                 ),
                               ],
@@ -4897,22 +5333,32 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 16),
 
                       _buildHelpAccordion(
-                        title: 'راهنمای تنظیم در گوشی‌های اندروید (Android)',
+                        title: isEn ? 'Android Setup Guide' : 'راهنمای تنظیم در گوشی‌های اندروید (Android)',
                         icon: Icons.android_rounded,
                         iconColor: const Color(0xFF38EF7D),
-                        content: '''
+                        content: isEn ? '''
+1. Connect your phone to the same Wi-Fi network as this PC.
+2. Tap and hold your Wi-Fi name and select Modify network (or the gear icon).
+3. Expand Advanced options and set Proxy to Manual.
+4. Set Proxy hostname to $_lanIp and Proxy port to $port, then Save.
+All device internet traffic will now route securely through your PC!
+''' : '''
 ۱. در گوشی اندرویدی خود به همان شبکه Wi-Fi متصل شوید که رایانه شما به آن وصل است.
 ۲. انگشت خود را روی نام Wi-Fi نگه داشته و گزینه Modify network (یا آیکون چرخ‌دنده تنظیمات) را انتخاب کنید.
 ۳. بخش Advanced options را باز کرده و Proxy را روی حالت Manual قرار دهید.
 ۴. در کادر Proxy hostname آی‌پی ($_lanIp) و در کادر Proxy port پورت ($port) را وارد کرده و Save کنید.
-تمام شد! ترافیک کل گوشی از اینترنت بدون فیلتر رایانه عبور خواهد کرد.
 ''',
                       ),
                       _buildHelpAccordion(
-                        title: 'راهنمای تنظیم در آیفون و آیپد (iOS / Apple)',
+                        title: isEn ? 'iPhone & iPad Guide (iOS)' : 'راهنمای تنظیم در آیفون و آیپد (iOS / Apple)',
                         icon: Icons.apple_rounded,
                         iconColor: const Color(0xFF00C6FF),
-                        content: '''
+                        content: isEn ? '''
+1. Open Settings and go to Wi-Fi.
+2. Tap the blue (i) icon next to your connected network.
+3. Scroll to the bottom and select Configure Proxy.
+4. Choose Manual, set Server to $_lanIp and Port to $port, then tap Save.
+''' : '''
 ۱. وارد Settings و بخش Wi-Fi شوید.
 ۲. روی علامت (i) آبی‌رنگ کنار وای‌فای متصل کلیک کنید.
 ۳. به انتهای صفحه بروید و روی Configure Proxy ضربه بزنید.
@@ -4920,11 +5366,13 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                       ),
                       _buildHelpAccordion(
-                        title: 'راهنمای تلویزیون هوشمند (Smart TV) و کنسول بازی',
+                        title: isEn ? 'Smart TV & Gaming Consoles Guide' : 'راهنمای تلویزیون هوشمند (Smart TV) و کنسول بازی',
                         icon: Icons.tv_rounded,
                         iconColor: const Color(0xFFFF8008),
-                        content: '''
-در تنظیمات شبکه تلویزیون هوشمند (اندروید تی‌وی، ال‌جی، سامسونگ) یا کنسول‌های PS5 و Xbox وارد بخش تنظیمات Wi-Fi شده و در قسمت Proxy Server مقدار $_lanIp و پورت $port را تنظیم کنید تا تحریم‌ها و فیلترینگ یوتیوب، نتفلیکس و بازی‌های آنلاین بلافاصله دور زده شوند.
+                        content: isEn ? '''
+Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS5, Xbox), find the Proxy Server section, and enter Host $_lanIp with Port $port to bypass region locks and censorship instantly.
+''' : '''
+در تنظیمات شبکه تلویزیون هوشمند یا کنسول‌های PS5 و Xbox وارد بخش تنظیمات Wi-Fi شده و در قسمت Proxy Server مقدار $_lanIp و پورت $port را تنظیم کنید تا تحریم‌ها و فیلترینگ بلافاصله دور زده شوند.
 ''',
                       ),
                     ],
@@ -4945,22 +5393,21 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // هدر تب تور (چیدمان زیر هم دکمه‌ها برای نمایش کامل)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('شبکه پیاز تور (Tor Network)', 
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                  Text('tor_title'.tr(), 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text('اتصال فوق‌امن و گمنام با امکان گذر از گارد ضدسانسور MASQUE و تعیین کشور خروجی', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 4),
+                  Text('tor_subtitle'.tr(), 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -4980,7 +5427,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Icon(Icons.hub_rounded, size: 18, color: _isTorMasqueEnabled ? const Color(0xFFE94057) : Colors.grey),
                       const SizedBox(width: 8),
-                      const Text('پل مسک (Tor over MASQUE):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('tor_over_masque'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(width: 6),
                       Switch(
                         value: _isTorMasqueEnabled,
@@ -4997,7 +5444,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 ),
                 const SizedBox(height: 8),
                 _buildGoodbyeDpiSwitchTile(
-                  tabName: 'تور',
+                  tabName: 'tor_title'.tr(),
                   value: _useGoodbyeDpiTor,
                   onChanged: (val) {
                     setState(() => _useGoodbyeDpiTor = val);
@@ -5069,12 +5516,12 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 22),
                       Text(
                         _isTorMasqueRunning 
-                            ? 'متصل به شبکه تور بر بستر مسک (MASQUE)'
+                            ? 'tor_connected_masque'.tr()
                             : isTorActive 
-                                ? 'متصل به شبکه پیاز تور' 
+                                ? 'tor_connected_direct'.tr() 
                                 : isTorLoading 
-                                    ? 'در حال برقراری مدار پیاز: $_torProgressPercent٪' 
-                                    : (_isTorMasqueEnabled ? 'جهت اتصال تور از بستر مسک ضربه بزنید' : 'جهت اتصال به تور مستقیم ضربه بزنید'),
+                                    ? 'tor_connecting'.tr(params: {'percent': '$_torProgressPercent'}) 
+                                    : (_isTorMasqueEnabled ? 'tor_tap_connect_masque'.tr() : 'tor_tap_connect_direct'.tr()),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14.5, 
@@ -5098,11 +5545,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.public_rounded, color: Color(0xFFE94057), size: 20),
-                                SizedBox(width: 12),
-                                Text('کشور خروجی (Exit Node):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.public_rounded, color: Color(0xFFE94057), size: 20),
+                                const SizedBox(width: 12),
+                                Text('exit_node_country'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             DropdownButton<String>(
@@ -5114,16 +5561,18 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 if (newValue != null) {
                                   setState(() {
                                     _selectedTorCountry = newValue;
-                                    _statusMessage = "کشور خروجی تور به $newValue تغییر کرد.";
+                                    _statusMessage = "Tor exit node changed to $newValue";
                                   });
                                 }
                               },
                               items: _torCountries.keys.map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
+  final isEn = AppTranslations.currentLang == 'en';
+  final displayName = isEn && value.contains('(') ? value.split('(')[1].replaceAll(')', '').trim() : value;
+  return DropdownMenuItem<String>(
+    value: value,
+    child: Text(displayName),
+  );
+}).toList(),
                             )
                           ],
                         ),
@@ -5133,8 +5582,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: SwitchListTile(
-                          title: const Text('تنظیم اتوماتیک پروکسی سیستم‌عامل (Port 9051)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('فعال‌سازی رجیستری ویندوز جهت عبور کل ترافیک سیستم', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          title: Text('tor_sys_proxy'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           value: _useSystemProxy,
                           activeThumbColor: const Color(0xFFE94057),
                           onChanged: (isTorActive || isTorLoading) ? null : (bool value) {
@@ -5156,7 +5605,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _statusMessage, 
+                                _localizedStatusMessage, 
                                 style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'monospace'),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -5186,17 +5635,17 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('شبکه سایفون (Psiphon Network)', 
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                  Text('psiphon_title'.tr(), 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4),
-                  Text('اتصال امن به فیلترشکن سایفون با امکان گذر از بستر پرسرعت و پایدار MASQUE', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  const SizedBox(height: 4),
+                  Text('psiphon_subtitle'.tr(), 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -5216,7 +5665,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     children: [
                       Icon(Icons.hub_rounded, size: 18, color: _isPsiphonMasqueEnabled ? const Color(0xFF38EF7D) : Colors.grey),
                       const SizedBox(width: 8),
-                      const Text('پل مسک (Psiphon over MASQUE):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text('psiphon_over_masque'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(width: 6),
                       Switch(
                         value: _isPsiphonMasqueEnabled,
@@ -5233,7 +5682,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 ),
                 const SizedBox(height: 8),
                 _buildGoodbyeDpiSwitchTile(
-                  tabName: 'سایفون',
+                  tabName: 'psiphon_title'.tr(),
                   value: _useGoodbyeDpiPsiphon,
                   onChanged: (val) {
                     setState(() => _useGoodbyeDpiPsiphon = val);
@@ -5304,12 +5753,12 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       const SizedBox(height: 22),
                       Text(
                         _isPsiphonMasqueRunning
-                            ? 'متصل به سایفون بر بستر مسک (MASQUE)'
+                            ? 'psiphon_connected_masque'.tr()
                             : isPsiphonActive 
-                                ? 'متصل به سایفون مستقیم' 
+                                ? 'psiphon_connected_direct'.tr() 
                                 : isPsiphonLoading 
-                                    ? (_isPsiphonMasqueEnabled ? 'در حال برقراری پل مسک و تونل سایفون...' : 'در حال اتصال به سرورهای سایفون...') 
-                                    : (_isPsiphonMasqueEnabled ? 'جهت اتصال سایفون از بستر مسک ضربه بزنید' : 'جهت اتصال به سایفون مستقیم ضربه بزنید'),
+                                    ? (_isPsiphonMasqueEnabled ? 'psiphon_connecting_masque'.tr() : 'psiphon_connecting_direct'.tr()) 
+                                    : (_isPsiphonMasqueEnabled ? 'psiphon_tap_connect_masque'.tr() : 'psiphon_tap_connect_direct'.tr()),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14.5, 
@@ -5333,11 +5782,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.public_rounded, color: Color(0xFF38EF7D), size: 20),
-                                SizedBox(width: 12),
-                                Text('کشور خروجی (Exit Node):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const Icon(Icons.public_rounded, color: Color(0xFF38EF7D), size: 20),
+                                const SizedBox(width: 12),
+                                Text('exit_node_country'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               ],
                             ),
                             DropdownButton<String>(
@@ -5349,16 +5798,18 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 if (newValue != null) {
                                   setState(() {
                                     _selectedPsiphonCountry = newValue;
-                                    _statusMessage = "کشور خروجی سایفون به $newValue تغییر کرد.";
+                                    _statusMessage = "Psiphon exit region changed to $newValue";
                                   });
                                 }
                               },
                               items: _psiphonCountries.keys.map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
+  final isEn = AppTranslations.currentLang == 'en';
+  final displayName = isEn && value.contains('(') ? value.split('(')[1].replaceAll(')', '').trim() : value;
+  return DropdownMenuItem<String>(
+    value: value,
+    child: Text(displayName),
+  );
+}).toList(),
                             )
                           ],
                         ),
@@ -5368,8 +5819,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         padding: EdgeInsets.zero,
                         borderRadius: 16,
                         child: SwitchListTile(
-                          title: const Text('تنظیم اتوماتیک پروکسی سیستم‌عامل (Port 9081)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('فعال‌سازی رجیستری ویندوز جهت عبور کل ترافیک سیستم', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          title: Text('psiphon_sys_proxy'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                           value: _useSystemProxy,
                           activeThumbColor: const Color(0xFF38EF7D),
                           onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (bool value) {
@@ -5391,7 +5842,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _statusMessage, 
+                                _localizedStatusMessage, 
                                 style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'monospace'),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -5411,11 +5862,41 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Widget _buildDnsPage() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
+    String getDnsName(DnsProfile dns) {
+      if (!isEn) return dns.name;
+      if (dns.name.contains('کلودفلر')) return 'Cloudflare DoH (Ultra Secure)';
+      if (dns.name.contains('گوگل')) return 'Google DoT (High Speed)';
+      if (dns.name.contains('شکن')) return 'Shecan (Anti-Sanction)';
+      if (dns.name.contains('الکترو')) return 'Electro (Gaming & Sanction)';
+      if (dns.name.contains('رادار')) return 'Radar Game (Online Gaming)';
+      if (dns.name.contains('۴۰۳')) return '403.online (Anti-Sanction)';
+      if (dns.name.contains('ادگارد')) return 'AdGuard DoH (Ad Blocker)';
+      if (dns.name.contains('نکست')) return 'NextDNS DoH (Customizable)';
+      if (dns.name.contains('کواد')) return 'Quad9 DoH (Malware Protection)';
+      return dns.name;
+    }
+
+    String getDnsDesc(DnsProfile dns) {
+      if (!isEn) return dns.description;
+      if (dns.name.contains('کلودفلر')) return "The world's most secure encrypted DNS over HTTPS.";
+      if (dns.name.contains('گوگل')) return 'Google encrypted DNS over native TLS port 853.';
+      if (dns.name.contains('شکن')) return 'Bypasses foreign website sanctions and regional blocks.';
+      if (dns.name.contains('الکترو')) return 'Optimized for gaming and general sanction bypass with low ping.';
+      if (dns.name.contains('رادار')) return 'Domestic gaming DNS designed for online multiplayer games.';
+      if (dns.name.contains('۴۰۳')) return 'High-speed anti-sanction DNS service.';
+      if (dns.name.contains('ادگارد')) return 'Automatically blocks advertising domains and trackers over DoH.';
+      if (dns.name.contains('نکست')) return 'Customizable high-speed secure DNS over HTTPS.';
+      if (dns.name.contains('کواد')) return 'Swiss-based malware and phishing domain blocker.';
+      return dns.description;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('تغییر دهنده هوشمند DNS', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        const Text('اعمال دی‌ان‌اس‌های تحریم‌شکن با بررسی زنده پینگ و تاخیر شبکه', style: TextStyle(color: Colors.grey, fontSize: 13)),
+        Text('dns_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+        Text('dns_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(height: 32),
         Expanded(
           child: Row(
@@ -5460,7 +5941,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        _isDnsRunning ? 'دی‌ان‌اس فعال است' : 'جهت اعمال دی‌ان‌اس ضربه بزنید',
+                        _isDnsRunning ? 'dns_active'.tr() : 'dns_tap_to_apply'.tr(),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16, 
@@ -5487,11 +5968,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Row(
+                                  Row(
                                     children: [
-                                      Icon(Icons.radar_rounded, color: Color(0xFF6DD5ED), size: 20),
-                                      SizedBox(width: 8),
-                                      Text('انتخاب DNS:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      const Icon(Icons.radar_rounded, color: Color(0xFF6DD5ED), size: 20),
+                                      const SizedBox(width: 8),
+                                      Text('dns_select'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                   const SizedBox(width: 12),
@@ -5515,7 +5996,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                         return DropdownMenuItem<DnsProfile>(
                                           value: value,
                                           child: Text(
-                                            value.name,
+                                            getDnsName(value),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         );
@@ -5535,7 +6016,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                             ),
                             icon: const Icon(Icons.add_moderator_rounded, color: Colors.white, size: 18),
-                            label: const Text('افزودن DNS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            label: Text('dns_add_custom'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                           ),
                         ],
                       ),
@@ -5548,7 +6029,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('سرور اولیه (Primary):', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                Text('dns_primary'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                 Text(_selectedDns.primary, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
                               ],
                             ),
@@ -5556,7 +6037,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('سرور ثانویه (Secondary):', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                Text('dns_secondary'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                 Text(_selectedDns.secondary, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold)),
                               ],
                             ),
@@ -5565,7 +6046,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('آدرس رمزنگاری DoH:', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                  Text('dns_doh_url'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 11)),
                                   Expanded(
                                     child: Text(
                                       _selectedDns.dohUrl!, 
@@ -5582,7 +6063,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('هاست امن DoT:', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                  Text('dns_dot_host'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 11)),
                                   Text(_selectedDns.dotHost!, style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFFFFC837))),
                                 ],
                               ),
@@ -5591,7 +6072,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('تاخیر پاسخگویی (Ping):', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text('dns_latency'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                                 _isPingingDns
                                     ? const SizedBox(
                                         width: 16,
@@ -5601,7 +6082,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                     : Row(
                                         children: [
                                           Text(
-                                            _dnsPing != null ? '$_dnsPing ms' : 'N/A (خاموش)',
+                                            _dnsPing != null ? '$_dnsPing ms' : 'N/A',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color: _dnsPing != null ? const Color(0xFF2DCA73) : Colors.redAccent,
@@ -5630,7 +6111,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _selectedDns.description,
+                                getDnsDesc(_selectedDns),
                                 style: const TextStyle(color: Colors.grey, fontSize: 12),
                               ),
                             ),
@@ -5651,7 +6132,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             await _saveDnsToDisk();
                             _testDnsPing();
                             scaffoldMessenger.showSnackBar(
-                              const SnackBar(content: Text('دی‌ان‌اس سفارشی از سیستم حذف شد.')),
+                              SnackBar(content: Text(isEn ? 'Custom DNS removed.' : 'دی‌ان‌اس سفارشی از سیستم حذف شد.')),
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -5661,7 +6142,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                           icon: const Icon(Icons.delete_forever_rounded),
-                          label: const Text('حذف این دی‌ان‌اس سفارشی', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text('dns_delete_custom'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -5675,7 +6156,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _statusMessage, 
+                                _localizedStatusMessage, 
                                 style: const TextStyle(color: Colors.grey, fontSize: 12, fontFamily: 'monospace'),
                               ),
                             ),
@@ -5699,9 +6180,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('اسکنر موازی کلودفلر (IP Scanner)', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          Text('scanner_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          const Text('اسکن دو‌حالته سریع و عمیق با پایش زنده TCP Ping و TLS Handshake', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('scanner_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 20),
           
           _buildGlassContainer(
@@ -5712,7 +6193,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('دریافت اطلاعات اکانت از گیت‌هاب:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text('fetch_github_accounts'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     _isLoadingAccounts
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF8008)))
                         : ElevatedButton.icon(
@@ -5723,7 +6204,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.cloud_download_rounded, size: 16, color: Colors.white),
-                            label: const Text('دریافت اکانت‌های رندوم', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                            label: Text('fetch_random_accounts'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                           ),
                   ],
                 ),
@@ -5760,19 +6241,19 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 TextField(
                   controller: _uuidController,
                   style: const TextStyle(fontSize: 12),
-                  decoration: const InputDecoration(labelText: 'کلید شناسایی کاربر (UUID)', border: OutlineInputBorder(), isDense: true),
+                  decoration: InputDecoration(labelText: 'account_uuid'.tr(), border: const OutlineInputBorder(), isDense: true),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _workerController,
                   style: const TextStyle(fontSize: 12),
-                  decoration: const InputDecoration(labelText: 'دامنه ورکر (Worker Domain)', border: OutlineInputBorder(), isDense: true),
+                  decoration: InputDecoration(labelText: 'account_worker'.tr(), border: const OutlineInputBorder(), isDense: true),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _pathController,
                   style: const TextStyle(fontSize: 12),
-                  decoration: const InputDecoration(labelText: 'مسیر کانفیگ (WebSocket Path)', border: OutlineInputBorder(), isDense: true),
+                  decoration: InputDecoration(labelText: 'account_path'.tr(), border: const OutlineInputBorder(), isDense: true),
                 ),
                 const SizedBox(height: 16),
 
@@ -5786,11 +6267,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildScanStatBadge('کل بررسی‌شده', '$_scannedTotal', const Color(0xFF00D2FF)),
+                      _buildScanStatBadge('stat_total'.tr(), '$_scannedTotal', const Color(0xFF00D2FF)),
                       Container(width: 1, height: 24, color: Colors.white12),
-                      _buildScanStatBadge('آی‌پی‌های سالم', '$_scannedAlive', const Color(0xFF2DCA73)),
+                      _buildScanStatBadge('stat_alive'.tr(), '$_scannedAlive', const Color(0xFF2DCA73)),
                       Container(width: 1, height: 24, color: Colors.white12),
-                      _buildScanStatBadge('مسدود / تایم‌اوت', '$_scannedDead', Colors.redAccent),
+                      _buildScanStatBadge('stat_dead'.tr(), '$_scannedDead', Colors.redAccent),
                     ],
                   ),
                 ),
@@ -5806,7 +6287,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           icon: const Icon(Icons.stop_rounded, color: Colors.white, size: 18),
-                          label: const Text('توقف اسکن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          label: Text('stop_scan'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -5819,7 +6300,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 16),
-                              label: const Text('اسکن سریع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              label: Text('quick_scan'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                             const SizedBox(width: 12),
                             ElevatedButton.icon(
@@ -5832,7 +6313,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               icon: const Icon(Icons.saved_search_rounded, size: 18),
-                              label: const Text('اسکن عمیق (Deep Scan)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              label: Text('deep_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           ],
                         ),
@@ -5848,10 +6329,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('وضعیت و لاگ‌های اسکنر:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                Text('scanner_status_logs'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 6),
                 Text(
-                  _statusMessage,
+                  _localizedStatusMessage,
                   style: const TextStyle(fontFamily: 'monospace', color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -5874,17 +6355,90 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Widget _buildSettingsPage() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('تنظیمات برنامه', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        const Text('پیکربندی هسته‌های سیستم، مسیر باینری‌ها و دریافت گزارش جامع خطاها', style: TextStyle(color: Colors.grey, fontSize: 13)),
+        Text('settings_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+        Text('settings_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(height: 24),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // بخش انتخاب و تغییر زبان برنامه
+                _buildGlassContainer(
+                  borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.35),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.translate_rounded, color: Color(0xFF00D2FF), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('language_section_title'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                Text('language_section_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildLanguageSelectCard(
+                              title: 'فارسی (Persian)',
+                              subtitle: 'راست‌چین (RTL)',
+                              flag: '🇮🇷',
+                              isSelected: _selectedLanguage == 'fa',
+                              onTap: () async {
+                                setState(() {
+                                  _selectedLanguage = 'fa';
+                                  AppTranslations.currentLang = 'fa';
+                                });
+                                await _saveLanguageToDisk();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildLanguageSelectCard(
+                              title: 'English',
+                              subtitle: 'Left-to-Right (LTR)',
+                              flag: '🇬🇧',
+                              isSelected: _selectedLanguage == 'en',
+                              onTap: () async {
+                                setState(() {
+                                  _selectedLanguage = 'en';
+                                  AppTranslations.currentLang = 'en';
+                                });
+                                await _saveLanguageToDisk();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // بخش لاگ‌ها و باز کردن پوشه
                 _buildGlassContainer(
                   borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.4),
                   child: Column(
@@ -5901,19 +6455,21 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             child: const Icon(Icons.bug_report_rounded, color: Color(0xFF00D2FF), size: 22),
                           ),
                           const SizedBox(width: 14),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('گزارش خطاها و عیب‌یابی (Crash & Error Log)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                              Text('مشاهده و ارسال فایل log.txt جهت بررسی و حل مشکلات برنامه', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('logs_title'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                Text('logs_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
                           )
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'تمامی وقایع برنامه از جمله خطاهای اتصال، پروسه‌های پس‌زمینه و کرش‌ها به‌صورت خودکار در فایل log.txt ثبت می‌شوند. با زدن دکمه زیر می‌توانید پوشه این فایل را در ویندوز باز کرده و آن را برای تیم توسعه ارسال کنید.',
-                        style: TextStyle(fontSize: 12, height: 1.6, color: Colors.white70),
+                      Text(
+                        'logs_desc'.tr(),
+                        style: const TextStyle(fontSize: 12, height: 1.6, color: Colors.white70),
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -5922,20 +6478,32 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             child: ElevatedButton.icon(
                               onPressed: () async {
                                 try {
-                                  final msg = await openLogDirectory();
+                                  final path = await getLogFilePath();
+                                  final file = File(path);
+                                  if (!await file.exists()) {
+                                    await file.create(recursive: true);
+                                  }
+                                  
+                                  // باز کردن مستقیم و بدون خطای پوشه خود برنامه در ویندوز
+                                  if (Platform.isWindows) {
+                                    Process.run('explorer.exe', [file.parent.path]);
+                                  } else {
+                                    await openLogDirectory();
+                                  }
+
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(msg),
+                                        content: Text(isEn ? 'Log folder opened successfully.' : 'پوشه لاگ در ویندوز با موفقیت باز شد.'),
                                         backgroundColor: const Color(0xFF2DCA73),
                                       ),
                                     );
                                   }
                                 } catch (e, st) {
-                                  AppLogger.error("LOG_UI", "خطا در باز کردن پوشه لاگ", e, st);
+                                  AppLogger.error("LOG_UI", "Error opening log directory", e, st);
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('خطا در باز کردن پوشه: $e')),
+                                      SnackBar(content: Text(isEn ? 'Error opening folder: $e' : 'خطا در باز کردن پوشه: $e')),
                                     );
                                   }
                                 }
@@ -5947,7 +6515,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               icon: const Icon(Icons.folder_open_rounded, size: 20),
-                              label: const Text('باز کردن پوشه و مشاهده فایل log.txt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                              label: Text('btn_open_log_dir'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -5958,11 +6526,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                                 await Clipboard.setData(ClipboardData(text: path));
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('مسیر فایل log.txt در کلیپ‌بورد کپی شد!')),
+                                    SnackBar(content: Text(isEn ? 'Log file path copied to clipboard!' : 'مسیر فایل log.txt در کلیپ‌بورد کپی شد!')),
                                   );
                                 }
                               } catch (e) {
-                                AppLogger.warn("LOG_UI", "خطا در کپی مسیر لاگ: $e");
+                                AppLogger.warn("LOG_UI", "Error copying log path: $e");
                               }
                             },
                             style: OutlinedButton.styleFrom(
@@ -5972,22 +6540,22 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             icon: const Icon(Icons.copy_rounded, size: 18),
-                            label: const Text('کپی مسیر فایل', style: TextStyle(fontSize: 12)),
+                            label: Text('btn_copy_log_path'.tr(), style: const TextStyle(fontSize: 12)),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                            tooltip: 'پاکسازی لاگ',
+                            tooltip: 'btn_clear_log'.tr(),
                             onPressed: () async {
                               try {
-                                final msg = await clearLogFile();
+                                await clearLogFile();
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(msg)),
+                                    SnackBar(content: Text(isEn ? 'Log file cleared successfully.' : 'فایل لاگ با موفقیت پاکسازی شد.')),
                                   );
                                 }
                               } catch (e) {
-                                AppLogger.error("LOG_UI", "خطا در پاکسازی لاگ", e);
+                                AppLogger.error("LOG_UI", "Error clearing log", e);
                               }
                             },
                           ),
@@ -5998,80 +6566,81 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                 ),
                 const SizedBox(height: 20),
 
+                // بخش مسیر فایل‌های اجرایی
                 _buildGlassContainer(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تنظیمات آدرس هسته GoodbyeDPI (افکت محافظتی پکت‌ها)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2DCA73))),
+                      Text('goodbyedpi_path_label'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2DCA73))),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _goodbyedpiPathController,
-                        decoration: const InputDecoration(
-                          labelText: 'مسیر فایل goodbyedpi.exe',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.shield_outlined, color: Color(0xFF2DCA73)),
+                        decoration: InputDecoration(
+                          labelText: 'goodbyedpi_path_label'.tr(),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.shield_outlined, color: Color(0xFF2DCA73)),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Divider(color: Colors.white12),
                       const SizedBox(height: 16),
 
-                      const Text('تنظیمات آدرس هسته شبکه اِتر (Aether MASQUE)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF00D2FF))),
+                      Text('aether_path_label'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF00D2FF))),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _aetherPathController,
-                        decoration: const InputDecoration(
-                          labelText: 'مسیر فایل هسته aether.exe',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.bolt_rounded, color: Color(0xFF00D2FF)),
+                        decoration: InputDecoration(
+                          labelText: 'aether_path_label'.tr(),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.bolt_rounded, color: Color(0xFF00D2FF)),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Divider(color: Colors.white12),
                       const SizedBox(height: 16),
 
-                      const Text('تنظیمات آدرس هسته V2Ray (sing-box)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('singbox_path_label'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _binaryPathController,
-                        decoration: const InputDecoration(
-                          labelText: 'مسیر فایل هسته sing-box.exe',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.code_rounded),
+                        decoration: InputDecoration(
+                          labelText: 'singbox_path_label'.tr(),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.code_rounded),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Divider(color: Colors.white12),
                       const SizedBox(height: 16),
 
-                      const Text('تنظیمات آدرس هسته تور (Tor)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('tor_path_label'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _torPathController,
-                        decoration: const InputDecoration(
-                          labelText: 'مسیر فایل هسته tor.exe',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.blur_circular_rounded),
+                        decoration: InputDecoration(
+                          labelText: 'tor_path_label'.tr(),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.blur_circular_rounded),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Divider(color: Colors.white12),
                       const SizedBox(height: 16),
 
-                      const Text('تنظیمات آدرس هسته سایفون (Psiphon)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      Text('psiphon_path_label'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _psiphonPathController,
-                        decoration: const InputDecoration(
-                          labelText: 'مسیر فایل هسته psiphon-tunnel-core.exe',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.security_rounded),
+                        decoration: InputDecoration(
+                          labelText: 'psiphon_path_label'.tr(),
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.security_rounded),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Divider(color: Colors.white12),
                       const SizedBox(height: 16),
-                      const Text('سیستم‌عامل مقصد فعلی: Windows', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      Text('target_os_label'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -6084,6 +6653,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Widget _buildHelpPage() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -6101,16 +6672,18 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
               child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 24),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('راهنمای جامع کاربری و ترفندهای RedCloud', 
-                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+                  Text(
+                    isEn ? 'RedCloud User Guide & Pro Tips' : 'راهنمای جامع کاربری و ترفندهای RedCloud', 
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text('آموزش گام‌به‌گام تمامی ابزارها، پروتکل‌ها و تکنیک‌های دور زدن فیلترینگ', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Text(
+                    isEn ? 'Step-by-step documentation for all anti-censorship protocols and bypass tools' : 'آموزش گام‌به‌گام تمامی ابزارها، پروتکل‌ها و تکنیک‌های دور زدن فیلترینگ', 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -6125,10 +6698,19 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
             child: Column(
               children: [
                 _buildHelpAccordion(
-                  title: '۱. داشبورد و حالت اتصال هیبریدی (پیشنهاد اصلی)',
+                  title: isEn ? '1. Dashboard & Hybrid Mode (Recommended)' : '۱. داشبورد و حالت اتصال هیبریدی (پیشنهاد اصلی)',
                   icon: Icons.hub_rounded,
                   iconColor: const Color(0xFF00D2FF),
-                  content: '''
+                  content: isEn ? '''
+• Hybrid Connection (Aether + VLESS):
+The premier anti-censorship feature. Your traffic first tunnels through the resilient Aether MASQUE bridge before hitting the Sing-box core, keeping connections totally undetectable with high speeds.
+
+• Direct V2Ray:
+When Hybrid is toggled off, the app connects directly to your chosen server from the Configs tab.
+
+• Smart Auto-Rotation:
+If the 5GB quota of the free active shared account is exhausted, the app auto-fetches fresh accounts from GitHub without disconnecting.
+''' : '''
 • اتصال هیبریدی (Aether + VLESS):
 این حالت پیشرفته‌ترین متد ضدسانسور برنامه است. در این حالت ترافیک شما ابتدا از پل فوق‌العاده پایدار اتر (MASQUE) رد شده و سپس وارد هسته ویتوری (Sing-box) می‌شود. با این کار فیلترینگ متوجه هویت ترافیک شما نمی‌شود و سرعت آپلود و دانلود بسیار پایداری خواهید داشت.
 
@@ -6140,31 +6722,54 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۲. افکت ضد DPI (GoodbyeDPI Layer)',
+                  title: isEn ? '2. Kernel Anti-DPI Layer (GoodbyeDPI)' : '۲. افکت ضد DPI (GoodbyeDPI Layer)',
                   icon: Icons.shield_rounded,
                   iconColor: const Color(0xFF2DCA73),
-                  content: '''
+                  content: isEn ? '''
+• First-Line Protection Layer:
+GoodbyeDPI operates through a Windows kernel driver (WinDivert). When enabled, handshake packets are fragmented, re-ordered, or padded before leaving your network adapter, preventing deep packet inspection (DPI) censorship from terminating connections.
+''' : '''
 • لایه اول محافظتی برای تمامی تب‌ها:
-گودبای‌دی‌پی (GoodbyeDPI) به عنوان یک درایور کرنل ویندوز (WinDivert) عمل می‌کند. وقتی تیک این گزینه را در داشبورد، اتر، تور یا سایفون فعال کنید، پکت‌های هندشیک قبل از خروج از کارت شبکه تغییر ساختار پیدا می‌کنند (قطعه‌بندی پکت‌های TCP، ارسال پکت‌های فیک و تغییر هدرها) تا سیستم DPI اپراتورهای ایرانی نتوانند اتصال اولیه شما به سرورهای خارجی را ببندند.
+گودبای‌دی‌پی (GoodbyeDPI) به عنوان یک درایور کرنل ویندوز (WinDivert) عمل می‌کند. وقتی تیک این گزینه را در داشبورد، اتر، تور یا سایفون فعال کنید، پکت‌های هندشیک قبل از خروج از کارت شبکه تغییر ساختار پیدا می‌کنند تا سیستم DPI اپراتورها نتوانند اتصال اولیه شما به سرورهای خارجی را ببندند.
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۳. تفاوت کارت شبکه مجازی (TUN Mode) و پروکسی سیستم',
+                  title: isEn ? '3. Virtual TUN Mode vs System Proxy' : '۳. تفاوت کارت شبکه مجازی (TUN Mode) و پروکسی سیستم',
                   icon: Icons.alt_route_rounded,
                   iconColor: const Color(0xFF2DCA73),
-                  content: '''
+                  content: isEn ? '''
+• System Proxy:
+Configures the Windows system registry to automatically tunnel all browsers (Chrome, Edge, Firefox) and proxy-aware tools.
+
+• TUN Mode (Virtual Network Adapter):
+Installs an in-memory virtual adapter (Wintun) that routes 100% of your PC's traffic through the tunnel, including online games, CLI, Git, Discord voice, and non-proxy apps.
+''' : '''
 • حالت پروکسی سیستم‌عامل (System Proxy):
 این گزینه رجیستری ویندوز را تنظیم می‌کند تا ترافیک تمام مرورگرها (کروم، فایرفاکس، ادج) و نرم‌افزارها به‌طور خودکار از فیلترشکن عبور کنند.
 
 • کارت شبکه مجازی (TUN Mode):
-یک کارت شبکه مجازی روی ویندوز می‌سازد و کل ترافیک اینترنت رایانه شما (شامل بازی‌های آنلاین، برنامه‌های بدون قابلیت پروکسی، CMD، گیت و کلاینت‌های دسکتاپ) را بدون استثنا از تونل عبور می‌دهد. برای گیمینگ و جلوگیری از هرگونه نشت DNS و WebRTC این گزینه پیشنهاد می‌شود.
+یک کارت شبکه مجازی روی ویندوز می‌سازد و کل ترافیک اینترنت رایانه شما (شامل بازی‌های آنلاین، برنامه‌های بدون قابلیت پروکسی، CMD، گیت و کلاینت‌های دسکتاپ) را بدون استثنا از تونل عبور می‌دهد.
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۴. شبکه ضدسانسور اِتر (MASQUE Aether Engine)',
+                  title: isEn ? '4. Aether MASQUE Anti-Censorship Engine' : '۴. شبکه ضدسانسور اِتر (MASQUE Aether Engine)',
                   icon: Icons.bolt_rounded,
                   iconColor: const Color(0xFF00D2FF),
-                  content: '''
+                  content: isEn ? '''
+Connects independently to Cloudflare Zero Trust without requiring custom domains or VPS setups!
+
+• Auto Failover:
+Probes and benchmarks multiple pathways in real-time, locking onto the lowest-latency, most reliable route.
+
+• MASQUE H3 (QUIC):
+High throughput HTTP/3 QUIC connection with zero round-trip handshakes (0-RTT), ideal for 4K streaming.
+
+• MASQUE H2 + Fragment:
+Specially tailored for networks throttling or dropping UDP packets.
+
+• Noise Profiles:
+Firewall for severe censorship resilience, Light for lowest ping and maximum raw throughput.
+''' : '''
 این تب به شما امکان اتصال مستقل به شبکه Zero Trust کلودفلر را بدون نیاز به هیچ کانفیگ، دامنه یا سرور خارجی می‌دهد!
 
 • حالت خودکار (Auto Failover):
@@ -6181,10 +6786,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۵. اشتراک‌گذاری اینترنت در شبکه محلی (LAN Share & QR Code)',
+                  title: isEn ? '5. Local LAN Sharing & QR Gateway' : '۵. اشتراک‌گذاری اینترنت در شبکه محلی (LAN Share & QR Code)',
                   icon: Icons.qr_code_2_rounded,
                   iconColor: const Color(0xFF00C6FF),
-                  content: '''
+                  content: isEn ? '''
+• Turn PC into a Home Proxy Gateway:
+Enabling LAN Share lets your mobile phones, gaming consoles, and smart TVs on the same Wi-Fi enjoy uncensored internet by simply scanning the generated QR Code or setting the local IP:Port.
+
+• Universal Core Relay:
+Regardless of whether you connect via Aether, Hybrid, Tor, or Psiphon, the Rust relay engine routes all LAN traffic through the currently active tunnel seamlessly.
+''' : '''
 • تبدیل سیستم به گذرگاه اینترنت خانگی:
 با روشن کردن سوییچ اشتراک‌گذاری LAN، تمامی گوشی‌های همراه، تبلت‌ها، کنسول‌های بازی و تلویزیون‌های متصل به همان وای‌فای می‌توانند با اسکن بارکد QR یا تنظیم ساده پروکسی (IP:Port) از اینترنت بدون سانسور سیستم استفاده کنند.
 
@@ -6193,12 +6804,21 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۶. پیکربندی و مدیریت سرورها (VLESS / Reality / Hysteria 2)',
+                  title: isEn ? '6. Server Management (VLESS / Reality / Hysteria 2)' : '۶. پیکربندی و مدیریت سرورها (VLESS / Reality / Hysteria 2)',
                   icon: Icons.tune_rounded,
                   iconColor: const Color(0xFF6C5DD3),
-                  content: '''
+                  content: isEn ? '''
+• Subscription Management:
+Create multiple subscription groups, auto-update with one click, and isolate different server pools.
+
+• Bulk Ping & Sorting:
+Parallel high-speed latency testing with Rust native sockets instantly brings the fastest and most stable servers to the top.
+
+• Reality & ECH Editing:
+Customize SNI, Reality public keys (pbk), short IDs (sid), and Encrypted Client Hello (ECH) headers directly from the edit dialog.
+''' : '''
 • مدیریت حرفه‌ای ساب‌اسکریپشن‌ها:
-می‌توانید گروه‌های مختلف ساب (مثلاً ساب‌های اختصاصی یا اشتراکی) ایجاد کنید و با زدن دکمه «بروزرسانی ساب‌ها» تمام سرورها را در چند ثانیه آپدیت کنید.
+می‌توانید گروه‌های مختلف ساب ایجاد کنید و با زدن دکمه «بروزرسانی ساب‌ها» تمام سرورها را در چند ثانیه آپدیت کنید.
 
 • تست پینگ دسته‌جمعی و مرتب‌سازی:
 با زدن دکمه «تست پینگ و مرتب‌سازی»، هسته باینری راست تمام سرورها را به‌طور موازی پایش کرده و سرورهای سالم و پرسرعت را به صدر لیست می‌آورد.
@@ -6208,10 +6828,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۷. شبکه‌های پیاز تور (Tor over MASQUE) و سایفون (Psiphon over MASQUE)',
+                  title: isEn ? '7. Tor & Psiphon over MASQUE' : '۷. شبکه‌های پیاز تور (Tor over MASQUE) و سایفون (Psiphon over MASQUE)',
                   icon: Icons.blur_circular_rounded,
                   iconColor: const Color(0xFFE94057),
-                  content: '''
+                  content: isEn ? '''
+• Tor over MASQUE:
+Tor guard nodes tunnel through the MASQUE anti-censorship bridge, bypassing ISP guard-blocking to ensure a reliable connection to your chosen exit country (Germany, US, Netherlands, UK, etc.).
+
+• Psiphon over MASQUE:
+Shields Psiphon initial discovery handshakes and handshake packets from state DPI, giving you robust multi-protocol egress.
+''' : '''
 • اتصال تور بر بستر مسک (Tor over MASQUE):
 گره‌های گارد تور از پل ضدسانسور MASQUE عبور کرده و فیلترینگ گاردها را دور می‌زنند تا ارتباط شما با کشور خروجی دلخواه (آلمان، آمریکا، هلند، بریتانیا و...) ۱۰۰٪ برقرار شود.
 
@@ -6220,10 +6846,19 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۸. اسکنر دوحالته کلودفلر (Quick & Deep Scanner)',
+                  title: isEn ? '8. Dual Cloudflare Scanner (Quick & Deep)' : '۸. اسکنر دوحالته کلودفلر (Quick & Deep Scanner)',
                   icon: Icons.radar_rounded,
                   iconColor: const Color(0xFFFF8008),
-                  content: '''
+                  content: isEn ? '''
+• Quick Scan:
+Fast test over curated high-performance cloud clean IPs for instant connectivity.
+
+• Deep Scan:
+Scans thousands of CIDR blocks from cloudflare_IPs.txt using parallel multi-threaded workers.
+
+• Live Stop Control:
+Shows real-time alive/dead metrics. You can stop anytime, and newly discovered clean IPs are immediately added to your node list.
+''' : '''
 • اسکن سریع (Quick Scan):
 تست چندثانیه‌ای روی لیست منتخب از آی‌پی‌های پرسرعت برای اتصالات فوری.
 
@@ -6235,19 +6870,31 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۹. تغییر دهنده هوشمند دی‌ان‌اس (DNS Changer)',
+                  title: isEn ? '9. Smart DNS Changer' : '۹. تغییر دهنده هوشمند دی‌ان‌اس (DNS Changer)',
                   icon: Icons.dns_rounded,
                   iconColor: const Color(0xFF6DD5ED),
-                  content: '''
+                  content: isEn ? '''
+Bypass anti-Iran sanctions (AI services, Discord, Epic Games, Adobe, Docker, online games) without turning on a VPN!
+Includes popular gaming DNS providers (Shecan, Electro, 403, Radar) as well as encrypted DoH servers (Cloudflare, AdGuard, NextDNS).
+''' : '''
 این تب به شما اجازه می‌دهد بدون روشن کردن فیلترشکن، تحریم‌های اینترنتی علیه کاربران ایرانی (مثل سایت‌های هوش مصنوعی، دیسکورد، اپیک گیمز، ادوبی، داکر و بازی‌های آنلاین) را دور بزنید!
-دی‌ان‌اس‌های معروف مانند شکن، الکترو، ۴۰۳ آنلاین، رادار گیم و همچنین DNSهای فوق امن رمزنگاری‌شده DoH (کلودفلر، ادگارد، نکست‌دی‌ان‌اس) در این تب آماده انتخاب هستند.
+دی‌ان‌اس‌های معروف مانند شکن، الکترو، ۴۰۳ آنلاین، رادار گیم و همچنین DNSهای فوق امن رمزنگاری‌شده DoH در این تب آماده انتخاب هستند.
 ''',
                 ),
                 _buildHelpAccordion(
-                  title: '۱۰. تنظیمات فوق‌پیشرفته ضدسانسور (Anti-DPI)',
+                  title: isEn ? '10. Advanced Anti-DPI Settings' : '۱۰. تنظیمات فوق‌پیشرفته ضدسانسور (Anti-DPI)',
                   icon: Icons.security_rounded,
                   iconColor: const Color(0xFFED213A),
-                  content: '''
+                  content: isEn ? '''
+• uTLS Fingerprint Emulation:
+Mimics authentic desktop Google Chrome handshakes to prevent traffic classification.
+
+• TLS Packet Fragmentation:
+Splits ClientHello SNI packets into tiny fragments so DPI sensors cannot read your destination hostname.
+
+• Fake SNI Spoofing:
+Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the real request to blind DPI filters.
+''' : '''
 • شبیه‌ساز اثر انگشت (uTLS Fingerprint):
 دست‌دهی کلاینت شما را کاملاً شبیه مرورگر گوگل کروم واقعی نشان می‌دهد تا فیلترینگ نتواند ترافیک نرم‌افزار را از وب‌گردی عادی تفکیک کند.
 
@@ -6310,22 +6957,26 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   }
 
   Widget _buildAntiDpiSettingsPage() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('تنظیمات فوق پیشرفته ضدسانسور (Anti-DPI)', 
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  Text(
+                    isEn ? 'Advanced Anti-Censorship (Anti-DPI)' : 'تنظیمات فوق پیشرفته ضدسانسور (Anti-DPI)', 
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text('تکنیک‌های جعل دست‌دهی TLS، قطعه‌بندی ترافیک و افکت GoodbyeDPI', 
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  Text(
+                    isEn ? 'TLS handshake spoofing, traffic fragmentation, and GoodbyeDPI filter bypass' : 'تکنیک‌های جعل دست‌دهی TLS، قطعه‌بندی ترافیک و افکت GoodbyeDPI', 
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -6349,10 +7000,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('۱. افکت و محافظت کرنل GoodbyeDPI (WinDivert)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2DCA73))),
+                  Text(
+                    isEn ? '1. Kernel Anti-DPI Protection (WinDivert)' : '۱. افکت و محافظت کرنل GoodbyeDPI (WinDivert)', 
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2DCA73)),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'دستکاری مستقیم پکت‌های خروجی در سطح کارت شبکه جهت فریب فیلترینگ بدون نیاز به پروکسی',
+                    isEn 
+                        ? 'Direct packet modification at the network adapter level to bypass DPI censorship without a proxy' 
+                        : 'دستکاری مستقیم پکت‌های خروجی در سطح کارت شبکه جهت فریب فیلترینگ بدون نیاز به پروکسی',
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(height: 12),
@@ -6367,7 +7023,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
                         icon: const Icon(Icons.tune_rounded, size: 16),
-                        label: const Text('پیکربندی پریست‌ها و آرگومان‌های GoodbyeDPI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        label: Text(
+                          isEn ? 'Configure GoodbyeDPI Presets & Arguments' : 'پیکربندی پریست‌ها و آرگومان‌های GoodbyeDPI', 
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       if (_isGoodbyeDpiRunning)
@@ -6378,11 +7037,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.4)),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF2DCA73)),
-                              SizedBox(width: 6),
-                              Text('هسته در حال اجراست', style: TextStyle(color: Color(0xFF2DCA73), fontSize: 11, fontWeight: FontWeight.bold)),
+                              const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF2DCA73)),
+                              const SizedBox(width: 6),
+                              Text(
+                                isEn ? 'Core is running' : 'هسته در حال اجراست', 
+                                style: const TextStyle(color: Color(0xFF2DCA73), fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                             ],
                           ),
                         )
@@ -6390,10 +7052,15 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   ),
                   const Divider(color: Colors.white12, height: 36),
 
-                  const Text('۲. شبیه‌ساز اثر انگشت مرورگر (uTLS Fingerprint)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008))),
+                  Text(
+                    isEn ? '2. Browser Fingerprint Emulation (uTLS)' : '۲. شبیه‌ساز اثر انگشت مرورگر (uTLS Fingerprint)', 
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008)),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'تغییر اثر انگشت امنیتی ClientHello به شکل مرورگرهای واقعی دسکتاپ',
+                    isEn 
+                        ? 'Modifies ClientHello security signature to mimic real desktop web browsers' 
+                        : 'تغییر اثر انگشت امنیتی ClientHello به شکل مرورگرهای واقعی دسکتاپ',
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(height: 12),
@@ -6417,28 +7084,39 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                           });
                         }
                       },
-                      items: const [
-                        DropdownMenuItem(value: 'chrome', child: Text('Google Chrome (پیشنهادی)')),
-                        DropdownMenuItem(value: 'firefox', child: Text('Mozilla Firefox')),
-                        DropdownMenuItem(value: 'safari', child: Text('Apple Safari')),
-                        DropdownMenuItem(value: 'edge', child: Text('Microsoft Edge')),
-                        DropdownMenuItem(value: 'randomized', child: Text('Randomized (تصادفی)')),
+                      items: [
+                        DropdownMenuItem(value: 'chrome', child: Text(isEn ? 'Google Chrome (Recommended)' : 'Google Chrome (پیشنهادی)')),
+                        const DropdownMenuItem(value: 'firefox', child: Text('Mozilla Firefox')),
+                        const DropdownMenuItem(value: 'safari', child: Text('Apple Safari')),
+                        const DropdownMenuItem(value: 'edge', child: Text('Microsoft Edge')),
+                        DropdownMenuItem(value: 'randomized', child: Text(isEn ? 'Randomized' : 'Randomized (تصادفی)')),
                       ],
                     ),
                   ),
                   const Divider(color: Colors.white12, height: 36),
 
-                  const Text('۳. قطعه‌بندی پکت‌های امنیتی (Fragmentation)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008))),
+                  Text(
+                    isEn ? '3. Packet Fragmentation (TLS Fragmentation)' : '۳. قطعه‌بندی پکت‌های امنیتی (Fragmentation)', 
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008)),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'خرد کردن پکت ClientHello برای ممانعت از خوانده شدن SNI توسط DPI',
+                    isEn 
+                        ? 'Fragments ClientHello packets to hide Server Name Indication (SNI) from DPI inspection' 
+                        : 'خرد کردن پکت ClientHello برای ممانعت از خوانده شدن SNI توسط DPI',
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('فعال‌سازی قطعه‌بندی (TLS Fragmentation)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    subtitle: const Text('خرد کردن بسته سلام برای مهار تشخیص SNI', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    title: Text(
+                      isEn ? 'Enable TLS Fragmentation' : 'فعال‌سازی قطعه‌بندی (TLS Fragmentation)', 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      isEn ? 'Split Hello packet to evade SNI detection' : 'خرد کردن بسته سلام برای مهار تشخیص SNI', 
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
                     value: _enableFragment,
                     activeThumbColor: const Color(0xFFED213A),
                     onChanged: (bool value) {
@@ -6449,8 +7127,14 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('فعال‌سازی قطعه‌بندی رکوردها (TLS Record Fragmentation)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    subtitle: const Text('تکه‌تکه کردن داده‌ها در لایه رکوردهای رمزنگاری', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    title: Text(
+                      isEn ? 'Enable TLS Record Fragmentation' : 'فعال‌سازی قطعه‌بندی رکوردها (TLS Record Fragmentation)', 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      isEn ? 'Fragment data at TLS record layer' : 'تکه‌تکه کردن داده‌ها در لایه رکوردهای رمزنگاری', 
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
                     value: _enableRecordFragment,
                     activeThumbColor: const Color(0xFFED213A),
                     onChanged: (bool value) {
@@ -6463,26 +7147,37 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                   TextField(
                     controller: _fallbackDelayController,
                     style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      labelText: 'تاخیر زمانی فالبک قطعه‌بندی (fallback delay)',
-                      hintText: 'مثلاً 500ms یا 100ms',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: isEn ? 'Fragmentation fallback delay' : 'تاخیر زمانی فالبک قطعه‌بندی (fallback delay)',
+                      hintText: '500ms / 100ms',
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                   ),
                   const Divider(color: Colors.white12, height: 36),
 
-                  const Text('۴. جعل تزریقی اس‌ان‌آی (TLS Spoofing)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008))),
+                  Text(
+                    isEn ? '4. Fake SNI Injection (TLS Spoofing)' : '۴. جعل تزریقی اس‌ان‌آی (TLS Spoofing)', 
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008)),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    'تزریق هدر سلام فیک با دامنه مجاز (مانند zoom.us) پیش از پکت اصلی',
+                    isEn 
+                        ? 'Injects a fake Hello header with an unblocked domain (e.g. zoom.us) before the real packet' 
+                        : 'تزریق هدر سلام فیک با دامنه مجاز (مانند zoom.us) پیش از پکت اصلی',
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('فعال‌سازی سیستم جعل تزریقی SNI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    subtitle: const Text('دور زدن DPI با ارسال اس‌ان‌آی فیک مجاز', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    title: Text(
+                      isEn ? 'Enable Fake SNI Spoofing' : 'فعال‌سازی سیستم جعل تزریقی SNI', 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      isEn ? 'Bypass DPI by injecting decoy domains' : 'دور زدن DPI با ارسال اس‌ان‌آی فیک مجاز', 
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
                     value: _enableTlsSpoof,
                     activeThumbColor: const Color(0xFFED213A),
                     onChanged: (bool value) {
@@ -6496,10 +7191,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                     TextField(
                       controller: _tlsSpoofController,
                       style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
-                        labelText: 'نام دامنه مجاز (مانند zoom.us یا microsoft.com)',
-                        hintText: 'دامنه‌ای که در فیلترینگ کاملاً باز باشد',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: isEn ? 'Allowed Decoy Domain (e.g. zoom.us, microsoft.com)' : 'نام دامنه مجاز (مانند zoom.us یا microsoft.com)',
+                        hintText: 'zoom.us',
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -6514,9 +7209,9 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         final scaffoldMessenger = ScaffoldMessenger.of(context);
                         await _saveAntiDpiToDisk();
                         scaffoldMessenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('تنظیمات پیشرفته Anti-DPI با موفقیت اعمال شد.'),
-                            duration: Duration(seconds: 2),
+                          SnackBar(
+                            content: Text(isEn ? 'Anti-DPI settings saved and applied successfully.' : 'تنظیمات پیشرفته Anti-DPI با موفقیت اعمال شد.'),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
                         setState(() {
@@ -6530,7 +7225,10 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                         shadowColor: const Color(0xFFED213A).withValues(alpha: 0.4),
                       ),
                       icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
-                      label: const Text('ثبت و اعمال تنظیمات ضدسانسور', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      label: Text(
+                        isEn ? 'Save & Apply Anti-DPI Settings' : 'ثبت و اعمال تنظیمات ضدسانسور', 
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
                     ),
                   ),
                 ],
@@ -6551,16 +7249,16 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
       borderRadius: 18,
       borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.3),
       child: _isLoadingIpInfo
-          ? const Row(
+          ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D2FF)),
                 ),
-                SizedBox(width: 16),
-                Text('در حال استعلام هویت و موقعیت جغرافیایی سرور...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(width: 16),
+                Text('querying_location'.tr(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             )
           : Row(
@@ -6586,7 +7284,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       Row(
                         children: [
                           Text(
-                            _publicIp ?? 'در حال دریافت آی‌پی...',
+                            _publicIp ?? 'fetching_ip'.tr(),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -6600,7 +7298,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                               onTap: () {
                                 Clipboard.setData(ClipboardData(text: _publicIp!));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('آی‌پی کپی شد!'), duration: Duration(seconds: 1)),
+                                  SnackBar(content: Text('toast_ip_copied'.tr()), duration: const Duration(seconds: 1)),
                                 );
                               },
                               child: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
@@ -6609,7 +7307,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_cityName ?? "ناشناس"}، ${_countryName ?? "ناشناس"}',
+                        '${_cityName ?? "unknown".tr()}، ${_countryName ?? "unknown".tr()}',
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],

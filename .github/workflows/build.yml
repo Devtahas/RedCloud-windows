@@ -106,7 +106,7 @@ jobs:
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
         Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
 
-        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS (لینک سالم و تست‌شده)
+        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS
         Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
         Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
         Expand-Archive -Path "goodbyedpi.zip" -DestinationPath "temp-goodbyedpi" -Force
@@ -125,23 +125,32 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.6
+    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.7
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v3.6
-        name: "RedCloud VPN v3.6 - Hybrid & Anti-DPI Edition"
+        tag_name: v3.7
+        name: "RedCloud VPN v3.7 - Bilingual & Enhanced Edition"
         body: |
-          🚀 **انتشار رسمی نسخه ۳.۶ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۳.۷ نرم‌افزار RedCloud VPN**
           
-          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۶:
-          - 🛡️ اضافه شدن لایه افکت ضد DPI به کمک هسته **GoodbyeDPI** و درایور **WinDivert**
-          - ⚡ افزایش پایداری شبکه **اِتر (MASQUE H3/QUIC)** با پروتکل‌های چرخشی
-          - 🧅 بهینه‌سازی کامل شبکه **تور (Tor)** و اتصال بدون معطلی با بسته‌بندی کامل دیتابیس‌های GeoIP
-          - 🔒 پشتیبانی از پروتکل‌های **Hysteria 2**, **VLESS Reality** و **Sing-box 1.13.13**
-          - 🌐 رفع خطای بیرون‌زدگی ابعاد (RenderFlex Overflow) و بهبود ریسپانسیو بودن برنامه
+          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۷ (v3.7 Changelog):
+          - 🌐 **پشتیبانی کامل دو زبانه (فارسی و انگلیسی):**
+            - سوییچ خودکار چیدمان کل برنامه بین راست‌چین (RTL) و چپ‌چین (LTR)
+            - اضافه شدن پنجره شیک انتخاب زبان در اولین اجرای برنامه با ذخیره‌سازی دائمی
+            - قابلیت تغییر آنی زبان از داخل تب تنظیمات برنامه
+          - 🧠 **سیستم هوشمند بررسی آپدیت:**
+            - رفع باگ تشخیص نسخه‌ها با استفاده از الگوریتم مقایسه معنایی (Semantic Versioning)
+          - 🛡️ **افکت ضد DPI و لایه درایور WinDivert (GoodbyeDPI):**
+            - محافظت از پکت‌های هندشیک قبل از خروج از کارت شبکه برای عبور تضمینی از سد فیلترینگ
+          - ⚡ **ارتقای پایداری پل‌های ضدسانسور اِتر (MASQUE H3/QUIC):**
+            - اسکن و فال‌بک خودکار روی پایدارترین مسیرهای ارتباطی
+          - 🧅 **بهینه‌سازی پیشرفته شبکه‌های تور و سایفون بر بستر مسک (Over MASQUE):**
+            - دور زدن هوشمند فیلترینگ گاردها با انتخاب سریع کشور مقصد
+          - 📁 **بهبود گزارش خطاها و مدیریت لاگ‌ها:**
+            - رفع خطای باز کردن پوشه و مشاهده مستقیم فایل log.txt در ویندوز
           
-          *تمامی هسته‌ها حین فرآیند بیلد ابری مستقیماً از مراجع رسمی (CluvexStudio, SagerNet, TorProject, Psiphon-Labs, ValdikSS, Wintun.net) دانلود و بسته‌بندی شده‌اند.*
+          *تمامی هسته‌ها و درایورها حین فرآیند بیلد ابری مستقیماً و بدون دستکاری از مراجع رسمی (CluvexStudio, SagerNet, TorProject, Psiphon-Labs, ValdikSS, Wintun.net) دریافت و بسته‌بندی شده‌اند.*
         draft: false
         prerelease: false
         files: |

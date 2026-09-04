@@ -1,33 +1,82 @@
-Set-Content -Path .gitignore -Value @"
+Set-Content -Path .gitignore -Encoding utf8 -Value @"
+# =====================================================================
+# RedCloud VPN - Complete .gitignore for Flutter + Rust + Windows
+# =====================================================================
+
+# --------------------------------------------------
+# Flutter & Dart Build Artifacts
+# --------------------------------------------------
 .dart_tool/
-build/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
+build/
+ephemeral/
 
-# هسته‌ها، درایورها و ستاپ‌ها (که گیت‌هاب اکشنز خودش دانلود میکنه)
+# --------------------------------------------------
+# Rust & Cargo Artifacts
+# --------------------------------------------------
+rust/target/
+rust_builder/target/
+target/
+**/*.rs.bk
+
+# --------------------------------------------------
+# Core Binaries, Drivers & Setup Files
+# (این فایل‌ها توسط GitHub Actions دانلود و بسته‌بندی می‌شوند)
+# --------------------------------------------------
 *.exe
 *.dll
 *.sys
 *.zip
 *.tar.gz
+*.7z
+*.rar
 
-# دیتابیس‌های حجیم تور و کانفیگ‌های موقت اِتر
-geoip*
+# فایل‌های ستاپ خروجی
+RedCloud_VPN_Setup_*.exe
+
+# دیتابیس‌های تور و پوشه‌های استخراج موقت
+geoip
+geoip6
+geoip-plus-asn
+geoip6-plus-asn
 aether*.toml
 build_installer.ps1
+temp-*/
 
-# لاگ‌ها و کش
-*.log
-log.txt
+# --------------------------------------------------
+# Local User Data, Settings & Logs
+# (تنظیمات محلی سیستم شما که نباید روی گیت‌هاب بروند)
+# --------------------------------------------------
+saved_*.json
 saved_nodes.json
 saved_sub_groups.json
 saved_dns.json
 saved_anti_dpi.json
-rust/target/
-target/
+saved_language.json
 
-# فایل‌های متنی که باید حتماً بمانند
+log.txt
+*.log
+redcloud_*.txt
+temp_*
+
+# --------------------------------------------------
+# IDEs & Windows System Files
+# --------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+desktop.ini
+
+# --------------------------------------------------
+# Whitelisted Files (فایل‌های مهم که حتماً باید آپلود شوند)
+# --------------------------------------------------
 !DNS.txt
 !cloudflare_IPs.txt
 !asn.txt
+!assets/
+!assets/**
 "@
