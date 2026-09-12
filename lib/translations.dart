@@ -214,6 +214,17 @@ class AppTranslations {
       'psiphon_path_label': 'مسیر فایل هسته psiphon-tunnel-core.exe',
       'target_os_label': 'سیستم‌عامل مقصد فعلی: Windows',
 
+      // بخش جدید: بروزرسانی و وضعیت هسته‌ها (Core Engine Updates)
+      'cores_update_title': 'بروزرسانی و وضعیت هسته‌ها (Core Engine Updates)',
+      'cores_update_sub': 'بررسی آنلاین و دانلود مستقیم آخرین نگارش هسته‌ها از منابع رسمی (بدون نیاز به آپدیت کلاینت)',
+      'btn_check_cores': 'بررسی آپدیت هسته‌ها',
+      'btn_update_all_cores': 'بروزرسانی خودکار همه',
+      'cores_up_to_date': 'تمامی هسته‌ها بروز هستند.',
+      'core_update_available': 'آپدیت جدید موجود است',
+      'core_installed_ver': 'نسخه فعلی: {ver}',
+      'core_latest_ver': 'آخرین نسخه: {ver}',
+      'singbox_pinned_note': 'هسته Sing-box (v1.13.13) به منظور حفظ سازگاری و پایداری کانفیگ‌ها قفل است.',
+
       // دیالوگ حمایت مالی
       'donation_title': 'حمایت مالی از پروژه RedCloud',
       'donation_desc': 'از اینکه با حمایت مالی خود به توسعه، بقا و ارتقای سرورهای ضدسانسور RedCloud کمک می‌کنید، بی‌نهایت سپاسگزاریم.\nحمایت‌های ارزشمند شما انگیزه اصلی ما برای مبارزه با فیلترینگ و حفظ اینترنت آزاد برای همه است. ❤️',
@@ -424,6 +435,17 @@ class AppTranslations {
       'tor_path_label': 'Path to tor.exe',
       'psiphon_path_label': 'Path to psiphon-tunnel-core.exe',
       'target_os_label': 'Target Operating System: Windows (x64)',
+
+      // Core Engine Updates
+      'cores_update_title': 'Core Engine Updates',
+      'cores_update_sub': 'Check online and download official core updates independently without reinstalling the app',
+      'btn_check_cores': 'Check Core Updates',
+      'btn_update_all_cores': 'Update All Cores',
+      'cores_up_to_date': 'All core engines are up to date.',
+      'core_update_available': 'Update Available',
+      'core_installed_ver': 'Current: {ver}',
+      'core_latest_ver': 'Latest: {ver}',
+      'singbox_pinned_note': 'Sing-box core (v1.13.13) is pinned to ensure config stability and prevent crashes.',
 
       // Donation Dialog
       'donation_title': 'Support RedCloud Project',

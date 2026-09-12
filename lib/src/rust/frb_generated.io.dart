@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
+import 'smart_core_types.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RustLibApiImplPlatform({
@@ -22,6 +23,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  BehaviorAnalysisReport dco_decode_behavior_analysis_report(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -29,6 +33,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VerifiedDns dco_decode_box_autoadd_verified_dns(dynamic raw);
+
+  @protected
+  CalibratedConnectionProfile dco_decode_calibrated_connection_profile(
+    dynamic raw,
+  );
+
+  @protected
+  ConnectionQualityMetrics dco_decode_connection_quality_metrics(dynamic raw);
+
+  @protected
+  DeviationSeverity dco_decode_deviation_severity(dynamic raw);
+
+  @protected
+  double dco_decode_f_32(dynamic raw);
+
+  @protected
+  double dco_decode_f_64(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -61,16 +82,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_u_16(dynamic raw);
 
   @protected
+  BigInt dco_decode_u_64(dynamic raw);
+
+  @protected
   int dco_decode_u_8(dynamic raw);
 
   @protected
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
   VerifiedDns dco_decode_verified_dns(dynamic raw);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  BehaviorAnalysisReport sse_decode_behavior_analysis_report(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -80,6 +112,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   VerifiedDns sse_decode_box_autoadd_verified_dns(SseDeserializer deserializer);
+
+  @protected
+  CalibratedConnectionProfile sse_decode_calibrated_connection_profile(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ConnectionQualityMetrics sse_decode_connection_quality_metrics(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DeviationSeverity sse_decode_deviation_severity(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -114,16 +165,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_u_16(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_u_8(SseDeserializer deserializer);
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
   VerifiedDns sse_decode_verified_dns(SseDeserializer deserializer);
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_behavior_analysis_report(
+    BehaviorAnalysisReport self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -139,6 +202,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     VerifiedDns self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_calibrated_connection_profile(
+    CalibratedConnectionProfile self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_connection_quality_metrics(
+    ConnectionQualityMetrics self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_deviation_severity(
+    DeviationSeverity self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
@@ -183,10 +270,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_u_16(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_verified_dns(VerifiedDns self, SseSerializer serializer);

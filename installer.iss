@@ -1,10 +1,10 @@
 ; =====================================================================
-; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN (نسخه 3.6 Hybrid)
-; مجهز به سیستم یکپارچه لاگ‌نویسی و هسته اختصاصی ضد DPI (GoodbyeDPI + WinDivert)
+; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN (نسخه 3.7 Hybrid)
+; مجهز به سیستم یکپارچه لاگ‌نویسی، هسته ضد DPI و سپر ضد مسمومیت DNSCrypt
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "3.7"
+#define AppVersion "3.8"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=3.6.0.0
+VersionInfoVersion=3.7.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=3.6.0.0
+VersionInfoProductVersion=3.7.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -63,7 +63,12 @@ Source: "aether.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesnte
 Source: "sing-box.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "tor.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "psiphon-tunnel-core.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "udp2raw.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "wintun.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+
+; هسته محافظتی و ضد مسمومیت DNSCrypt
+Source: "dnscrypt-proxy.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "dnscrypt-proxy.toml"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; فایل‌های کانفیگ احتمالی اِتر (جهت حفظ ارتباط در ستاپ لوکال)
 Source: "aether*.toml"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -91,12 +96,12 @@ Root: "HKCU"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFla
 
 [Run]
 ; بستن تمام پروسه‌های قدیمی قبل از اجرای برنامه
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe"; Flags: runhidden runascurrentuser; StatusMsg: "آماده‌سازی محیط..."
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe"; Flags: runhidden runascurrentuser; StatusMsg: "آماده‌سازی محیط..."
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 ; بستن تمام فرآیندها و هسته‌های فعال
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe"; Flags: runhidden
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe"; Flags: runhidden
 
 ; متوقف‌سازی سرویس درایور WinDivert در صورت باقی ماندن
 Filename: "net.exe"; Parameters: "stop WinDivert"; Flags: runhidden
@@ -105,8 +110,8 @@ Filename: "net.exe"; Parameters: "stop WinDivert14"; Flags: runhidden
 ; بازنشانی پروکسی سیستم در رجیستری ویندوز
 Filename: "reg.exe"; Parameters: "add ""HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"" /v ProxyEnable /t REG_DWORD /d 0 /f"; Flags: runhidden
 
-; بازگرداندن تنظیمات DNS تمامی کارت‌های شبکه فعال به DHCP خودکار (سینتکس استاندارد بدون خطای براکت)
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""Get-NetAdapter | Where-Object Status -eq 'Up' | Set-DnsClientServerAddress -ResetServerAddresses"""; Flags: runhidden
+; بازگرداندن تنظیمات DNS تمامی کارت‌های شبکه فعال به DHCP خودکار (اصلاح سینتکس پاورشل)
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""Get-NetAdapter | Where-Object {{$_.Status -eq 'Up'}} | Set-DnsClientServerAddress -ResetServerAddresses"""; Flags: runhidden
 
 [Code]
 // تابع ثبت گزارش‌ها در فایل مشترک log.txt
@@ -129,20 +134,28 @@ end;
 function InitializeSetup(): Boolean;
 begin
   WriteSetupLog('INFO', 'SETUP', '==================================================');
-  WriteSetupLog('INFO', 'SETUP', 'آغاز فرآیند نصب نرم‌افزار RedCloud VPN نسخه 3.6');
+  WriteSetupLog('INFO', 'SETUP', 'آغاز فرآیند نصب نرم‌افزار RedCloud VPN نسخه 3.7');
   WriteSetupLog('INFO', 'SETUP', 'دسترسی روت / ادمین: تایید شد');
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
 begin
   case CurStep of
     ssInstall:
+    begin
+      // خاموش کردن درایور و پروسه‌ها قبل از کپی فایل‌ها جهت جلوگیری از ارور Access is denied
+      Exec('taskkill.exe', '/F /IM {#AppExeName} /IM goodbyedpi.exe /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec('net.exe', 'stop WinDivert', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec('net.exe', 'stop WinDivert14', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       WriteSetupLog('INFO', 'SETUP', 'شروع فرآیند استخراج باینری‌ها، درایورها و هسته‌های ضدسانسور...');
+    end;
     ssPostInstall:
       WriteSetupLog('INFO', 'SETUP', 'تمامی فایل‌ها با موفقیت کپی و کلیدهای ریجستری ثبت شدند.');
     ssDone:
-      WriteSetupLog('INFO', 'SETUP', 'نصب برنامه نسخه 3.6 با موفقیت به پایان رسید.');
+      WriteSetupLog('INFO', 'SETUP', 'نصب برنامه نسخه 3.7 با موفقیت به پایان رسید.');
   end;
 end;
 

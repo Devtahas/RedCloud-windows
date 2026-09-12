@@ -87,16 +87,14 @@ jobs:
         Copy-Item $torExe -Destination "tor.exe" -Force
         Copy-Item $torExe -Destination "build\windows\x64\runner\Release\tor.exe" -Force
         
-        # استخراج دیتابیس‌های مکان‌یابی تور از کل محتوای پکیج (حل مشکل گیر کردن در ۵۰٪)
+        # استخراج دیتابیس‌های مکان‌یابی تور
         $geoipFile = (Get-ChildItem -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer -and $_.Name -eq "geoip" } | Select-Object -First 1).FullName
         if ($geoipFile) {
-            Write-Host "Found geoip at: $geoipFile"
             Copy-Item $geoipFile -Destination "geoip" -Force
             Copy-Item $geoipFile -Destination "build\windows\x64\runner\Release\geoip" -Force
         }
         $geoip6File = (Get-ChildItem -Filter "geoip6" -Recurse | Where-Object { -not $_.PSIsContainer -and $_.Name -eq "geoip6" } | Select-Object -First 1).FullName
         if ($geoip6File) {
-            Write-Host "Found geoip6 at: $geoip6File"
             Copy-Item $geoip6File -Destination "geoip6" -Force
             Copy-Item $geoip6File -Destination "build\windows\x64\runner\Release\geoip6" -Force
         }
@@ -118,6 +116,31 @@ jobs:
         Copy-Item "$gdpiX64\WinDivert.dll" -Destination "build\windows\x64\runner\Release\WinDivert.dll" -Force
         Copy-Item "$gdpiX64\WinDivert64.sys" -Destination "build\windows\x64\runner\Release\WinDivert64.sys" -Force
 
+        # ۷. دانلود رسمی dnscrypt-proxy و کانفیگ اختصاصی آن از مخزن رسمی DNSCrypt
+        Write-Host "Downloading official dnscrypt-proxy from DNSCrypt..."
+        $dnscryptRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest"
+        $dnscryptAsset = $dnscryptRelease.assets | Where-Object { $_.name -like "dnscrypt-proxy-win64-*.zip" } | Select-Object -First 1
+        Invoke-WebRequest -Uri $dnscryptAsset.browser_download_url -OutFile "dnscrypt.zip"
+        Expand-Archive -Path "dnscrypt.zip" -DestinationPath "temp-dnscrypt" -Force
+        $dnscryptExe = (Get-ChildItem -Path "temp-dnscrypt" -Filter "dnscrypt-proxy.exe" -Recurse | Select-Object -First 1).FullName
+        Copy-Item $dnscryptExe -Destination "dnscrypt-proxy.exe" -Force
+        Copy-Item $dnscryptExe -Destination "build\windows\x64\runner\Release\dnscrypt-proxy.exe" -Force
+        $dnscryptExampleToml = (Get-ChildItem -Path "temp-dnscrypt" -Filter "example-dnscrypt-proxy.toml" -Recurse | Select-Object -First 1).FullName
+        if ($dnscryptExampleToml) {
+            Copy-Item $dnscryptExampleToml -Destination "dnscrypt-proxy.toml" -Force
+            Copy-Item $dnscryptExampleToml -Destination "build\windows\x64\runner\Release\dnscrypt-proxy.toml" -Force
+        }
+
+        # ۸. دانلود رسمی udp2raw برای بهینه‌سازی و کاهش پینگ
+        Write-Host "Downloading official udp2raw..."
+        Invoke-WebRequest -Uri "https://github.com/wangyu-/udp2raw-multiplatform/releases/download/20230206.0/udp2raw_mp_binaries.tar.gz" -OutFile "udp2raw.tar.gz"
+        tar -xzf "udp2raw.tar.gz" -C "."
+        $udp2rawExe = (Get-ChildItem -Filter "udp2raw_mp_wepoll.exe" -Recurse | Select-Object -First 1).FullName
+        if ($udp2rawExe) {
+            Copy-Item $udp2rawExe -Destination "udp2raw.exe" -Force
+            Copy-Item $udp2rawExe -Destination "build\windows\x64\runner\Release\udp2raw.exe" -Force
+        }
+
     # ۹. نصب Inno Setup و ساخت فایل نصبی
     - name: Compile Installer with Inno Setup
       shell: pwsh
@@ -125,32 +148,29 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.7
+    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.8
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v3.7
-        name: "RedCloud VPN v3.7 - Bilingual & Enhanced Edition"
+        tag_name: v3.8
+        name: "RedCloud VPN v3.8 - Smart Matrix Evasion & Universal TUN Edition"
         body: |
-          🚀 **انتشار رسمی نسخه ۳.۷ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۳.۸ نرم‌افزار RedCloud VPN**
           
-          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۷ (v3.7 Changelog):
-          - 🌐 **پشتیبانی کامل دو زبانه (فارسی و انگلیسی):**
-            - سوییچ خودکار چیدمان کل برنامه بین راست‌چین (RTL) و چپ‌چین (LTR)
-            - اضافه شدن پنجره شیک انتخاب زبان در اولین اجرای برنامه با ذخیره‌سازی دائمی
-            - قابلیت تغییر آنی زبان از داخل تب تنظیمات برنامه
-          - 🧠 **سیستم هوشمند بررسی آپدیت:**
-            - رفع باگ تشخیص نسخه‌ها با استفاده از الگوریتم مقایسه معنایی (Semantic Versioning)
-          - 🛡️ **افکت ضد DPI و لایه درایور WinDivert (GoodbyeDPI):**
-            - محافظت از پکت‌های هندشیک قبل از خروج از کارت شبکه برای عبور تضمینی از سد فیلترینگ
-          - ⚡ **ارتقای پایداری پل‌های ضدسانسور اِتر (MASQUE H3/QUIC):**
-            - اسکن و فال‌بک خودکار روی پایدارترین مسیرهای ارتباطی
-          - 🧅 **بهینه‌سازی پیشرفته شبکه‌های تور و سایفون بر بستر مسک (Over MASQUE):**
-            - دور زدن هوشمند فیلترینگ گاردها با انتخاب سریع کشور مقصد
-          - 📁 **بهبود گزارش خطاها و مدیریت لاگ‌ها:**
-            - رفع خطای باز کردن پوشه و مشاهده مستقیم فایل log.txt در ویندوز
-          
-          *تمامی هسته‌ها و درایورها حین فرآیند بیلد ابری مستقیماً و بدون دستکاری از مراجع رسمی (CluvexStudio, SagerNet, TorProject, Psiphon-Labs, ValdikSS, Wintun.net) دریافت و بسته‌بندی شده‌اند.*
+          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۸ (v3.8 Changelog):
+          - ⚡ **هوشمندسازی ماتریسی شبکه اِتر (Smart Matrix Evasion):**
+            - مجهز به الگوریتم خودآموز Fast-Path با تست زنده حافظه شبکه
+            - تست ترکیبی و آبشاری مودها و نویزهای تهاجمی (Aggressive / Firewall) برای دور زدن فیلترینگ شدید
+            - تفکیک قطعی اپراتورها جهت جلوگیری از تداخل حافظه همراه اول، ایرانسل و وای‌فای
+          - 🌐 **حالت تونل سراسری ویندوز (Universal TUN Mode) در تمام تب‌ها:**
+            - فعال‌سازی کارت شبکه مجازی در تب‌های داشبورد، اِتر، تور و سایفون
+            - عبور ۱۰۰٪ ترافیک کل سیستم (بازی‌ها، دیسکورد و برنامه‌های بدون پروکسی)
+            - مجهز به سیستم ضدلوپ تضمینی (Loop-Free Protection)
+            - نام‌گذاری داینامیک درایور و پاکسازی خودکار کارت‌های معلق (رفع خطای Already Exists)
+          - 🛡️ **سیستم ارتقای خودکار مجوزها (Auto-Elevation):**
+            - درخواست خودکار دسترسی Administrator از طریق پاورشل برای کارت شبکه TUN، درایور WinDivert و DNS
+          - 📦 **بسته‌بندی رسمی و دست‌نخورده هسته‌ها:**
+            - تمامی هسته‌ها و درایورها (Wintun, Aether, Sing-box, Tor, Psiphon, GoodbyeDPI, DNSCrypt, udp2raw) مستقیماً حین بیلد ابری گیت‌هاب از مراجع اصلی دانلود شده‌اند.
         draft: false
         prerelease: false
         files: |

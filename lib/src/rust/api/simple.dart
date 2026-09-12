@@ -4,10 +4,76 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../smart_core_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_global_job_object`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`
+// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_core2_instance`, `get_global_job_object`, `get_learning_engine`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`, `test_socks5_egress`, `verify_dnscrypt_truth`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
+
+Future<bool> isDnsttRunning() =>
+    RustLib.instance.api.crateApiSimpleIsDnsttRunning();
+
+Future<String> startDnsttCore({
+  String? binaryPath,
+  required String dohUrl,
+  required String pubkey,
+  required String domain,
+  required int localPort,
+}) => RustLib.instance.api.crateApiSimpleStartDnsttCore(
+  binaryPath: binaryPath,
+  dohUrl: dohUrl,
+  pubkey: pubkey,
+  domain: domain,
+  localPort: localPort,
+);
+
+Future<String> stopDnsttCore() =>
+    RustLib.instance.api.crateApiSimpleStopDnsttCore();
+
+Future<List<String>> findActiveResolversForDomain({
+  required String targetDomain,
+}) => RustLib.instance.api.crateApiSimpleFindActiveResolversForDomain(
+  targetDomain: targetDomain,
+);
+
+Future<bool> isUdp2RawRunning() =>
+    RustLib.instance.api.crateApiSimpleIsUdp2RawRunning();
+
+Future<String> startUdp2RawCore({
+  String? binaryPath,
+  required String remoteAddr,
+  required int localPort,
+  String? key,
+}) => RustLib.instance.api.crateApiSimpleStartUdp2RawCore(
+  binaryPath: binaryPath,
+  remoteAddr: remoteAddr,
+  localPort: localPort,
+  key: key,
+);
+
+Future<String> stopUdp2RawCore() =>
+    RustLib.instance.api.crateApiSimpleStopUdp2RawCore();
+
+Future<int> benchmarkAndOptimizeUdp2Raw({
+  required String remoteHost,
+  required int remotePort,
+  String? binaryPath,
+  String? key,
+}) => RustLib.instance.api.crateApiSimpleBenchmarkAndOptimizeUdp2Raw(
+  remoteHost: remoteHost,
+  remotePort: remotePort,
+  binaryPath: binaryPath,
+  key: key,
+);
+
+Future<bool> isDnscryptRunning() =>
+    RustLib.instance.api.crateApiSimpleIsDnscryptRunning();
+
+Future<String> startDnscryptCore({String? binaryPath}) => RustLib.instance.api
+    .crateApiSimpleStartDnscryptCore(binaryPath: binaryPath);
+
+Future<String> stopDnscryptCore() =>
+    RustLib.instance.api.crateApiSimpleStopDnscryptCore();
 
 Future<bool> isGoodbyedpiRunning() =>
     RustLib.instance.api.crateApiSimpleIsGoodbyedpiRunning();
@@ -323,6 +389,82 @@ Future<String> stopProxyCore() =>
 
 Future<List<ProxyNode>> parseImportLinks({required String input}) =>
     RustLib.instance.api.crateApiSimpleParseImportLinks(input: input);
+
+/// کالیبراسیون و بهینه‌سازی زنده یک کانفیگ با موتور یادگیری خودآموز (MAB Learning)
+Future<CalibratedConnectionProfile> calibrateAndOptimizeNode({
+  required String rawUrl,
+}) =>
+    RustLib.instance.api.crateApiSimpleCalibrateAndOptimizeNode(rawUrl: rawUrl);
+
+/// ثبت نمونه واقعی اتصال در هسته دوم و محاسبه انحراف ریاضی d(y, R)
+Future<BehaviorAnalysisReport> recordLiveConnectionMetric({
+  required double measuredLatencyMs,
+}) => RustLib.instance.api.crateApiSimpleRecordLiveConnectionMetric(
+  measuredLatencyMs: measuredLatencyMs,
+);
+
+/// اتصال هوشمند و کاملاً خودکار: کالیبراسیون با هسته اول و سپس برقراری تونل
+Future<CalibratedConnectionProfile> startSmartOptimizedProxy({
+  required String binaryPath,
+  required ProxyNode selectedNode,
+  required bool useSystemProxy,
+  required bool useTunMode,
+  required String dnsType,
+  required String dnsPrimary,
+  required String dnsSecondary,
+  String? dnsDotHost,
+}) => RustLib.instance.api.crateApiSimpleStartSmartOptimizedProxy(
+  binaryPath: binaryPath,
+  selectedNode: selectedNode,
+  useSystemProxy: useSystemProxy,
+  useTunMode: useTunMode,
+  dnsType: dnsType,
+  dnsPrimary: dnsPrimary,
+  dnsSecondary: dnsSecondary,
+  dnsDotHost: dnsDotHost,
+);
+
+/// خوددرمانگری خودکار: جهش به استراتژی ضد اختلال بدون نیاز به دخالت کاربر
+Future<CalibratedConnectionProfile> autoHealAndRecalibrate({
+  required String binaryPath,
+  required ProxyNode selectedNode,
+  required bool useSystemProxy,
+  required bool useTunMode,
+  required String dnsType,
+  required String dnsPrimary,
+  required String dnsSecondary,
+  String? dnsDotHost,
+}) => RustLib.instance.api.crateApiSimpleAutoHealAndRecalibrate(
+  binaryPath: binaryPath,
+  selectedNode: selectedNode,
+  useSystemProxy: useSystemProxy,
+  useTunMode: useTunMode,
+  dnsType: dnsType,
+  dnsPrimary: dnsPrimary,
+  dnsSecondary: dnsSecondary,
+  dnsDotHost: dnsDotHost,
+);
+
+/// استعلام بهترین حالت یادگرفته‌شده برای یک پروتکل از حافظه شبکه (Fast-Path برای اِتر، تور و سایفون)
+Future<String?> getSuggestedProtocolMode({required String protocol}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleGetSuggestedProtocolMode(protocol: protocol);
+
+/// ساخت پروفایل کالیبراسیون و تله‌متری واقعی برای پروتکل‌های غیر VLESS
+Future<CalibratedConnectionProfile> createProtocolCalibratedProfile({
+  required String protocolName,
+  required String modeOrRegion,
+  required int localPort,
+  required double measuredLatencyMs,
+  required bool isFastPath,
+}) => RustLib.instance.api.crateApiSimpleCreateProtocolCalibratedProfile(
+  protocolName: protocolName,
+  modeOrRegion: modeOrRegion,
+  localPort: localPort,
+  measuredLatencyMs: measuredLatencyMs,
+  isFastPath: isFastPath,
+);
 
 class ProxyNode {
   final String name;
