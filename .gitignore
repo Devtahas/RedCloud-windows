@@ -53,3 +53,7 @@ aether*.toml
 build_installer.ps1
 build/
 .dart_tool/
+
+target/
+rust/target/
+cached_*.json

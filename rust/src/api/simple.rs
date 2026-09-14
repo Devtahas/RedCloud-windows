@@ -29,6 +29,8 @@ static GOODBYEDPI_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 static DNSCRYPT_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 static UDP2RAW_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 static ACTIVE_DNS: Mutex<Option<(String, String)>> = Mutex::new(None);
+static ANTI_RST_RUNNING: AtomicBool = AtomicBool::new(false);
+static ANTI_RST_HANDLE: Mutex<Option<isize>> = Mutex::new(None);
 
 static TOR_BOOTSTRAP_PERCENT: Mutex<i32> = Mutex::new(0);
 static AETHER_BOOTSTRAP_PERCENT: Mutex<i32> = Mutex::new(0);
@@ -81,6 +83,159 @@ pub struct VerifiedDns {
     pub works_singbox: bool,
     pub works_tor: bool,
     pub works_psiphon: bool,
+}
+
+// =========================================================================
+// سپر هوشمند فیلتر پکت‌های جعلی (Fake TCP RST Dropper via WinDivert)
+// =========================================================================
+
+#[cfg(target_os = "windows")]
+extern "system" {
+    fn LoadLibraryW(lpLibFileName: *const u16) -> *mut std::ffi::c_void;
+    fn GetProcAddress(hModule: *mut std::ffi::c_void, lpProcName: *const u8) -> *const std::ffi::c_void;
+    fn FreeLibrary(hModule: *mut std::ffi::c_void) -> i32;
+}
+
+type WinDivertOpenFn = unsafe extern "system" fn(*const i8, u32, i16, u64) -> isize;
+type WinDivertRecvFn = unsafe extern "system" fn(isize, *mut u8, u32, *mut u32, *mut u8) -> i32;
+type WinDivertSendFn = unsafe extern "system" fn(isize, *const u8, u32, *mut u32, *const u8) -> i32;
+type WinDivertCloseFn = unsafe extern "system" fn(isize) -> i32;
+
+pub fn start_anti_rst_filter() {
+    #[cfg(target_os = "windows")]
+    {
+        if ANTI_RST_RUNNING.load(Ordering::SeqCst) {
+            return;
+        }
+
+        let dll_path = resolve_binary_path("WinDivert.dll");
+        if !dll_path.exists() {
+            write_log("WARN", "ANTI_RST", "فایل WinDivert.dll یافت نشد؛ سپر ضد RST غیرفعال ماند.");
+            return;
+        }
+
+        use std::os::windows::ffi::OsStrExt;
+        let mut wide: Vec<u16> = dll_path.as_os_str().encode_wide().collect();
+        wide.push(0);
+
+        let h_module = unsafe { LoadLibraryW(wide.as_ptr()) };
+        if h_module.is_null() {
+            write_log("WARN", "ANTI_RST", "امکان لود WinDivert.dll وجود ندارد.");
+            return;
+        }
+
+        let open_fn: WinDivertOpenFn = unsafe {
+            let p = GetProcAddress(h_module, b"WinDivertOpen\0".as_ptr());
+            if p.is_null() { return; }
+            std::mem::transmute(p)
+        };
+        let recv_fn: WinDivertRecvFn = unsafe {
+            let p = GetProcAddress(h_module, b"WinDivertRecv\0".as_ptr());
+            if p.is_null() { return; }
+            std::mem::transmute(p)
+        };
+        let send_fn: WinDivertSendFn = unsafe {
+            let p = GetProcAddress(h_module, b"WinDivertSend\0".as_ptr());
+            if p.is_null() { return; }
+            std::mem::transmute(p)
+        };
+        let close_fn: WinDivertCloseFn = unsafe {
+            let p = GetProcAddress(h_module, b"WinDivertClose\0".as_ptr());
+            if p.is_null() { return; }
+            std::mem::transmute(p)
+        };
+
+        // فیلتر فقط پکت‌های ورودی دارای فلگ RST (ترافیک عادی اصلاً شنود نمی‌شود و سرعت افت نمی‌کند)
+        let filter_str = b"inbound and tcp.Rst\0";
+        let handle = unsafe { open_fn(filter_str.as_ptr() as *const i8, 0, 1000, 0) };
+
+        if handle == -1 || handle == 0 {
+            write_log("WARN", "ANTI_RST", "دسترسی درایور WinDivert رد شد (نیاز به Admin).");
+            unsafe { FreeLibrary(h_module); }
+            return;
+        }
+
+        {
+            let mut h_guard = ANTI_RST_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+            *h_guard = Some(handle);
+        }
+        ANTI_RST_RUNNING.store(true, Ordering::SeqCst);
+        write_log("INFO", "ANTI_RST", "🛡️ سپر محافظتی ضد پکت‌های جعلی RST فعال شد.");
+
+        let h_module_addr = h_module as usize;
+
+        thread::spawn(move || {
+            let h_module = h_module_addr as *mut std::ffi::c_void;
+            let mut packet = [0u8; 1500];
+            let mut addr = [0u8; 128];
+            let mut read_len = 0u32;
+
+            while ANTI_RST_RUNNING.load(Ordering::Relaxed) {
+                let ok = unsafe {
+                    recv_fn(handle, packet.as_mut_ptr(), 1500, &mut read_len, addr.as_mut_ptr())
+                };
+
+                if ok != 0 && read_len > 20 {
+                    // بررسی پکت IPv4
+                    if (packet[0] >> 4) == 4 {
+                        let ttl = packet[8];
+                        // پکت‌های فیلترینگ داخلی به دلیل فاصله کم با TTL نزدیک به 64 یا 128 یا 255 می‌رسند
+                        let is_middlebox_injection = (ttl >= 59 && ttl <= 64) 
+                            || (ttl >= 123 && ttl <= 128) 
+                            || (ttl >= 250);
+
+                        if is_middlebox_injection {
+                            write_log("INFO", "ANTI_RST", &format!("🎯 پکت RST جعلی فیلترینگ خنثی شد! (TTL دریافتی: {})", ttl));
+                            // پکت Drop می‌شود و به ویندوز ارسال نمی‌شود!
+                            continue;
+                        }
+                    }
+
+                    // در غیر این صورت پکت سالم است و عبور داده می‌شود
+                    let mut send_len = 0u32;
+                    unsafe {
+                        send_fn(handle, packet.as_ptr(), read_len, &mut send_len, addr.as_ptr());
+                    }
+                } else if !ANTI_RST_RUNNING.load(Ordering::Relaxed) {
+                    break;
+                }
+            }
+
+            unsafe {
+                FreeLibrary(h_module);
+            }
+            write_log("INFO", "ANTI_RST", "سپر ضد RST متوقف شد.");
+        });
+    }
+}
+
+pub fn stop_anti_rst_filter() {
+    #[cfg(target_os = "windows")]
+    {
+        if !ANTI_RST_RUNNING.load(Ordering::SeqCst) {
+            return;
+        }
+        ANTI_RST_RUNNING.store(false, Ordering::SeqCst);
+
+        let mut h_guard = ANTI_RST_HANDLE.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(h) = h_guard.take() {
+            let dll_path = resolve_binary_path("WinDivert.dll");
+            use std::os::windows::ffi::OsStrExt;
+            let mut wide: Vec<u16> = dll_path.as_os_str().encode_wide().collect();
+            wide.push(0);
+            let h_module = unsafe { LoadLibraryW(wide.as_ptr()) };
+            if !h_module.is_null() {
+                let close_fn: WinDivertCloseFn = unsafe {
+                    let p = GetProcAddress(h_module, b"WinDivertClose\0".as_ptr());
+                    if !p.is_null() { std::mem::transmute(p) } else { return; }
+                };
+                unsafe {
+                    close_fn(h);
+                    FreeLibrary(h_module);
+                }
+            }
+        }
+    }
 }
 
 // =========================================================================
@@ -540,6 +695,7 @@ pub fn stop_goodbyedpi_core() -> Result<String, String> {
 pub fn get_all_local_ip_addresses() -> Vec<String> {
     let mut ips = Vec::new();
 
+    // دریافت مستقیم و بدون مصرف منابع از سوکت، بدون نیاز به باز کردن PowerShell
     if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
         if socket.connect("8.8.8.8:80").is_ok() {
             if let Ok(local_addr) = socket.local_addr() {
@@ -551,10 +707,11 @@ pub fn get_all_local_ip_addresses() -> Vec<String> {
         }
     }
 
+    // فقط اگر سوکت آی‌پی نداد، به عنوان بک‌آوری بسیار نادر از پاورشل استفاده شود
     #[cfg(target_os = "windows")]
-    {
+    if ips.is_empty() {
         if let Ok(output) = Command::new("powershell")
-            .args(&["-Command", "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notmatch 'Loopback|vEthernet'} | Select-Object -ExpandProperty IPAddress"])
+            .args(&["-NoProfile", "-Command", "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -notmatch 'Loopback|vEthernet'} | Select-Object -ExpandProperty IPAddress"])
             .creation_flags(0x08000000)
             .output()
         {
@@ -754,6 +911,11 @@ fn get_timestamp() -> String {
 }
 
 pub fn write_log(level: &str, tag: &str, message: &str) {
+    // لاگ‌های خط به خط دیباگ نباید هارد دیسک را مداوم باز و بسته کنند
+    if level == "DEBUG" {
+        return;
+    }
+
     init_panic_hook();
     let _guard = LOG_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -1407,15 +1569,17 @@ fn test_socks5_egress(socks_addr: &str, timeout: Duration) -> bool {
         Err(_) => return false,
     };
 
-    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(500)) {
+    let mut stream = match TcpStream::connect_timeout(&addr, Duration::from_millis(700)) {
         Ok(s) => s,
         Err(_) => return false,
     };
 
-    let _ = stream.set_read_timeout(Some(timeout));
-    let _ = stream.set_write_timeout(Some(timeout));
+    let effective_timeout = timeout.max(Duration::from_millis(1500));
+    let _ = stream.set_read_timeout(Some(effective_timeout));
+    let _ = stream.set_write_timeout(Some(effective_timeout));
     let _ = stream.set_nodelay(true);
 
+    // ۱. دست‌دهی اولیه با ساکس لوکال
     if stream.write_all(&[0x05, 0x01, 0x00]).is_err() {
         return false;
     }
@@ -1425,7 +1589,47 @@ fn test_socks5_egress(socks_addr: &str, timeout: Duration) -> bool {
         return false;
     }
 
-    true
+    // ۲. ارسال درخواست اتصال به سرور تست اینترنت جهانی از داخل تونل (cp.cloudflare.com:80)
+    let mut connect_req = Vec::new();
+    connect_req.extend_from_slice(&[0x05, 0x01, 0x00, 0x03]); // SOCKS5 Domain Connect
+    let domain = b"cp.cloudflare.com";
+    connect_req.push(domain.len() as u8);
+    connect_req.extend_from_slice(domain);
+    connect_req.extend_from_slice(&80u16.to_be_bytes()); // Port 80
+
+    if stream.write_all(&connect_req).is_err() {
+        return false;
+    }
+
+    let mut connect_resp = [0u8; 10];
+    if stream.read_exact(&mut connect_resp).is_err() || connect_resp[1] != 0x00 {
+        return false;
+    }
+
+    // ۳. ارسال پکت تست واقعی HTTP و انتظار برای دریافت دیتای زنده از خارج کشور
+    let http_probe = b"GET /generate_204 HTTP/1.1\r\nHost: cp.cloudflare.com\r\nUser-Agent: curl/7.88.1\r\nConnection: close\r\n\r\n";
+    if stream.write_all(http_probe).is_err() {
+        return false;
+    }
+
+    let mut http_resp = [0u8; 15];
+    if stream.read_exact(&mut http_resp).is_err() {
+        return false; // ترافیک به چاه سیاه خورده یا قطع است!
+    }
+
+    let resp_str = String::from_utf8_lossy(&http_resp);
+    // تایید قطعی: فقط در صورتی که دیتای واقعی با پاسخ 204 از اینترنت جهانی برگشت تایید شود
+    let is_real_traffic = resp_str.starts_with("HTTP/1.1 204") 
+        || resp_str.starts_with("HTTP/1.0 204") 
+        || resp_str.starts_with("HTTP/1.1 200");
+
+    if is_real_traffic {
+        write_log("INFO", "PROBE_E2E", "✅ عبور واقعی داده از خارج کشور تایید شد (پاسخ 204 سالم).");
+    } else {
+        write_log("WARN", "PROBE_E2E", &format!("❌ شبه‌اتصال جعلی تشخیص داده شد؛ پاسخ نامعتبر: {}", resp_str));
+    }
+
+    is_real_traffic
 }
 
 fn process_aether_line(l: String) {
@@ -1583,7 +1787,7 @@ pub fn start_aether_core(
     // =========================================================================
     // ۱. بررسی حافظه یادگیری (Fast-Path Probe): اول تست کن، اگر باز بود فوری وصل شو!
     // =========================================================================
-    if (mode == "auto" || mode.is_empty()) {
+    if mode == "auto" || mode.is_empty() {
         if let Some((cached_mode, cached_noize)) = learning_engine.suggest_best_protocol_and_noize(fingerprint, "Aether") {
             write_log(
                 "INFO",
@@ -2123,11 +2327,13 @@ pub fn start_hybrid_connection(
         set_windows_system_proxy(true, "127.0.0.1".to_string(), 2080);
     }
 
+    start_anti_rst_filter();
     write_log("INFO", "HYBRID", "اتصال ترکیبی هیبریدی با موفقیت برقرار شد.");
     Ok("اتصال ترکیبی هیبریدی با موفقیت برقرار شد! هویت خارجی فعال است.".to_string())
 }
 
 pub fn stop_hybrid_connection() -> Result<String, String> {
+    stop_anti_rst_filter();
     write_log("INFO", "HYBRID", "دستور قطع اتصال هیبریدی دریافت شد.");
     let _ = stop_proxy_core();
     let _ = stop_aether_core();
@@ -2268,7 +2474,7 @@ fn start_tor_core_internal(
     if use_system_proxy {
         set_windows_system_proxy(true, "127.0.0.1".to_string(), 9051);
     }
-    
+    start_anti_rst_filter();
     Ok("فرآیند تور آغاز شد. در حال اتصال به شبکه پیاز...".to_string())
 }
 
@@ -2343,6 +2549,7 @@ pub fn stop_tor_over_masque() -> Result<String, String> {
 }
 
 pub fn stop_tor_core() -> Result<String, String> {
+    stop_anti_rst_filter();
     write_log("INFO", "TOR", "دستور توقف تور دریافت شد.");
     let mut process_guard = TOR_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -2529,7 +2736,7 @@ fn start_psiphon_core_internal(
     if use_system_proxy {
         set_windows_system_proxy(true, "127.0.0.1".to_string(), 9081);
     }
-    
+    start_anti_rst_filter();
     Ok("Connecting to Psiphon servers, please wait...".to_string())
 }
 
@@ -2604,6 +2811,7 @@ pub fn stop_psiphon_over_masque() -> Result<String, String> {
 }
 
 pub fn stop_psiphon_core() -> Result<String, String> {
+    stop_anti_rst_filter();
     write_log("INFO", "PSIPHON", "دستور توقف سایفون دریافت شد.");
     let mut process_guard = PSIPHON_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
 
@@ -3179,6 +3387,7 @@ pub fn start_proxy_with_node(
                 set_windows_system_proxy(true, "127.0.0.1".to_string(), 2080);
             }
             
+            start_anti_rst_filter();
             write_log("INFO", "V2RAY", "اتصال مستقیم Sing-box با موفقیت برقرار شد.");
             Ok("اتصال با موفقیت برقرار شد.".to_string())
         }
@@ -3191,6 +3400,7 @@ pub fn start_proxy_with_node(
 }
 
 pub fn stop_proxy_core() -> Result<String, String> {
+    stop_anti_rst_filter();
     write_log("INFO", "V2RAY", "دستور توقف پروکسی دریافت شد.");
     let mut process_guard = PROXY_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
 

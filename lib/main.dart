@@ -17,7 +17,7 @@ import 'core_updater.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "3.8";
+const String appCurrentVersion = "3.9";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -371,6 +371,9 @@ class V2rayConfig {
 Future<void> main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // محدودسازی سقف کش عکس‌ها و گرافیک از ۱۰۰ مگابایت به ۱۰ مگابایت
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 10 * 1024 * 1024;
+    PaintingBinding.instance.imageCache.maximumSize = 50;
     await RustLib.init();
 
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -791,6 +794,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   String _latestVersion = "";
   String _latestReleaseUrl = githubRepoReleasesUrl;
   bool _isCheckingUpdate = false;
+  bool _isWindowVisible = true;
   AnimationController? _pulseController;
   Animation<double>? _pulseAnimation;
 
@@ -1533,6 +1537,9 @@ Future<void> _saveDnsttToDisk() async {
             _latestVersion = tagName;
             _latestReleaseUrl = htmlUrl;
           });
+          if (_isWindowVisible) {
+            _pulseController?.repeat(reverse: true);
+          }
           AppLogger.info("UPDATER", "نسخه جدیدتر یافت شد: $tagName (نسخه فعلی: $appCurrentVersion)");
         } else {
           setState(() => _hasUpdate = false);
@@ -1675,7 +1682,7 @@ Future<void> _saveDnsttToDisk() async {
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
     
     _pulseAnimation = Tween<double>(begin: 0.35, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController!, curve: Curves.easeInOut),
@@ -1695,6 +1702,7 @@ Future<void> _saveDnsttToDisk() async {
     _loadDnsttFromDisk();
     _checkForUpdates();
     _initLanShareState();
+    _fetchGithubAccounts(); // بارگذاری سریع از کش محلی در بدو اجرای برنامه
   }
 
   Future<void> _initLanShareState() async {
@@ -2811,12 +2819,18 @@ Future<void> _saveDnsttToDisk() async {
   void onWindowClose() async {
     bool isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
+      _pulseController?.stop();
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
       await windowManager.hide();
-      setState(() {
-        _statusMessage = AppTranslations.currentLang == 'en'
-            ? "App is running in background (System Tray)."
-            : "برنامه در پس‌زمینه و کنار ساعت فعال است.";
-      });
+      if (mounted) {
+        setState(() {
+          _isWindowVisible = false;
+          _statusMessage = AppTranslations.currentLang == 'en'
+              ? "App is running in background (System Tray)."
+              : "برنامه در پس‌زمینه و کنار ساعت فعال است.";
+        });
+      }
     }
   }
 
@@ -2825,6 +2839,14 @@ Future<void> _saveDnsttToDisk() async {
     if (menuItem.key == 'show_window') {
       await windowManager.show();
       await windowManager.focus();
+      if (mounted) {
+        setState(() {
+          _isWindowVisible = true;
+        });
+        if (_hasUpdate) {
+          _pulseController?.repeat(reverse: true);
+        }
+      }
     } else if (menuItem.key == 'exit_app') {
       AppLogger.info("APP_LIFECYCLE", "خروج کامل از نرم‌افزار توسط کاربر...");
       await _maybeStopGoodbyeDpi();
@@ -2856,6 +2878,14 @@ Future<void> _saveDnsttToDisk() async {
   void onTrayIconMouseDown() async {
     await windowManager.show();
     await windowManager.focus();
+    if (mounted) {
+      setState(() {
+        _isWindowVisible = true;
+      });
+      if (_hasUpdate) {
+        _pulseController?.repeat(reverse: true);
+      }
+    }
   }
 
   @override
@@ -3007,16 +3037,31 @@ Future<void> _saveDnsttToDisk() async {
     final bool isEn = AppTranslations.currentLang == 'en';
     setState(() {
       _isLoadingAccounts = true;
-      _statusMessage = isEn ? "Fetching active accounts from GitHub..." : "در حال دریافت لیست اکانت‌های فعال از گیت‌هاب...";
+      _statusMessage = isEn ? "Fetching active accounts..." : "در حال دریافت لیست اکانت‌های فعال...";
     });
 
     try {
-      final response = await http.get(Uri.parse(
-        'https://raw.githubusercontent.com/Devtahas/Devtahas-redcloud-config/main/accounts.json'
-      ));
+      final cacheFile = await _getLocalFile('cached_github_accounts.json');
+      http.Response? response;
+      try {
+        response = await http.get(Uri.parse(
+          'https://raw.githubusercontent.com/Devtahas/Devtahas-redcloud-config/main/accounts.json'
+        )).timeout(const Duration(seconds: 4));
+      } catch (_) {
+        response = null;
+      }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body);
+      String rawJsonBody = '';
+      if (response != null && response.statusCode == 200) {
+        rawJsonBody = response.body;
+        await cacheFile.writeAsString(rawJsonBody);
+      } else if (await cacheFile.exists()) {
+        rawJsonBody = await cacheFile.readAsString();
+        AppLogger.info("CACHE", "گیت‌هاب در دسترس نبود؛ اکانت‌ها از حافظه کش آفلاین بازیابی شدند.");
+      }
+
+      if (rawJsonBody.isNotEmpty) {
+        final List<dynamic> jsonList = jsonDecode(rawJsonBody);
         
         List<VlessAccount> parsedList = [];
         for (var item in jsonList) {
@@ -3071,7 +3116,8 @@ Future<void> _saveDnsttToDisk() async {
         });
 
       } else {
-        throw Exception("GitHub API Error: ${response.statusCode}");
+        final errCode = response?.statusCode.toString() ?? 'Offline/Blocked';
+        throw Exception("GitHub API Error: $errCode");
       }
     } catch (e, st) {
       AppLogger.error("GITHUB_ACCOUNTS", "Error fetching accounts", e, st);
@@ -4171,9 +4217,11 @@ Future<void> _saveDnsttToDisk() async {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: AppTranslations.isRtl ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return TickerMode(
+      enabled: _isWindowVisible,
+      child: Directionality(
+        textDirection: AppTranslations.isRtl ? TextDirection.rtl : TextDirection.ltr,
+        child: Scaffold(
       body: Stack(
         children: [
           Row(
@@ -4272,7 +4320,9 @@ Future<void> _saveDnsttToDisk() async {
                     ),
                     const SizedBox(height: 8),
 
-                    _buildUpdateCard(),
+                    RepaintBoundary(
+                      child: _buildUpdateCard(),
+                    ),
                     const SizedBox(height: 10),
 
                     Row(
@@ -4335,6 +4385,7 @@ Future<void> _saveDnsttToDisk() async {
             ),
         ],
       ),
+    ),
     ),
   );
 }
@@ -4657,19 +4708,19 @@ Future<void> _saveDnsttToDisk() async {
                             boxShadow: [
                               BoxShadow(
                                 color: isAnyRunning 
-                                    ? const Color(0xFF00D2FF).withValues(alpha: 0.5)
-                                    : const Color(0xFF00D2FF).withValues(alpha: 0.15),
-                                blurRadius: 45,
-                                spreadRadius: isAnyRunning ? 8 : 2,
-                                offset: const Offset(-4, -4),
+                                    ? const Color(0xFF00D2FF).withValues(alpha: 0.4)
+                                    : const Color(0xFF00D2FF).withValues(alpha: 0.1),
+                                blurRadius: 16,
+                                spreadRadius: isAnyRunning ? 3 : 1,
+                                offset: const Offset(-2, -2),
                               ),
                               BoxShadow(
                                 color: isAnyRunning 
-                                    ? const Color(0xFFFF8008).withValues(alpha: 0.5)
-                                    : const Color(0xFFFF8008).withValues(alpha: 0.15),
-                                blurRadius: 45,
-                                spreadRadius: isAnyRunning ? 8 : 2,
-                                offset: const Offset(4, 4),
+                                    ? const Color(0xFFFF8008).withValues(alpha: 0.4)
+                                    : const Color(0xFFFF8008).withValues(alpha: 0.1),
+                                blurRadius: 16,
+                                spreadRadius: isAnyRunning ? 3 : 1,
+                                offset: const Offset(2, 2),
                               ),
                             ],
                           ),

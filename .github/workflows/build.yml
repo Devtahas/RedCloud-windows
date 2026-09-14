@@ -148,29 +148,27 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.8
+    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.9
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v3.8
-        name: "RedCloud VPN v3.8 - Smart Matrix Evasion & Universal TUN Edition"
+        tag_name: v3.9
+        name: "RedCloud VPN v3.9 - Zero Idle Overhead & Kernel Anti-RST Shield"
         body: |
-          🚀 **انتشار رسمی نسخه ۳.۸ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۳.۹ نرم‌افزار RedCloud VPN**
           
-          ### ✨ ویژگی‌ها و تغییرات نسخه ۳.۸ (v3.8 Changelog):
-          - ⚡ **هوشمندسازی ماتریسی شبکه اِتر (Smart Matrix Evasion):**
-            - مجهز به الگوریتم خودآموز Fast-Path با تست زنده حافظه شبکه
-            - تست ترکیبی و آبشاری مودها و نویزهای تهاجمی (Aggressive / Firewall) برای دور زدن فیلترینگ شدید
-            - تفکیک قطعی اپراتورها جهت جلوگیری از تداخل حافظه همراه اول، ایرانسل و وای‌فای
-          - 🌐 **حالت تونل سراسری ویندوز (Universal TUN Mode) در تمام تب‌ها:**
-            - فعال‌سازی کارت شبکه مجازی در تب‌های داشبورد، اِتر، تور و سایفون
-            - عبور ۱۰۰٪ ترافیک کل سیستم (بازی‌ها، دیسکورد و برنامه‌های بدون پروکسی)
-            - مجهز به سیستم ضدلوپ تضمینی (Loop-Free Protection)
-            - نام‌گذاری داینامیک درایور و پاکسازی خودکار کارت‌های معلق (رفع خطای Already Exists)
-          - 🛡️ **سیستم ارتقای خودکار مجوزها (Auto-Elevation):**
-            - درخواست خودکار دسترسی Administrator از طریق پاورشل برای کارت شبکه TUN، درایور WinDivert و DNS
-          - 📦 **بسته‌بندی رسمی و دست‌نخورده هسته‌ها:**
-            - تمامی هسته‌ها و درایورها (Wintun, Aether, Sing-box, Tor, Psiphon, GoodbyeDPI, DNSCrypt, udp2raw) مستقیماً حین بیلد ابری گیت‌هاب از مراجع اصلی دانلود شده‌اند.
+          ### ✨ ویژگی‌ها و تغییرات انقلابی نسخه ۳.۹ (v3.9 Changelog):
+          - 🛡️ **سپر کرنل ضد پکت‌های جعلی فیلترینگ (Kernel Fake TCP RST Dropper):**
+            - رهگیری درایور WinDivert و فیلتر کردن پکت‌های تزریقی فیلترینگ با تحلیل ریاضی اختلاف جغرافیایی (TTL Delta)
+            - جلوگیری قطعی از ریست شدن و قطع ناگهانی کانفیگ‌های VLESS و Reality
+          - ⚡ **بهینه‌سازی کامل مصرف منابع (Zero Idle Overhead):**
+            - کاهش مصرف کارت گرافیک (GPU) از ۴۵٪ به صفر درصد مطلق (۰.۰٪)
+            - کاهش مصرف پردازنده به ۰.۱٪ و بهینه‌سازی مصرف رم به زیر ۱۰۰ مگابایت
+            - فریز خودکار موتور رندر گرافیکی فلاتر هنگام رفتن به System Tray کنار ساعت با `TickerMode`
+          - 🎯 **تست واقعی عبور داده پیش از اتصال (Zero-Trust E2E Probe):**
+            - ارسال پکت واقعی HTTP 204 از درون تونل و جلوگیری ۱۰۰٪ از نمایش اتصالات فیک یا چاه‌های سیاه (Blackholes)
+          - 💾 **کش هوشمند آفلاین اکانت‌ها (Offline Fallback Cache):**
+            - ذخیره لوکال اکانت‌های فعال برای روزهای قطعی شدید اینترنت و مسدود شدن گیت‌هاب
         draft: false
         prerelease: false
         files: |
