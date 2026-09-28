@@ -19,7 +19,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "4.1";
+const String appCurrentVersion = "4.2";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -1566,6 +1566,8 @@ if ($list.Count -gt 0) { $list | ConvertTo-Json -Compress } else { Write-Output 
   bool _hasUpdate = false;
   String _latestVersion = "";
   String _latestReleaseUrl = githubRepoReleasesUrl;
+  String _latestDirectDownloadUrl = "";
+  int _latestAssetSizeBytes = 0;
   bool _isCheckingUpdate = false;
   bool _isWindowVisible = true;
   AnimationController? _pulseController;
@@ -2639,7 +2641,7 @@ try {
     return _compareVersions(remote, current) > 0;
   }
 
-  Future<void> _checkForUpdates({bool showSnackbarIfNoUpdate = false}) async {
+  Future<void> _checkForUpdates({bool showSnackbarIfNoUpdate = false, bool autoShowDialog = true}) async {
     setState(() => _isCheckingUpdate = true);
     try {
       final response = await http.get(
@@ -2652,17 +2654,38 @@ try {
         final String tagName = (data['tag_name'] ?? '').toString().replaceAll('v', '').trim();
         final String htmlUrl = data['html_url'] ?? githubRepoReleasesUrl;
 
+        // استخراج لینک مستقیم فایل Setup.exe از لیست فایل‌های ریلیز
+        String directDownload = '';
+        int assetSize = 0;
+        if (data['assets'] != null && data['assets'] is List) {
+          for (var asset in data['assets']) {
+            final name = (asset['name'] ?? '').toString().toLowerCase();
+            if (name.endsWith('.exe')) {
+              directDownload = asset['browser_download_url'] ?? '';
+              assetSize = asset['size'] ?? 0;
+              break;
+            }
+          }
+        }
+
         // فقط در صورتی که نسخه گیت‌هاب اکیداً جدیدتر از نسخه فعلی کلاینت باشد
         if (tagName.isNotEmpty && _isNewerVersion(tagName, appCurrentVersion)) {
           setState(() {
             _hasUpdate = true;
             _latestVersion = tagName;
             _latestReleaseUrl = htmlUrl;
+            _latestDirectDownloadUrl = directDownload;
+            _latestAssetSizeBytes = assetSize;
           });
           if (_isWindowVisible) {
             _pulseController?.repeat(reverse: true);
           }
           AppLogger.info("UPDATER", "نسخه جدیدتر یافت شد: $tagName (نسخه فعلی: $appCurrentVersion)");
+
+          // باز کردن پنجره وسط صفحه برای تایید کاربر
+          if (autoShowDialog && mounted) {
+            _showAutoUpdateDialog();
+          }
         } else {
           setState(() => _hasUpdate = false);
           if (showSnackbarIfNoUpdate && mounted) {
@@ -2677,6 +2700,205 @@ try {
     } finally {
       if (mounted) setState(() => _isCheckingUpdate = false);
     }
+  }
+
+  /// پنجره هوشمند و وسط‌صفحه به‌روزرسانی خودکار، نمایش نوار درصد دانلود و راه‌اندازی ستاپ
+  void _showAutoUpdateDialog() {
+    if (!mounted || !_hasUpdate) return;
+    final bool isEn = AppTranslations.currentLang == 'en';
+    bool isDownloading = false;
+    double downloadProgress = 0.0;
+    String progressText = '';
+    String errorText = '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: const BorderSide(color: Color(0xFF00D2FF), width: 1.5),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF00D2FF), Color(0xFFFF8008)]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.system_update_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEn ? 'New Version Available!' : 'نسخه جدید RedCloud آماده است!',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'v$appCurrentVersion  ➔  v$_latestVersion',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF), fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 460,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isDownloading && errorText.isEmpty)
+                      Text(
+                        isEn
+                            ? 'A new update (v$_latestVersion) is ready with enhanced features and optimizations. Would you like to download and install it automatically?'
+                            : 'نگارش جدیدی از نرم‌افزار با جدیدترین بهینه‌سازی‌ها و سرورها منتشر شده است.\nآیا مایلید نسخه جدید به طور خودکار دریافت و نصب شود؟',
+                        style: const TextStyle(fontSize: 12.5, height: 1.7, color: Colors.white70),
+                      ),
+                    if (isDownloading) ...[
+                      Text(
+                        isEn ? 'Downloading update...' : 'در حال دریافت فایل نصبی نسخه جدید...',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: downloadProgress > 0 ? downloadProgress : null,
+                          minHeight: 8,
+                          backgroundColor: Colors.white10,
+                          color: const Color(0xFF00D2FF),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            progressText,
+                            style: const TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'monospace'),
+                          ),
+                          Text(
+                            '${(downloadProgress * 100).toInt()}%',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF00D2FF), fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (errorText.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorText,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 11.5),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                if (!isDownloading) ...[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogCtx).pop(),
+                    child: Text(isEn ? 'Later' : 'خیر / بعداً', style: const TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      if (_latestDirectDownloadUrl.isEmpty) {
+                        openBrowserUrl(_latestReleaseUrl);
+                        Navigator.of(dialogCtx).pop();
+                        return;
+                      }
+
+                      setDialogState(() {
+                        isDownloading = true;
+                        errorText = '';
+                        progressText = isEn ? 'Connecting to server...' : 'در حال اتصال به سرور دانلود...';
+                      });
+
+                      try {
+                        final client = HttpClient();
+                        client.badCertificateCallback = (cert, host, port) => true;
+                        final request = await client.getUrl(Uri.parse(_latestDirectDownloadUrl));
+                        request.followRedirects = true;
+                        final response = await request.close();
+
+                        if (response.statusCode != 200) {
+                          throw Exception('HTTP ${response.statusCode}');
+                        }
+
+                        final total = response.contentLength > 0 ? response.contentLength : _latestAssetSizeBytes;
+                        final tempDir = Directory.systemTemp;
+                        final setupFile = File('${tempDir.path}\\RedCloud_VPN_Setup_v$_latestVersion.exe');
+                        final sink = setupFile.openWrite();
+                        int received = 0;
+
+                        await for (var chunk in response) {
+                          received += chunk.length;
+                          sink.add(chunk);
+                          setDialogState(() {
+                            downloadProgress = total > 0 ? (received / total) : 0.0;
+                            final recMb = (received / (1024 * 1024)).toStringAsFixed(1);
+                            final totalMb = (total / (1024 * 1024)).toStringAsFixed(1);
+                            progressText = '$recMb MB / $totalMb MB';
+                          });
+                        }
+
+                        await sink.flush();
+                        await sink.close();
+
+                        setDialogState(() {
+                          progressText = isEn ? 'Finalizing & restarting...' : 'دانلود کامل شد؛ در حال راه‌اندازی ستاپ...';
+                        });
+
+                        await Future.delayed(const Duration(milliseconds: 600));
+
+                        // اجرای فایل نصبی جدید به عنوان پروسه کاملاً مستقل
+                        await Process.start(
+                          setupFile.path,
+                          ['/SP-', '/CLOSEAPPLICATIONS'],
+                          mode: ProcessStartMode.detached,
+                        );
+
+                        // بستن تمیز نرم‌افزار فعلی برای جایگزینی فایل‌ها توسط ستاپ
+                        if (Platform.isWindows) {
+                          await windowManager.destroy();
+                        }
+                        exit(0);
+                      } catch (e) {
+                        setDialogState(() {
+                          isDownloading = false;
+                          errorText = isEn ? 'Download error: $e' : 'خطا در دریافت خودکار: $e';
+                        });
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D2FF),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: Text(
+                      isEn ? 'Update Now' : 'بله / به‌روزرسانی خودکار',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _openDonationDialog() {
@@ -6129,7 +6351,7 @@ try {
         animation: _pulseAnimation!,
         builder: (context, child) {
           return InkWell(
-            onTap: () => openBrowserUrl(_latestReleaseUrl),
+            onTap: _showAutoUpdateDialog,
             borderRadius: BorderRadius.circular(14),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
