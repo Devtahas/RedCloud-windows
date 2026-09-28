@@ -107,12 +107,16 @@ jobs:
             Copy-Item $geoip6File -Destination "build\windows\x64\runner\Release\geoip6" -Force
         }
 
-        # ۵. دانلود رسمی دیتابیس‌های پیشرفته geoip-plus-asn از شبکه رسمی Tor Project
-        Write-Host "Downloading geoip-plus-asn & geoip6-plus-asn from Tor Project Network Health..."
-        Invoke-WebRequest -Uri "https://gitlab.torproject.org/tpo/network-health/metrics/geoip-data/-/raw/master/geoip-plus-asn" -OutFile "geoip-plus-asn"
-        Invoke-WebRequest -Uri "https://gitlab.torproject.org/tpo/network-health/metrics/geoip-data/-/raw/master/geoip6-plus-asn" -OutFile "geoip6-plus-asn"
-        Copy-Item "geoip-plus-asn" -Destination "build\windows\x64\runner\Release\geoip-plus-asn" -Force
-        Copy-Item "geoip6-plus-asn" -Destination "build\windows\x64\runner\Release\geoip6-plus-asn" -Force
+        # ۵. تنظیم سریع و بدون ارور دیتابیس‌های مکان‌یابی از پکیج رسمی تور
+        Write-Host "Setting up GeoIP databases from official Tor bundle..."
+        if (Test-Path "geoip") {
+            Copy-Item "geoip" -Destination "geoip-plus-asn" -Force -ErrorAction SilentlyContinue
+            Copy-Item "geoip" -Destination "build\windows\x64\runner\Release\geoip-plus-asn" -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path "geoip6") {
+            Copy-Item "geoip6" -Destination "geoip6-plus-asn" -Force -ErrorAction SilentlyContinue
+            Copy-Item "geoip6" -Destination "build\windows\x64\runner\Release\geoip6-plus-asn" -Force -ErrorAction SilentlyContinue
+        }
 
         # ۶. دانلود نسخه رسمی سایفون از Psiphon-Labs
         Write-Host "Downloading official Psiphon Core from Psiphon-Labs..."
