@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "4.0"
+#define AppVersion "4.1"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=4.0.0.0
+VersionInfoVersion=4.1.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=4.0.0.0
+VersionInfoProductVersion=4.1.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes

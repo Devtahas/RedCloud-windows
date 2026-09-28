@@ -1,0 +1,60 @@
+{
+  "log": {
+    "level": "info"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun1",
+      "address": [
+        "172.19.0.1/30"
+      ],
+      "mtu": 1400,
+      "auto_route": true,
+      "strict_route": false,
+      "stack": "mixed"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "socks",
+      "tag": "proxy-out",
+      "server": "127.0.0.1",
+      "server_port": 9080,
+      "version": "5"
+    },
+    {
+      "type": "direct",
+      "tag": "direct",
+      "bind_interface": "Ethernet 2"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_interface": "Ethernet 2",
+    "final": "proxy-out",
+    "rules": [
+      {
+        "process_name": [
+          "aether.exe",
+          "psiphon-tunnel-core.exe",
+          "sing-box.exe"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "port": [53],
+        "action": "hijack-dns"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct"
+      }
+    ]
+  }
+}

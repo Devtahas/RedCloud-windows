@@ -591,6 +591,9 @@ pub fn start_anti_rst_filter() {
                     }
                 } else if !ANTI_RST_RUNNING.load(Ordering::Relaxed) {
                     break;
+                } else {
+                    // استراحت حیاتی ترد برای جلوگیری ۱۰۰٪ از سوزاندن سی‌پی‌یو در مواقع بیکاری
+                    thread::sleep(Duration::from_millis(5));
                 }
             }
 
@@ -1342,7 +1345,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
         };
 
         let payload = serde_json::json!({
-            "app_version": "4.0",
+            "app_version": "4.1",
             "os_info": os_info,
             "os_arch": "x64",
             "module": module_owned,
@@ -1369,7 +1372,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
                             let request = format!(
                                 "POST /api/crash-report HTTP/1.1\r\n\
                                  Host: {}\r\n\
-                                 User-Agent: RedCloud-RustCore/4.0\r\n\
+                                 User-Agent: RedCloud-RustCore/4.1\r\n\
                                  Content-Type: application/json\r\n\
                                  Content-Length: {}\r\n\
                                  Connection: close\r\n\r\n{}",
