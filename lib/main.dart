@@ -19,7 +19,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "4.0";
+const String appCurrentVersion = "4.1";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -8595,50 +8595,54 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      GestureDetector(
-                        onTap: _togglePsiphonConnection,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          width: 195,
-                          height: 195,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: (isPsiphonActive || isPsiphonLoading)
-                                ? const LinearGradient(colors: [Color(0xFF11998E), Color(0xFF38EF7D)])
-                                : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
-                            border: Border.all(
-                              color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : const Color(0xFF38EF7D).withValues(alpha: 0.4),
-                              width: 3.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isPsiphonActive || isPsiphonLoading)
-                                    ? const Color(0xFF38EF7D).withValues(alpha: 0.5) 
-                                    : const Color(0xFF11998E).withValues(alpha: 0.15),
-                                blurRadius: 40,
-                                spreadRadius: 8,
-                              )
-                            ],
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Icon(
-                                _isPsiphonMasqueRunning ? Icons.hub_rounded : Icons.security_rounded,
-                                size: 85,
-                                color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : Colors.grey[600],
+                      RepaintBoundary(
+                        child: GestureDetector(
+                          onTap: _togglePsiphonConnection,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 195,
+                            height: 195,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: (isPsiphonActive || isPsiphonLoading)
+                                  ? const LinearGradient(colors: [Color(0xFF11998E), Color(0xFF38EF7D)])
+                                  : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
+                              border: Border.all(
+                                color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : const Color(0xFF38EF7D).withValues(alpha: 0.4),
+                                width: 3.5,
                               ),
-                              if (isPsiphonLoading)
-                                const SizedBox(
-                                  width: 155,
-                                  height: 155,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 4,
-                                    color: Colors.white,
-                                    backgroundColor: Colors.white24,
-                                  ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isPsiphonActive || isPsiphonLoading)
+                                      ? const Color(0xFF38EF7D).withValues(alpha: 0.4) 
+                                      : const Color(0xFF11998E).withValues(alpha: 0.1),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                )
+                              ],
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  _isPsiphonMasqueRunning ? Icons.hub_rounded : Icons.security_rounded,
+                                  size: 85,
+                                  color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : Colors.grey[600],
                                 ),
-                            ],
+                                if (isPsiphonLoading)
+                                  const RepaintBoundary(
+                                    child: SizedBox(
+                                      width: 155,
+                                      height: 155,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3.5,
+                                        color: Colors.white,
+                                        backgroundColor: Colors.white24,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
