@@ -29,7 +29,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  GamingBoostConfig dco_decode_box_autoadd_gaming_boost_config(dynamic raw);
+
+  @protected
   ProxyNode dco_decode_box_autoadd_proxy_node(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
   VerifiedDns dco_decode_box_autoadd_verified_dns(dynamic raw);
@@ -46,10 +52,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeviationSeverity dco_decode_deviation_severity(dynamic raw);
 
   @protected
+  DnsScannerProgress dco_decode_dns_scanner_progress(dynamic raw);
+
+  @protected
   double dco_decode_f_32(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
+
+  @protected
+  GamingBenchmarkResult dco_decode_gaming_benchmark_result(dynamic raw);
+
+  @protected
+  GamingBoostConfig dco_decode_gaming_boost_config(dynamic raw);
+
+  @protected
+  GamingDnsReport dco_decode_gaming_dns_report(dynamic raw);
+
+  @protected
+  GamingLiveMetrics dco_decode_gaming_live_metrics(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -58,10 +79,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<GamingDnsReport> dco_decode_list_gaming_dns_report(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
   List<ProxyNode> dco_decode_list_proxy_node(dynamic raw);
+
+  @protected
+  List<ScannedDnsResult> dco_decode_list_scanned_dns_result(dynamic raw);
 
   @protected
   List<VerifiedDns> dco_decode_list_verified_dns(dynamic raw);
@@ -70,16 +97,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
   VerifiedDns? dco_decode_opt_box_autoadd_verified_dns(dynamic raw);
 
   @protected
   ProxyNode dco_decode_proxy_node(dynamic raw);
 
   @protected
+  ScannedDnsResult dco_decode_scanned_dns_result(dynamic raw);
+
+  @protected
   ScannerStats dco_decode_scanner_stats(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
 
   @protected
   BigInt dco_decode_u_64(dynamic raw);
@@ -108,7 +144,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  GamingBoostConfig sse_decode_box_autoadd_gaming_boost_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ProxyNode sse_decode_box_autoadd_proxy_node(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   VerifiedDns sse_decode_box_autoadd_verified_dns(SseDeserializer deserializer);
@@ -127,10 +171,33 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeviationSeverity sse_decode_deviation_severity(SseDeserializer deserializer);
 
   @protected
+  DnsScannerProgress sse_decode_dns_scanner_progress(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
+  GamingBenchmarkResult sse_decode_gaming_benchmark_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GamingBoostConfig sse_decode_gaming_boost_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GamingDnsReport sse_decode_gaming_dns_report(SseDeserializer deserializer);
+
+  @protected
+  GamingLiveMetrics sse_decode_gaming_live_metrics(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -139,16 +206,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<GamingDnsReport> sse_decode_list_gaming_dns_report(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
   List<ProxyNode> sse_decode_list_proxy_node(SseDeserializer deserializer);
 
   @protected
+  List<ScannedDnsResult> sse_decode_list_scanned_dns_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<VerifiedDns> sse_decode_list_verified_dns(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   VerifiedDns? sse_decode_opt_box_autoadd_verified_dns(
@@ -159,10 +239,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProxyNode sse_decode_proxy_node(SseDeserializer deserializer);
 
   @protected
+  ScannedDnsResult sse_decode_scanned_dns_result(SseDeserializer deserializer);
+
+  @protected
   ScannerStats sse_decode_scanner_stats(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
   @protected
   BigInt sse_decode_u_64(SseDeserializer deserializer);
@@ -192,10 +278,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_gaming_boost_config(
+    GamingBoostConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_proxy_node(
     ProxyNode self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_verified_dns(
@@ -222,16 +317,52 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_dns_scanner_progress(
+    DnsScannerProgress self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_gaming_benchmark_result(
+    GamingBenchmarkResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_gaming_boost_config(
+    GamingBoostConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_gaming_dns_report(
+    GamingDnsReport self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_gaming_live_metrics(
+    GamingLiveMetrics self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_gaming_dns_report(
+    List<GamingDnsReport> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -246,6 +377,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_scanned_dns_result(
+    List<ScannedDnsResult> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_verified_dns(
     List<VerifiedDns> self,
     SseSerializer serializer,
@@ -253,6 +390,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_verified_dns(
@@ -264,10 +404,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_proxy_node(ProxyNode self, SseSerializer serializer);
 
   @protected
+  void sse_encode_scanned_dns_result(
+    ScannedDnsResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_scanner_stats(ScannerStats self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_64(BigInt self, SseSerializer serializer);

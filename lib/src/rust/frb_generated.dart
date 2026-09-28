@@ -65,7 +65,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -1628870038;
+  int get rustContentHash => 469750634;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -77,6 +77,8 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<void> crateApiSimpleApplyWindowsGamingKernelTweaks();
+
   Future<CalibratedConnectionProfile> crateApiSimpleAutoHealAndRecalibrate({
     required String binaryPath,
     required ProxyNode selectedNode,
@@ -93,6 +95,10 @@ abstract class RustLibApi extends BaseApi {
     required int remotePort,
     String? binaryPath,
     String? key,
+  });
+
+  Future<GamingBenchmarkResult> crateApiSimpleBenchmarkGamingRegions({
+    required String preferredRegion,
   });
 
   Future<CalibratedConnectionProfile> crateApiSimpleCalibrateAndOptimizeNode({
@@ -120,11 +126,17 @@ abstract class RustLibApi extends BaseApi {
 
   Future<List<String>> crateApiSimpleGetAllLocalIpAddresses();
 
+  Future<DnsScannerProgress> crateApiSimpleGetDnsScannerProgress();
+
+  Future<GamingLiveMetrics> crateApiSimpleGetGamingLiveMetrics();
+
   Future<int> crateApiSimpleGetLanRelayPort();
 
   Future<String> crateApiSimpleGetLocalIpAddress();
 
   Future<String> crateApiSimpleGetLogFilePath();
+
+  Future<int> crateApiSimpleGetOptimalCarrierMtu();
 
   Future<String> crateApiSimpleGetPsiphonStatusText();
 
@@ -150,6 +162,8 @@ abstract class RustLibApi extends BaseApi {
 
   Future<bool> crateApiSimpleIsDnsttRunning();
 
+  Future<bool> crateApiSimpleIsGamingBoostActive();
+
   Future<bool> crateApiSimpleIsGoodbyedpiRunning();
 
   Future<bool> crateApiSimpleIsHybridConnected();
@@ -167,6 +181,8 @@ abstract class RustLibApi extends BaseApi {
   Future<bool> crateApiSimpleIsTorMasqueConnected();
 
   Future<bool> crateApiSimpleIsUdp2RawRunning();
+
+  Future<void> crateApiSimpleKillAllZombieCores();
 
   Future<String> crateApiSimpleOpenLogDirectory();
 
@@ -187,6 +203,8 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> crateApiSimpleResetSystemDns();
 
+  Future<String> crateApiSimpleRestoreOriginalTimezone();
+
   Future<List<ProxyNode>> crateApiSimpleRunCloudflareScanner({
     required String uuid,
     required String path,
@@ -197,6 +215,11 @@ abstract class RustLibApi extends BaseApi {
 
   Future<List<VerifiedDns>> crateApiSimpleRunDnsRescueScan({
     String? customDnsList,
+  });
+
+  Future<List<ScannedDnsResult>> crateApiSimpleScanAndRankDnsForTarget({
+    required String target,
+    int? concurrency,
   });
 
   Future<String> crateApiSimpleSetSystemDns({
@@ -213,6 +236,8 @@ abstract class RustLibApi extends BaseApi {
     required bool useSystemProxy,
   });
 
+  Future<void> crateApiSimpleStartAntiRstFilter();
+
   Future<String> crateApiSimpleStartDnscryptCore({String? binaryPath});
 
   Future<String> crateApiSimpleStartDnsttCore({
@@ -221,6 +246,12 @@ abstract class RustLibApi extends BaseApi {
     required String pubkey,
     required String domain,
     required int localPort,
+  });
+
+  Future<String> crateApiSimpleStartGamingBoost({
+    required String singboxPath,
+    required String aetherPath,
+    required GamingBoostConfig config,
   });
 
   Future<String> crateApiSimpleStartGoodbyedpiCore({
@@ -319,11 +350,17 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> crateApiSimpleStopAetherCore();
 
+  Future<void> crateApiSimpleStopAntiRstFilter();
+
   Future<void> crateApiSimpleStopCloudflareScanner();
+
+  Future<void> crateApiSimpleStopDnsDomainScanner();
 
   Future<String> crateApiSimpleStopDnscryptCore();
 
   Future<String> crateApiSimpleStopDnsttCore();
+
+  Future<String> crateApiSimpleStopGamingBoost();
 
   Future<String> crateApiSimpleStopGoodbyedpiCore();
 
@@ -342,6 +379,16 @@ abstract class RustLibApi extends BaseApi {
   Future<String> crateApiSimpleStopTorOverMasque();
 
   Future<String> crateApiSimpleStopUdp2RawCore();
+
+  Future<String> crateApiSimpleSyncTimezoneToCountry({
+    required String countryCode,
+  });
+
+  Future<List<GamingDnsReport>> crateApiSimpleTestAndVerifyGamingDns({
+    required List<String> domains,
+  });
+
+  Future<void> crateApiSimpleUpdateRadarMetricsFile();
 
   Future<VerifiedDns?> crateApiSimpleVerifyDnsIp({required String ip});
 
@@ -365,6 +412,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
+
+  @override
+  Future<void> crateApiSimpleApplyWindowsGamingKernelTweaks() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleApplyWindowsGamingKernelTweaksConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApplyWindowsGamingKernelTweaksConstMeta =>
+      const TaskConstMeta(
+        debugName: "apply_windows_gaming_kernel_tweaks",
+        argNames: [],
+      );
 
   @override
   Future<CalibratedConnectionProfile> crateApiSimpleAutoHealAndRecalibrate({
@@ -392,7 +469,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 1,
+            funcId: 2,
             port: port_,
           );
         },
@@ -449,7 +526,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 3,
             port: port_,
           );
         },
@@ -471,6 +548,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<GamingBenchmarkResult> crateApiSimpleBenchmarkGamingRegions({
+    required String preferredRegion,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(preferredRegion, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_gaming_benchmark_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleBenchmarkGamingRegionsConstMeta,
+        argValues: [preferredRegion],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleBenchmarkGamingRegionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "benchmark_gaming_regions",
+        argNames: ["preferredRegion"],
+      );
+
+  @override
   Future<CalibratedConnectionProfile> crateApiSimpleCalibrateAndOptimizeNode({
     required String rawUrl,
   }) {
@@ -482,7 +592,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 5,
             port: port_,
           );
         },
@@ -512,7 +622,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 6,
             port: port_,
           );
         },
@@ -551,7 +661,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 7,
             port: port_,
           );
         },
@@ -596,7 +706,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 8,
             port: port_,
           );
         },
@@ -626,7 +736,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 9,
             port: port_,
           );
         },
@@ -656,7 +766,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 10,
             port: port_,
           );
         },
@@ -683,7 +793,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 11,
             port: port_,
           );
         },
@@ -705,6 +815,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<DnsScannerProgress> crateApiSimpleGetDnsScannerProgress() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_dns_scanner_progress,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleGetDnsScannerProgressConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleGetDnsScannerProgressConstMeta =>
+      const TaskConstMeta(debugName: "get_dns_scanner_progress", argNames: []);
+
+  @override
+  Future<GamingLiveMetrics> crateApiSimpleGetGamingLiveMetrics() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_gaming_live_metrics,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleGetGamingLiveMetricsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleGetGamingLiveMetricsConstMeta =>
+      const TaskConstMeta(debugName: "get_gaming_live_metrics", argNames: []);
+
+  @override
   Future<int> crateApiSimpleGetLanRelayPort() {
     return handler.executeNormal(
       NormalTask(
@@ -713,7 +877,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 14,
             port: port_,
           );
         },
@@ -740,7 +904,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 15,
             port: port_,
           );
         },
@@ -767,7 +931,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 16,
             port: port_,
           );
         },
@@ -786,6 +950,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_log_file_path", argNames: []);
 
   @override
+  Future<int> crateApiSimpleGetOptimalCarrierMtu() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleGetOptimalCarrierMtuConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleGetOptimalCarrierMtuConstMeta =>
+      const TaskConstMeta(debugName: "get_optimal_carrier_mtu", argNames: []);
+
+  @override
   Future<String> crateApiSimpleGetPsiphonStatusText() {
     return handler.executeNormal(
       NormalTask(
@@ -794,7 +985,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 18,
             port: port_,
           );
         },
@@ -821,7 +1012,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 19,
             port: port_,
           );
         },
@@ -851,7 +1042,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 20,
             port: port_,
           );
         },
@@ -881,7 +1072,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 21,
             port: port_,
           );
         },
@@ -911,7 +1102,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 22,
             port: port_,
           );
         },
@@ -938,7 +1129,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 23,
             port: port_,
           );
         },
@@ -965,7 +1156,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 24,
             port: port_,
           );
         },
@@ -992,7 +1183,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 25,
             port: port_,
           );
         },
@@ -1019,7 +1210,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 26,
             port: port_,
           );
         },
@@ -1046,7 +1237,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 27,
             port: port_,
           );
         },
@@ -1073,7 +1264,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1092,6 +1283,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "is_dnstt_running", argNames: []);
 
   @override
+  Future<bool> crateApiSimpleIsGamingBoostActive() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 29,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleIsGamingBoostActiveConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleIsGamingBoostActiveConstMeta =>
+      const TaskConstMeta(debugName: "is_gaming_boost_active", argNames: []);
+
+  @override
   Future<bool> crateApiSimpleIsGoodbyedpiRunning() {
     return handler.executeNormal(
       NormalTask(
@@ -1100,7 +1318,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1127,7 +1345,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1154,7 +1372,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1181,7 +1399,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1208,7 +1426,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1235,7 +1453,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1265,7 +1483,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1292,7 +1510,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1319,7 +1537,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1338,6 +1556,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "is_udp2raw_running", argNames: []);
 
   @override
+  Future<void> crateApiSimpleKillAllZombieCores() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 39,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleKillAllZombieCoresConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleKillAllZombieCoresConstMeta =>
+      const TaskConstMeta(debugName: "kill_all_zombie_cores", argNames: []);
+
+  @override
   Future<String> crateApiSimpleOpenLogDirectory() {
     return handler.executeNormal(
       NormalTask(
@@ -1346,7 +1591,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1376,7 +1621,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1404,7 +1649,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1436,7 +1681,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1469,7 +1714,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1499,7 +1744,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1516,6 +1761,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiSimpleResetSystemDnsConstMeta =>
       const TaskConstMeta(debugName: "reset_system_dns", argNames: []);
+
+  @override
+  Future<String> crateApiSimpleRestoreOriginalTimezone() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 46,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSimpleRestoreOriginalTimezoneConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleRestoreOriginalTimezoneConstMeta =>
+      const TaskConstMeta(debugName: "restore_original_timezone", argNames: []);
 
   @override
   Future<List<ProxyNode>> crateApiSimpleRunCloudflareScanner({
@@ -1537,7 +1809,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1570,7 +1842,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 48,
             port: port_,
           );
         },
@@ -1592,6 +1864,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<List<ScannedDnsResult>> crateApiSimpleScanAndRankDnsForTarget({
+    required String target,
+    int? concurrency,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(target, serializer);
+          sse_encode_opt_box_autoadd_u_32(concurrency, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 49,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_scanned_dns_result,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleScanAndRankDnsForTargetConstMeta,
+        argValues: [target, concurrency],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleScanAndRankDnsForTargetConstMeta =>
+      const TaskConstMeta(
+        debugName: "scan_and_rank_dns_for_target",
+        argNames: ["target", "concurrency"],
+      );
+
+  @override
   Future<String> crateApiSimpleSetSystemDns({
     required String primary,
     required String secondary,
@@ -1605,7 +1912,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 50,
             port: port_,
           );
         },
@@ -1647,7 +1954,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 51,
             port: port_,
           );
         },
@@ -1676,6 +1983,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiSimpleStartAntiRstFilter() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 52,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleStartAntiRstFilterConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleStartAntiRstFilterConstMeta =>
+      const TaskConstMeta(debugName: "start_anti_rst_filter", argNames: []);
+
+  @override
   Future<String> crateApiSimpleStartDnscryptCore({String? binaryPath}) {
     return handler.executeNormal(
       NormalTask(
@@ -1685,7 +2019,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 53,
             port: port_,
           );
         },
@@ -1726,7 +2060,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 54,
             port: port_,
           );
         },
@@ -1748,6 +2082,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<String> crateApiSimpleStartGamingBoost({
+    required String singboxPath,
+    required String aetherPath,
+    required GamingBoostConfig config,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(singboxPath, serializer);
+          sse_encode_String(aetherPath, serializer);
+          sse_encode_box_autoadd_gaming_boost_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 55,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSimpleStartGamingBoostConstMeta,
+        argValues: [singboxPath, aetherPath, config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleStartGamingBoostConstMeta =>
+      const TaskConstMeta(
+        debugName: "start_gaming_boost",
+        argNames: ["singboxPath", "aetherPath", "config"],
+      );
+
+  @override
   Future<String> crateApiSimpleStartGoodbyedpiCore({
     required String binaryPath,
     required String args,
@@ -1761,7 +2132,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 56,
             port: port_,
           );
         },
@@ -1820,7 +2191,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 57,
             port: port_,
           );
         },
@@ -1881,7 +2252,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 58,
             port: port_,
           );
         },
@@ -1939,7 +2310,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 59,
             port: port_,
           );
         },
@@ -2008,7 +2379,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 60,
             port: port_,
           );
         },
@@ -2055,7 +2426,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 61,
             port: port_,
           );
         },
@@ -2120,7 +2491,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 62,
             port: port_,
           );
         },
@@ -2175,7 +2546,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 63,
             port: port_,
           );
         },
@@ -2221,7 +2592,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 64,
             port: port_,
           );
         },
@@ -2278,7 +2649,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 65,
             port: port_,
           );
         },
@@ -2308,7 +2679,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 66,
             port: port_,
           );
         },
@@ -2327,6 +2698,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_aether_core", argNames: []);
 
   @override
+  Future<void> crateApiSimpleStopAntiRstFilter() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 67,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleStopAntiRstFilterConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleStopAntiRstFilterConstMeta =>
+      const TaskConstMeta(debugName: "stop_anti_rst_filter", argNames: []);
+
+  @override
   Future<void> crateApiSimpleStopCloudflareScanner() {
     return handler.executeNormal(
       NormalTask(
@@ -2335,7 +2733,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 68,
             port: port_,
           );
         },
@@ -2354,6 +2752,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_cloudflare_scanner", argNames: []);
 
   @override
+  Future<void> crateApiSimpleStopDnsDomainScanner() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 69,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleStopDnsDomainScannerConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleStopDnsDomainScannerConstMeta =>
+      const TaskConstMeta(debugName: "stop_dns_domain_scanner", argNames: []);
+
+  @override
   Future<String> crateApiSimpleStopDnscryptCore() {
     return handler.executeNormal(
       NormalTask(
@@ -2362,7 +2787,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 57,
+            funcId: 70,
             port: port_,
           );
         },
@@ -2389,7 +2814,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 71,
             port: port_,
           );
         },
@@ -2408,6 +2833,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_dnstt_core", argNames: []);
 
   @override
+  Future<String> crateApiSimpleStopGamingBoost() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 72,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSimpleStopGamingBoostConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleStopGamingBoostConstMeta =>
+      const TaskConstMeta(debugName: "stop_gaming_boost", argNames: []);
+
+  @override
   Future<String> crateApiSimpleStopGoodbyedpiCore() {
     return handler.executeNormal(
       NormalTask(
@@ -2416,7 +2868,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 59,
+            funcId: 73,
             port: port_,
           );
         },
@@ -2443,7 +2895,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 60,
+            funcId: 74,
             port: port_,
           );
         },
@@ -2470,7 +2922,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 61,
+            funcId: 75,
             port: port_,
           );
         },
@@ -2497,7 +2949,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 62,
+            funcId: 76,
             port: port_,
           );
         },
@@ -2524,7 +2976,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 63,
+            funcId: 77,
             port: port_,
           );
         },
@@ -2551,7 +3003,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 64,
+            funcId: 78,
             port: port_,
           );
         },
@@ -2578,7 +3030,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 65,
+            funcId: 79,
             port: port_,
           );
         },
@@ -2605,7 +3057,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 66,
+            funcId: 80,
             port: port_,
           );
         },
@@ -2632,7 +3084,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 67,
+            funcId: 81,
             port: port_,
           );
         },
@@ -2651,6 +3103,99 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_udp2raw_core", argNames: []);
 
   @override
+  Future<String> crateApiSimpleSyncTimezoneToCountry({
+    required String countryCode,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(countryCode, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 82,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSimpleSyncTimezoneToCountryConstMeta,
+        argValues: [countryCode],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleSyncTimezoneToCountryConstMeta =>
+      const TaskConstMeta(
+        debugName: "sync_timezone_to_country",
+        argNames: ["countryCode"],
+      );
+
+  @override
+  Future<List<GamingDnsReport>> crateApiSimpleTestAndVerifyGamingDns({
+    required List<String> domains,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_String(domains, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 83,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_gaming_dns_report,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleTestAndVerifyGamingDnsConstMeta,
+        argValues: [domains],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleTestAndVerifyGamingDnsConstMeta =>
+      const TaskConstMeta(
+        debugName: "test_and_verify_gaming_dns",
+        argNames: ["domains"],
+      );
+
+  @override
+  Future<void> crateApiSimpleUpdateRadarMetricsFile() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 84,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleUpdateRadarMetricsFileConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleUpdateRadarMetricsFileConstMeta =>
+      const TaskConstMeta(debugName: "update_radar_metrics_file", argNames: []);
+
+  @override
   Future<VerifiedDns?> crateApiSimpleVerifyDnsIp({required String ip}) {
     return handler.executeNormal(
       NormalTask(
@@ -2660,7 +3205,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 68,
+            funcId: 85,
             port: port_,
           );
         },
@@ -2694,7 +3239,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 69,
+            funcId: 86,
             port: port_,
           );
         },
@@ -2730,7 +3275,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 70,
+            funcId: 87,
             port: port_,
           );
         },
@@ -2783,9 +3328,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  GamingBoostConfig dco_decode_box_autoadd_gaming_boost_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_gaming_boost_config(raw);
+  }
+
+  @protected
   ProxyNode dco_decode_box_autoadd_proxy_node(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_proxy_node(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -2840,6 +3397,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DnsScannerProgress dco_decode_dns_scanner_progress(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return DnsScannerProgress(
+      totalServers: dco_decode_i_32(arr[0]),
+      scannedServers: dco_decode_i_32(arr[1]),
+      aliveServers: dco_decode_i_32(arr[2]),
+      deadServers: dco_decode_i_32(arr[3]),
+      progressPercent: dco_decode_i_32(arr[4]),
+      isRunning: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
@@ -2849,6 +3422,75 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double dco_decode_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
+  }
+
+  @protected
+  GamingBenchmarkResult dco_decode_gaming_benchmark_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return GamingBenchmarkResult(
+      regionName: dco_decode_String(arr[0]),
+      regionCode: dco_decode_String(arr[1]),
+      targetIp: dco_decode_String(arr[2]),
+      minPingMs: dco_decode_i_32(arr[3]),
+      maxPingMs: dco_decode_i_32(arr[4]),
+      avgPingMs: dco_decode_i_32(arr[5]),
+      jitterMs: dco_decode_i_32(arr[6]),
+      packetLossPercent: dco_decode_f_32(arr[7]),
+      recommendedMode: dco_decode_String(arr[8]),
+      recommendedNoize: dco_decode_String(arr[9]),
+    );
+  }
+
+  @protected
+  GamingBoostConfig dco_decode_gaming_boost_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return GamingBoostConfig(
+      gameId: dco_decode_String(arr[0]),
+      gameName: dco_decode_String(arr[1]),
+      executables: dco_decode_list_String(arr[2]),
+      authDomains: dco_decode_list_String(arr[3]),
+      preferredRegion: dco_decode_String(arr[4]),
+      enableKernelTweaks: dco_decode_bool(arr[5]),
+      dnsMode: dco_decode_String(arr[6]),
+    );
+  }
+
+  @protected
+  GamingDnsReport dco_decode_gaming_dns_report(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return GamingDnsReport(
+      providerName: dco_decode_String(arr[0]),
+      dnsIp: dco_decode_String(arr[1]),
+      latencyMs: dco_decode_i_32(arr[2]),
+      isTruthVerified: dco_decode_bool(arr[3]),
+      resolvedIp: dco_decode_String(arr[4]),
+    );
+  }
+
+  @protected
+  GamingLiveMetrics dco_decode_gaming_live_metrics(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return GamingLiveMetrics(
+      isActive: dco_decode_bool(arr[0]),
+      gameName: dco_decode_String(arr[1]),
+      currentPingMs: dco_decode_i_32(arr[2]),
+      currentJitterMs: dco_decode_i_32(arr[3]),
+      rstPacketsDefended: dco_decode_i_32(arr[4]),
+      isSessionLocked: dco_decode_bool(arr[5]),
+      activeRegion: dco_decode_String(arr[6]),
+    );
   }
 
   @protected
@@ -2864,6 +3506,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<GamingDnsReport> dco_decode_list_gaming_dns_report(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_gaming_dns_report).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
@@ -2876,6 +3524,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ScannedDnsResult> dco_decode_list_scanned_dns_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_scanned_dns_result).toList();
+  }
+
+  @protected
   List<VerifiedDns> dco_decode_list_verified_dns(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_verified_dns).toList();
@@ -2885,6 +3539,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   String? dco_decode_opt_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
   }
 
   @protected
@@ -2907,6 +3567,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ScannedDnsResult dco_decode_scanned_dns_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return ScannedDnsResult(
+      dnsName: dco_decode_String(arr[0]),
+      primaryIp: dco_decode_String(arr[1]),
+      latencyMs: dco_decode_i_32(arr[2]),
+      resolvedIp: dco_decode_String(arr[3]),
+      isGenuine: dco_decode_bool(arr[4]),
+    );
+  }
+
+  @protected
   ScannerStats dco_decode_scanner_stats(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2922,6 +3597,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
   }
@@ -3008,9 +3689,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  GamingBoostConfig sse_decode_box_autoadd_gaming_boost_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_gaming_boost_config(deserializer));
+  }
+
+  @protected
   ProxyNode sse_decode_box_autoadd_proxy_node(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_proxy_node(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_32(deserializer));
   }
 
   @protected
@@ -3085,6 +3780,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DnsScannerProgress sse_decode_dns_scanner_progress(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_totalServers = sse_decode_i_32(deserializer);
+    var var_scannedServers = sse_decode_i_32(deserializer);
+    var var_aliveServers = sse_decode_i_32(deserializer);
+    var var_deadServers = sse_decode_i_32(deserializer);
+    var var_progressPercent = sse_decode_i_32(deserializer);
+    var var_isRunning = sse_decode_bool(deserializer);
+    return DnsScannerProgress(
+      totalServers: var_totalServers,
+      scannedServers: var_scannedServers,
+      aliveServers: var_aliveServers,
+      deadServers: var_deadServers,
+      progressPercent: var_progressPercent,
+      isRunning: var_isRunning,
+    );
+  }
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
@@ -3094,6 +3810,98 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   double sse_decode_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat64();
+  }
+
+  @protected
+  GamingBenchmarkResult sse_decode_gaming_benchmark_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_regionName = sse_decode_String(deserializer);
+    var var_regionCode = sse_decode_String(deserializer);
+    var var_targetIp = sse_decode_String(deserializer);
+    var var_minPingMs = sse_decode_i_32(deserializer);
+    var var_maxPingMs = sse_decode_i_32(deserializer);
+    var var_avgPingMs = sse_decode_i_32(deserializer);
+    var var_jitterMs = sse_decode_i_32(deserializer);
+    var var_packetLossPercent = sse_decode_f_32(deserializer);
+    var var_recommendedMode = sse_decode_String(deserializer);
+    var var_recommendedNoize = sse_decode_String(deserializer);
+    return GamingBenchmarkResult(
+      regionName: var_regionName,
+      regionCode: var_regionCode,
+      targetIp: var_targetIp,
+      minPingMs: var_minPingMs,
+      maxPingMs: var_maxPingMs,
+      avgPingMs: var_avgPingMs,
+      jitterMs: var_jitterMs,
+      packetLossPercent: var_packetLossPercent,
+      recommendedMode: var_recommendedMode,
+      recommendedNoize: var_recommendedNoize,
+    );
+  }
+
+  @protected
+  GamingBoostConfig sse_decode_gaming_boost_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_gameId = sse_decode_String(deserializer);
+    var var_gameName = sse_decode_String(deserializer);
+    var var_executables = sse_decode_list_String(deserializer);
+    var var_authDomains = sse_decode_list_String(deserializer);
+    var var_preferredRegion = sse_decode_String(deserializer);
+    var var_enableKernelTweaks = sse_decode_bool(deserializer);
+    var var_dnsMode = sse_decode_String(deserializer);
+    return GamingBoostConfig(
+      gameId: var_gameId,
+      gameName: var_gameName,
+      executables: var_executables,
+      authDomains: var_authDomains,
+      preferredRegion: var_preferredRegion,
+      enableKernelTweaks: var_enableKernelTweaks,
+      dnsMode: var_dnsMode,
+    );
+  }
+
+  @protected
+  GamingDnsReport sse_decode_gaming_dns_report(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_providerName = sse_decode_String(deserializer);
+    var var_dnsIp = sse_decode_String(deserializer);
+    var var_latencyMs = sse_decode_i_32(deserializer);
+    var var_isTruthVerified = sse_decode_bool(deserializer);
+    var var_resolvedIp = sse_decode_String(deserializer);
+    return GamingDnsReport(
+      providerName: var_providerName,
+      dnsIp: var_dnsIp,
+      latencyMs: var_latencyMs,
+      isTruthVerified: var_isTruthVerified,
+      resolvedIp: var_resolvedIp,
+    );
+  }
+
+  @protected
+  GamingLiveMetrics sse_decode_gaming_live_metrics(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_isActive = sse_decode_bool(deserializer);
+    var var_gameName = sse_decode_String(deserializer);
+    var var_currentPingMs = sse_decode_i_32(deserializer);
+    var var_currentJitterMs = sse_decode_i_32(deserializer);
+    var var_rstPacketsDefended = sse_decode_i_32(deserializer);
+    var var_isSessionLocked = sse_decode_bool(deserializer);
+    var var_activeRegion = sse_decode_String(deserializer);
+    return GamingLiveMetrics(
+      isActive: var_isActive,
+      gameName: var_gameName,
+      currentPingMs: var_currentPingMs,
+      currentJitterMs: var_currentJitterMs,
+      rstPacketsDefended: var_rstPacketsDefended,
+      isSessionLocked: var_isSessionLocked,
+      activeRegion: var_activeRegion,
+    );
   }
 
   @protected
@@ -3110,6 +3918,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<GamingDnsReport> sse_decode_list_gaming_dns_report(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <GamingDnsReport>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_gaming_dns_report(deserializer));
     }
     return ans_;
   }
@@ -3134,6 +3956,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<ScannedDnsResult> sse_decode_list_scanned_dns_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ScannedDnsResult>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_scanned_dns_result(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<VerifiedDns> sse_decode_list_verified_dns(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3151,6 +3987,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_32(deserializer));
     } else {
       return null;
     }
@@ -3183,6 +4030,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ScannedDnsResult sse_decode_scanned_dns_result(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_dnsName = sse_decode_String(deserializer);
+    var var_primaryIp = sse_decode_String(deserializer);
+    var var_latencyMs = sse_decode_i_32(deserializer);
+    var var_resolvedIp = sse_decode_String(deserializer);
+    var var_isGenuine = sse_decode_bool(deserializer);
+    return ScannedDnsResult(
+      dnsName: var_dnsName,
+      primaryIp: var_primaryIp,
+      latencyMs: var_latencyMs,
+      resolvedIp: var_resolvedIp,
+      isGenuine: var_isGenuine,
+    );
+  }
+
+  @protected
   ScannerStats sse_decode_scanner_stats(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_totalScanned = sse_decode_i_32(deserializer);
@@ -3201,6 +4065,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_u_16(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint16();
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
   }
 
   @protected
@@ -3274,12 +4144,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_gaming_boost_config(
+    GamingBoostConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_gaming_boost_config(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_proxy_node(
     ProxyNode self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_proxy_node(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self, serializer);
   }
 
   @protected
@@ -3334,6 +4219,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_dns_scanner_progress(
+    DnsScannerProgress self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.totalServers, serializer);
+    sse_encode_i_32(self.scannedServers, serializer);
+    sse_encode_i_32(self.aliveServers, serializer);
+    sse_encode_i_32(self.deadServers, serializer);
+    sse_encode_i_32(self.progressPercent, serializer);
+    sse_encode_bool(self.isRunning, serializer);
+  }
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
@@ -3343,6 +4242,67 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat64(self);
+  }
+
+  @protected
+  void sse_encode_gaming_benchmark_result(
+    GamingBenchmarkResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.regionName, serializer);
+    sse_encode_String(self.regionCode, serializer);
+    sse_encode_String(self.targetIp, serializer);
+    sse_encode_i_32(self.minPingMs, serializer);
+    sse_encode_i_32(self.maxPingMs, serializer);
+    sse_encode_i_32(self.avgPingMs, serializer);
+    sse_encode_i_32(self.jitterMs, serializer);
+    sse_encode_f_32(self.packetLossPercent, serializer);
+    sse_encode_String(self.recommendedMode, serializer);
+    sse_encode_String(self.recommendedNoize, serializer);
+  }
+
+  @protected
+  void sse_encode_gaming_boost_config(
+    GamingBoostConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.gameId, serializer);
+    sse_encode_String(self.gameName, serializer);
+    sse_encode_list_String(self.executables, serializer);
+    sse_encode_list_String(self.authDomains, serializer);
+    sse_encode_String(self.preferredRegion, serializer);
+    sse_encode_bool(self.enableKernelTweaks, serializer);
+    sse_encode_String(self.dnsMode, serializer);
+  }
+
+  @protected
+  void sse_encode_gaming_dns_report(
+    GamingDnsReport self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.providerName, serializer);
+    sse_encode_String(self.dnsIp, serializer);
+    sse_encode_i_32(self.latencyMs, serializer);
+    sse_encode_bool(self.isTruthVerified, serializer);
+    sse_encode_String(self.resolvedIp, serializer);
+  }
+
+  @protected
+  void sse_encode_gaming_live_metrics(
+    GamingLiveMetrics self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.isActive, serializer);
+    sse_encode_String(self.gameName, serializer);
+    sse_encode_i_32(self.currentPingMs, serializer);
+    sse_encode_i_32(self.currentJitterMs, serializer);
+    sse_encode_i_32(self.rstPacketsDefended, serializer);
+    sse_encode_bool(self.isSessionLocked, serializer);
+    sse_encode_String(self.activeRegion, serializer);
   }
 
   @protected
@@ -3357,6 +4317,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_gaming_dns_report(
+    List<GamingDnsReport> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_gaming_dns_report(item, serializer);
     }
   }
 
@@ -3383,6 +4355,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_scanned_dns_result(
+    List<ScannedDnsResult> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_scanned_dns_result(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_verified_dns(
     List<VerifiedDns> self,
     SseSerializer serializer,
@@ -3401,6 +4385,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_32(self, serializer);
     }
   }
 
@@ -3426,6 +4420,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_scanned_dns_result(
+    ScannedDnsResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.dnsName, serializer);
+    sse_encode_String(self.primaryIp, serializer);
+    sse_encode_i_32(self.latencyMs, serializer);
+    sse_encode_String(self.resolvedIp, serializer);
+    sse_encode_bool(self.isGenuine, serializer);
+  }
+
+  @protected
   void sse_encode_scanner_stats(ScannerStats self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.totalScanned, serializer);
@@ -3438,6 +4445,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_u_16(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint16(self);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
   }
 
   @protected

@@ -7,7 +7,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
 # followed by an optional build number separated by a +.
-version: 1.0.0+1
+version: 4.0.0+1
 
 environment:
   sdk: ^3.12.1
@@ -31,6 +31,9 @@ dependencies:
 
   # پکیج رندر گرافیکی و سریع بارکدهای QR جهت اشتراک‌گذاری LAN
   qr_flutter: ^4.1.0
+
+  # پکیج رسمی کلیدهای میانبر سراسری ویندوز (همگام با window_manager و tray_manager)
+  hotkey_manager: ^0.2.3
 
 dev_dependencies:
   flutter_test:

@@ -2,11 +2,12 @@ name: Build and Release RedCloud VPN
 
 on:
   push:
-    branches: [ "main" ] # اجرا به محض کامیت و پوش روی برنچ اصلی
-  workflow_dispatch: # امکان اجرای دستی بیلد از داخل تب Actions
+    branches: [ "main" ] # اجرا با پوش روی برنچ اصلی
+    tags: [ "v*" ]       # اجرا با پوش تگ نسخه جدید
+  workflow_dispatch:     # امکان اجرای دستی از تب Actions
 
 permissions:
-  contents: write # دسترسی لازم برای ساخت ریلیز و آپلود فایل نصبی
+  contents: write # دسترسی برای ساخت ریلیز و آپلود فایل نصبی
 
 jobs:
   build:
@@ -17,6 +18,8 @@ jobs:
     # ۱. کلون کردن کدهای پروژه
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     # ۲. راه‌اندازی کامپایلر Rust
     - name: Set up Rust
@@ -49,20 +52,26 @@ jobs:
     - name: Build Windows Application (Release Mode)
       run: flutter build windows --release
 
-    # ۸. دانلود خودکار و مستقیم تمام هسته‌های باینری از منابع اصلی و رسمی
-    - name: Download Official Core Binaries (Secure & Untouched)
+    # ۸. دانلود خودکار تمام هسته‌ها، درایورها و دیتابیس‌های ژئو از منابع رسمی
+    - name: Download Official Core Binaries & GeoIP Databases
       shell: pwsh
       run: |
         # ایجاد پوشه مقصد Release
         New-Item -ItemType Directory -Force -Path "build\windows\x64\runner\Release"
 
-        # ۱. دانلود آخرین نسخه رسمی موتور Aether (موتور MASQUE) از CluvexStudio
-        Write-Host "Downloading official Aether engine from CluvexStudio..."
+        # ۱. دانلود آخرین نسخه رسمی موتور Aether و ترنسپورت‌های pt از CluvexStudio
+        Write-Host "Downloading official Aether engine & pt transports from CluvexStudio..."
         Invoke-WebRequest -Uri "https://github.com/CluvexStudio/Aether/releases/latest/download/aether-windows-x86_64.zip" -OutFile "aether.zip"
         Expand-Archive -Path "aether.zip" -DestinationPath "temp-aether" -Force
         $aetherExe = (Get-ChildItem -Path "temp-aether" -Filter "aether.exe" -Recurse | Select-Object -First 1).FullName
         Copy-Item $aetherExe -Destination "aether.exe" -Force
         Copy-Item $aetherExe -Destination "build\windows\x64\runner\Release\aether.exe" -Force
+
+        # استخراج پوشه pt موجود در پکیج رسمی اِتر
+        if (Test-Path "temp-aether\pt") {
+            Copy-Item -Path "temp-aether\pt" -Destination "pt" -Recurse -Force
+            Copy-Item -Path "temp-aether\pt" -Destination "build\windows\x64\runner\Release\pt" -Recurse -Force
+        }
 
         # ۲. دانلود نسخه رسمی sing-box 1.13.13 از مخزن رسمی SagerNet
         Write-Host "Downloading official sing-box 1.13.13 from SagerNet..."
@@ -72,14 +81,14 @@ jobs:
         Copy-Item $singboxExe -Destination "sing-box.exe" -Force
         Copy-Item $singboxExe -Destination "build\windows\x64\runner\Release\sing-box.exe" -Force
 
-        # ۳. دانلود درایور رسمی Wintun 0.14.1 مستقیماً از وبسایت رسمی Wintun.net
+        # ۳. دانلود درایور رسمی Wintun 0.14.1 از Wintun.net
         Write-Host "Downloading official wintun.dll from Wintun.net..."
         Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile "wintun.zip"
         Expand-Archive -Path "wintun.zip" -DestinationPath "temp-wintun" -Force
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "wintun.dll" -Force
         Copy-Item "temp-wintun\wintun\bin\amd64\wintun.dll" -Destination "build\windows\x64\runner\Release\wintun.dll" -Force
 
-        # ۴. دانلود پکیج رسمی Tor Expert Bundle به همراه استخراج تضمینی دیتابیس‌های geoip
+        # ۴. دانلود پکیج Tor Expert Bundle و استخراج geoip و geoip6
         Write-Host "Downloading official Tor Expert Bundle from torproject.org..."
         Invoke-WebRequest -Uri "https://archive.torproject.org/tor-package-archive/torbrowser/14.0.8/tor-expert-bundle-windows-x86_64-14.0.8.tar.gz" -OutFile "tor.tar.gz"
         tar -xzf "tor.tar.gz" -C "."
@@ -87,7 +96,6 @@ jobs:
         Copy-Item $torExe -Destination "tor.exe" -Force
         Copy-Item $torExe -Destination "build\windows\x64\runner\Release\tor.exe" -Force
         
-        # استخراج دیتابیس‌های مکان‌یابی تور
         $geoipFile = (Get-ChildItem -Filter "geoip" -Recurse | Where-Object { -not $_.PSIsContainer -and $_.Name -eq "geoip" } | Select-Object -First 1).FullName
         if ($geoipFile) {
             Copy-Item $geoipFile -Destination "geoip" -Force
@@ -99,12 +107,19 @@ jobs:
             Copy-Item $geoip6File -Destination "build\windows\x64\runner\Release\geoip6" -Force
         }
 
-        # ۵. دانلود نسخه رسمی ویندوز سایفون از مخزن رسمی آزمایشگاه Psiphon-Labs
+        # ۵. دانلود رسمی دیتابیس‌های پیشرفته geoip-plus-asn از شبکه رسمی Tor Project
+        Write-Host "Downloading geoip-plus-asn & geoip6-plus-asn from Tor Project Network Health..."
+        Invoke-WebRequest -Uri "https://gitlab.torproject.org/tpo/network-health/metrics/geoip-data/-/raw/master/geoip-plus-asn" -OutFile "geoip-plus-asn"
+        Invoke-WebRequest -Uri "https://gitlab.torproject.org/tpo/network-health/metrics/geoip-data/-/raw/master/geoip6-plus-asn" -OutFile "geoip6-plus-asn"
+        Copy-Item "geoip-plus-asn" -Destination "build\windows\x64\runner\Release\geoip-plus-asn" -Force
+        Copy-Item "geoip6-plus-asn" -Destination "build\windows\x64\runner\Release\geoip6-plus-asn" -Force
+
+        # ۶. دانلود نسخه رسمی سایفون از Psiphon-Labs
         Write-Host "Downloading official Psiphon Core from Psiphon-Labs..."
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
         Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
 
-        # ۶. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از مخزن رسمی ValdikSS
+        # ۷. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از ValdikSS
         Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
         Invoke-WebRequest -Uri "https://github.com/ValdikSS/GoodbyeDPI/releases/download/0.2.3rc3/goodbyedpi-0.2.3rc3-2.zip" -OutFile "goodbyedpi.zip"
         Expand-Archive -Path "goodbyedpi.zip" -DestinationPath "temp-goodbyedpi" -Force
@@ -116,7 +131,7 @@ jobs:
         Copy-Item "$gdpiX64\WinDivert.dll" -Destination "build\windows\x64\runner\Release\WinDivert.dll" -Force
         Copy-Item "$gdpiX64\WinDivert64.sys" -Destination "build\windows\x64\runner\Release\WinDivert64.sys" -Force
 
-        # ۷. دانلود رسمی dnscrypt-proxy و کانفیگ اختصاصی آن از مخزن رسمی DNSCrypt
+        # ۸. دانلود رسمی dnscrypt-proxy از مخزن رسمی DNSCrypt
         Write-Host "Downloading official dnscrypt-proxy from DNSCrypt..."
         $dnscryptRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/DNSCrypt/dnscrypt-proxy/releases/latest"
         $dnscryptAsset = $dnscryptRelease.assets | Where-Object { $_.name -like "dnscrypt-proxy-win64-*.zip" } | Select-Object -First 1
@@ -131,7 +146,7 @@ jobs:
             Copy-Item $dnscryptExampleToml -Destination "build\windows\x64\runner\Release\dnscrypt-proxy.toml" -Force
         }
 
-        # ۸. دانلود رسمی udp2raw برای بهینه‌سازی و کاهش پینگ
+        # ۹. دانلود رسمی udp2raw برای بهینه‌سازی پینگ
         Write-Host "Downloading official udp2raw..."
         Invoke-WebRequest -Uri "https://github.com/wangyu-/udp2raw-multiplatform/releases/download/20230206.0/udp2raw_mp_binaries.tar.gz" -OutFile "udp2raw.tar.gz"
         tar -xzf "udp2raw.tar.gz" -C "."
@@ -141,37 +156,39 @@ jobs:
             Copy-Item $udp2rawExe -Destination "build\windows\x64\runner\Release\udp2raw.exe" -Force
         }
 
-    # ۹. نصب Inno Setup و ساخت فایل نصبی
+    # ۹. کامپایل فایل نصبی با Inno Setup (شامل پوشه استخر ATC)
     - name: Compile Installer with Inno Setup
       shell: pwsh
       run: |
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار رسمی در تب Releases گیت‌هاب با نسخه 3.9
+    # ۱۰. انتشار خودکار نسخه ۴.۰ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v3.9
-        name: "RedCloud VPN v3.9 - Zero Idle Overhead & Kernel Anti-RST Shield"
+        tag_name: v4.0
+        name: "RedCloud VPN v4.0 - Zero Identity Setup & Account Pool Engine"
         body: |
-          🚀 **انتشار رسمی نسخه ۳.۹ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۰ نرم‌افزار RedCloud VPN (نسخه انقلابی)**
           
-          ### ✨ ویژگی‌ها و تغییرات انقلابی نسخه ۳.۹ (v3.9 Changelog):
-          - 🛡️ **سپر کرنل ضد پکت‌های جعلی فیلترینگ (Kernel Fake TCP RST Dropper):**
-            - رهگیری درایور WinDivert و فیلتر کردن پکت‌های تزریقی فیلترینگ با تحلیل ریاضی اختلاف جغرافیایی (TTL Delta)
-            - جلوگیری قطعی از ریست شدن و قطع ناگهانی کانفیگ‌های VLESS و Reality
-          - ⚡ **بهینه‌سازی کامل مصرف منابع (Zero Idle Overhead):**
-            - کاهش مصرف کارت گرافیک (GPU) از ۴۵٪ به صفر درصد مطلق (۰.۰٪)
-            - کاهش مصرف پردازنده به ۰.۱٪ و بهینه‌سازی مصرف رم به زیر ۱۰۰ مگابایت
-            - فریز خودکار موتور رندر گرافیکی فلاتر هنگام رفتن به System Tray کنار ساعت با `TickerMode`
-          - 🎯 **تست واقعی عبور داده پیش از اتصال (Zero-Trust E2E Probe):**
-            - ارسال پکت واقعی HTTP 204 از درون تونل و جلوگیری ۱۰۰٪ از نمایش اتصالات فیک یا چاه‌های سیاه (Blackholes)
-          - 💾 **کش هوشمند آفلاین اکانت‌ها (Offline Fallback Cache):**
-            - ذخیره لوکال اکانت‌های فعال برای روزهای قطعی شدید اینترنت و مسدود شدن گیت‌هاب
+          ### ✨ تغییرات و قابلیت‌های کلیدی نسخه ۴.۰ (v4.0 Changelog):
+          - ⚡ **تعبیه استخر اختصاصی ۱۹۳ اکانت هویتی (ATC Account Pool):**
+            - اتصال ۱۰۰٪ بدون نیاز به ثبت‌نام یا دریافت کلید برای کاربران جدید داخل ایران
+            - توزیع خودکار ترافیک بین اکانت‌های قانونی رجیسترشده برای جلوگیری از محدودیت سرعت
+          - 🔄 **موتور روتینگ پروکسی بالادستی یونیورسال (Universal Upstream Proxy):**
+            - هدایت منعطف پکت‌ها از طریق پورت‌های مستقیم سایفون، تور، ویتوری و مسک
+          - 🛡️ **دانلود مستقیم و امن تمام هسته‌ها از منابع رسمی و دست‌نخورده:**
+            - هسته Aether v2.1.0 با ترنسپورت‌های CDN فرانتینگ
+            - هسته Sing-box 1.13.13 با پروتکل‌های مدرن
+            - دیتابیس‌های کامل مکان‌یابی و ضد تحریم `geoip-plus-asn`
+            - درایور کرنل WinDivert و GoodbyeDPI برای دور زدن فیلترینگ DPI
+          - 🎮 **بوستر پینگ کمینه گیمینگ (Pro Gaming Engine):**
+            - هدایت ترافیک بازی‌ها با مهار پکت‌لاس و اتصال مستقیم سایر نرم‌افزارها
         draft: false
         prerelease: false
         files: |
+          RedCloud_VPN_Setup_v4.0.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

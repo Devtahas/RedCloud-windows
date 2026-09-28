@@ -7,8 +7,36 @@ import '../frb_generated.dart';
 import '../smart_core_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `get_active_upstream_proxy_addr`, `get_core2_instance`, `get_global_job_object`, `get_learning_engine`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`, `test_socks5_egress`, `verify_dnscrypt_truth`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `ensure_watchdog_started`, `extract_ipv4_from_dns_payload`, `fetch_live_ech_key_via_socks5`, `find_verified_emergency_ip`, `format_ech_to_pem_lines`, `get_active_upstream_proxy_addr`, `get_cached_or_fallback_ech`, `get_core2_instance`, `get_global_job_object`, `get_learning_engine`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `probe_dns_truth_dynamically`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`, `test_socks5_egress`, `validate_config_safety`, `verify_dnscrypt_truth`, `verify_gaming_dns_truth`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+
+/// ثبت و به‌روزرسانی آمار رادار زنده در فایل موقت فوق‌سبک
+Future<void> updateRadarMetricsFile() =>
+    RustLib.instance.api.crateApiSimpleUpdateRadarMetricsFile();
+
+/// کشف خودکار سقف واقعی پکت دکل مخابراتی (PMTU) جهت مهار پکت‌لاس
+Future<int> getOptimalCarrierMtu() =>
+    RustLib.instance.api.crateApiSimpleGetOptimalCarrierMtu();
+
+/// ذخیره منطقه زمانی اولیه سیستم و ست کردن تایم‌زون جدید متناسب با کشور آی‌پی
+Future<String> syncTimezoneToCountry({required String countryCode}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleSyncTimezoneToCountry(countryCode: countryCode);
+
+/// بازگرداندن فوری منطقه زمانی اولیه ویندوز (تهران) به محض قطع اتصال
+Future<String> restoreOriginalTimezone() =>
+    RustLib.instance.api.crateApiSimpleRestoreOriginalTimezone();
+
+/// پاکسازی سراسری و فوق‌سریع تمامی پروسه‌های زامبی قبل از راه‌اندازی هر تونل
+Future<void> killAllZombieCores() =>
+    RustLib.instance.api.crateApiSimpleKillAllZombieCores();
+
+Future<void> startAntiRstFilter() =>
+    RustLib.instance.api.crateApiSimpleStartAntiRstFilter();
+
+Future<void> stopAntiRstFilter() =>
+    RustLib.instance.api.crateApiSimpleStopAntiRstFilter();
 
 Future<bool> isDnsttRunning() =>
     RustLib.instance.api.crateApiSimpleIsDnsttRunning();
@@ -466,6 +494,277 @@ Future<CalibratedConnectionProfile> createProtocolCalibratedProfile({
   isFastPath: isFastPath,
 );
 
+/// تست گروهی استخر DNSهای گیمینگ روی دامنه‌های احراز هویت بازی انتخاب‌شده
+Future<List<GamingDnsReport>> testAndVerifyGamingDns({
+  required List<String> domains,
+}) =>
+    RustLib.instance.api.crateApiSimpleTestAndVerifyGamingDns(domains: domains);
+
+/// اندازه‌گیری دقیق و چندمرحله‌ای پینگ و نوسان (Jitter) روی گیت‌وی‌های منطقه‌ای
+Future<GamingBenchmarkResult> benchmarkGamingRegions({
+  required String preferredRegion,
+}) => RustLib.instance.api.crateApiSimpleBenchmarkGamingRegions(
+  preferredRegion: preferredRegion,
+);
+
+/// اعمال تنظیمات شتاب‌دهنده کرنل ویندوز برای پکت‌لاس صفر (BBR + TcpAckFrequency=1)
+Future<void> applyWindowsGamingKernelTweaks() =>
+    RustLib.instance.api.crateApiSimpleApplyWindowsGamingKernelTweaks();
+
+/// شروع بوستر گیمینگ با روتینگ اختصاصی پروسه بازی و قفل سشن (Anti-Ban Session Lock)
+Future<String> startGamingBoost({
+  required String singboxPath,
+  required String aetherPath,
+  required GamingBoostConfig config,
+}) => RustLib.instance.api.crateApiSimpleStartGamingBoost(
+  singboxPath: singboxPath,
+  aetherPath: aetherPath,
+  config: config,
+);
+
+/// متوقف‌سازی کامل بوستر گیمینگ و بازنشانی کارت‌های شبکه
+Future<String> stopGamingBoost() =>
+    RustLib.instance.api.crateApiSimpleStopGamingBoost();
+
+Future<bool> isGamingBoostActive() =>
+    RustLib.instance.api.crateApiSimpleIsGamingBoostActive();
+
+/// استعلام زنده پارامترهای مانیتورینگ گیمینگ برای نمایش در HUD فلاتر
+Future<GamingLiveMetrics> getGamingLiveMetrics() =>
+    RustLib.instance.api.crateApiSimpleGetGamingLiveMetrics();
+
+/// دستور توقف آنی اسکنر دی‌ان‌اس
+Future<void> stopDnsDomainScanner() =>
+    RustLib.instance.api.crateApiSimpleStopDnsDomainScanner();
+
+/// دریافت بلادرنگ آمار پیشرفت اسکنر دی‌ان‌اس
+Future<DnsScannerProgress> getDnsScannerProgress() =>
+    RustLib.instance.api.crateApiSimpleGetDnsScannerProgress();
+
+/// اسکن موازی، هوشمند و تطبیقی دی‌ان‌اس‌ها متناسب با سخت‌افزار کاربر و قابلیت لغو زنده
+Future<List<ScannedDnsResult>> scanAndRankDnsForTarget({
+  required String target,
+  int? concurrency,
+}) => RustLib.instance.api.crateApiSimpleScanAndRankDnsForTarget(
+  target: target,
+  concurrency: concurrency,
+);
+
+class DnsScannerProgress {
+  final int totalServers;
+  final int scannedServers;
+  final int aliveServers;
+  final int deadServers;
+  final int progressPercent;
+  final bool isRunning;
+
+  const DnsScannerProgress({
+    required this.totalServers,
+    required this.scannedServers,
+    required this.aliveServers,
+    required this.deadServers,
+    required this.progressPercent,
+    required this.isRunning,
+  });
+
+  @override
+  int get hashCode =>
+      totalServers.hashCode ^
+      scannedServers.hashCode ^
+      aliveServers.hashCode ^
+      deadServers.hashCode ^
+      progressPercent.hashCode ^
+      isRunning.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DnsScannerProgress &&
+          runtimeType == other.runtimeType &&
+          totalServers == other.totalServers &&
+          scannedServers == other.scannedServers &&
+          aliveServers == other.aliveServers &&
+          deadServers == other.deadServers &&
+          progressPercent == other.progressPercent &&
+          isRunning == other.isRunning;
+}
+
+class GamingBenchmarkResult {
+  final String regionName;
+  final String regionCode;
+  final String targetIp;
+  final int minPingMs;
+  final int maxPingMs;
+  final int avgPingMs;
+  final int jitterMs;
+  final double packetLossPercent;
+  final String recommendedMode;
+  final String recommendedNoize;
+
+  const GamingBenchmarkResult({
+    required this.regionName,
+    required this.regionCode,
+    required this.targetIp,
+    required this.minPingMs,
+    required this.maxPingMs,
+    required this.avgPingMs,
+    required this.jitterMs,
+    required this.packetLossPercent,
+    required this.recommendedMode,
+    required this.recommendedNoize,
+  });
+
+  @override
+  int get hashCode =>
+      regionName.hashCode ^
+      regionCode.hashCode ^
+      targetIp.hashCode ^
+      minPingMs.hashCode ^
+      maxPingMs.hashCode ^
+      avgPingMs.hashCode ^
+      jitterMs.hashCode ^
+      packetLossPercent.hashCode ^
+      recommendedMode.hashCode ^
+      recommendedNoize.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GamingBenchmarkResult &&
+          runtimeType == other.runtimeType &&
+          regionName == other.regionName &&
+          regionCode == other.regionCode &&
+          targetIp == other.targetIp &&
+          minPingMs == other.minPingMs &&
+          maxPingMs == other.maxPingMs &&
+          avgPingMs == other.avgPingMs &&
+          jitterMs == other.jitterMs &&
+          packetLossPercent == other.packetLossPercent &&
+          recommendedMode == other.recommendedMode &&
+          recommendedNoize == other.recommendedNoize;
+}
+
+class GamingBoostConfig {
+  final String gameId;
+  final String gameName;
+  final List<String> executables;
+  final List<String> authDomains;
+  final String preferredRegion;
+  final bool enableKernelTweaks;
+  final String dnsMode;
+
+  const GamingBoostConfig({
+    required this.gameId,
+    required this.gameName,
+    required this.executables,
+    required this.authDomains,
+    required this.preferredRegion,
+    required this.enableKernelTweaks,
+    required this.dnsMode,
+  });
+
+  @override
+  int get hashCode =>
+      gameId.hashCode ^
+      gameName.hashCode ^
+      executables.hashCode ^
+      authDomains.hashCode ^
+      preferredRegion.hashCode ^
+      enableKernelTweaks.hashCode ^
+      dnsMode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GamingBoostConfig &&
+          runtimeType == other.runtimeType &&
+          gameId == other.gameId &&
+          gameName == other.gameName &&
+          executables == other.executables &&
+          authDomains == other.authDomains &&
+          preferredRegion == other.preferredRegion &&
+          enableKernelTweaks == other.enableKernelTweaks &&
+          dnsMode == other.dnsMode;
+}
+
+class GamingDnsReport {
+  final String providerName;
+  final String dnsIp;
+  final int latencyMs;
+  final bool isTruthVerified;
+  final String resolvedIp;
+
+  const GamingDnsReport({
+    required this.providerName,
+    required this.dnsIp,
+    required this.latencyMs,
+    required this.isTruthVerified,
+    required this.resolvedIp,
+  });
+
+  @override
+  int get hashCode =>
+      providerName.hashCode ^
+      dnsIp.hashCode ^
+      latencyMs.hashCode ^
+      isTruthVerified.hashCode ^
+      resolvedIp.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GamingDnsReport &&
+          runtimeType == other.runtimeType &&
+          providerName == other.providerName &&
+          dnsIp == other.dnsIp &&
+          latencyMs == other.latencyMs &&
+          isTruthVerified == other.isTruthVerified &&
+          resolvedIp == other.resolvedIp;
+}
+
+class GamingLiveMetrics {
+  final bool isActive;
+  final String gameName;
+  final int currentPingMs;
+  final int currentJitterMs;
+  final int rstPacketsDefended;
+  final bool isSessionLocked;
+  final String activeRegion;
+
+  const GamingLiveMetrics({
+    required this.isActive,
+    required this.gameName,
+    required this.currentPingMs,
+    required this.currentJitterMs,
+    required this.rstPacketsDefended,
+    required this.isSessionLocked,
+    required this.activeRegion,
+  });
+
+  @override
+  int get hashCode =>
+      isActive.hashCode ^
+      gameName.hashCode ^
+      currentPingMs.hashCode ^
+      currentJitterMs.hashCode ^
+      rstPacketsDefended.hashCode ^
+      isSessionLocked.hashCode ^
+      activeRegion.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GamingLiveMetrics &&
+          runtimeType == other.runtimeType &&
+          isActive == other.isActive &&
+          gameName == other.gameName &&
+          currentPingMs == other.currentPingMs &&
+          currentJitterMs == other.currentJitterMs &&
+          rstPacketsDefended == other.rstPacketsDefended &&
+          isSessionLocked == other.isSessionLocked &&
+          activeRegion == other.activeRegion;
+}
+
 class ProxyNode {
   final String name;
   final String protocol;
@@ -488,6 +787,41 @@ class ProxyNode {
           name == other.name &&
           protocol == other.protocol &&
           rawUrl == other.rawUrl;
+}
+
+class ScannedDnsResult {
+  final String dnsName;
+  final String primaryIp;
+  final int latencyMs;
+  final String resolvedIp;
+  final bool isGenuine;
+
+  const ScannedDnsResult({
+    required this.dnsName,
+    required this.primaryIp,
+    required this.latencyMs,
+    required this.resolvedIp,
+    required this.isGenuine,
+  });
+
+  @override
+  int get hashCode =>
+      dnsName.hashCode ^
+      primaryIp.hashCode ^
+      latencyMs.hashCode ^
+      resolvedIp.hashCode ^
+      isGenuine.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ScannedDnsResult &&
+          runtimeType == other.runtimeType &&
+          dnsName == other.dnsName &&
+          primaryIp == other.primaryIp &&
+          latencyMs == other.latencyMs &&
+          resolvedIp == other.resolvedIp &&
+          isGenuine == other.isGenuine;
 }
 
 class ScannerStats {

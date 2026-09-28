@@ -14,10 +14,12 @@ import 'src/rust/frb_generated.dart';
 import 'src/rust/smart_core_types.dart';
 import 'translations.dart';
 import 'core_updater.dart';
+import 'gaming_registry.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "3.9";
+const String appCurrentVersion = "4.0";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -129,15 +131,23 @@ class AppLogger {
 
 void openBrowserUrl(String url) {
   try {
+    final uri = Uri.tryParse(url.trim());
+    // سد امنیتی ۱: فقط و فقط پروتکل‌های امن وب مجاز هستند (مسدودسازی دستورات cmd و powershell)
+    if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+      AppLogger.warn("SECURITY_GUARD", "تلاش برای باز کردن لینک مشکوک یا دستور سیستمی مسدود شد: $url");
+      return;
+    }
+
+    // باز کردن مستقیم با اکسپلورر بدون فراخوانی cmd.exe تا هیچ کدی قابل تزریق نباشد
     if (Platform.isWindows) {
-      Process.run('cmd', ['/c', 'start', '', url]);
+      Process.run('explorer.exe', [uri.toString()]);
     } else if (Platform.isLinux) {
-      Process.run('xdg-open', [url]);
+      Process.run('xdg-open', [uri.toString()]);
     } else if (Platform.isMacOS) {
-      Process.run('open', [url]);
+      Process.run('open', [uri.toString()]);
     }
   } catch (e, st) {
-    AppLogger.error("URL_OPENER", "خطا در باز کردن لینک مرورگر: $url", e, st);
+    AppLogger.error("URL_OPENER", "خطا در باز کردن امن لینک: $url", e, st);
   }
 }
 
@@ -276,6 +286,70 @@ class V2rayConfig {
 
   static V2rayConfig parse(String rawUrl) {
     try {
+      // ۱. پارس اختصاصی لینک‌های استاندارد VMess Base64
+      if (rawUrl.startsWith('vmess://')) {
+        try {
+          var b64 = rawUrl.substring(8).trim();
+          while (b64.length % 4 != 0) { b64 += '='; }
+          final decoded = utf8.decode(base64Decode(b64));
+          final Map<String, dynamic> v = jsonDecode(decoded);
+          return V2rayConfig(
+            protocol: 'vmess',
+            alias: v['ps']?.toString() ?? 'سرور VMess',
+            address: v['add']?.toString() ?? '127.0.0.1',
+            port: int.tryParse(v['port']?.toString() ?? '443') ?? 443,
+            uuidOrPassword: v['id']?.toString() ?? '',
+            transport: v['net']?.toString() ?? 'tcp',
+            host: v['host']?.toString() ?? '',
+            path: v['path']?.toString() ?? '',
+            security: (v['tls'] == 'tls') ? 'tls' : 'none',
+            sni: v['sni']?.toString() ?? v['host']?.toString() ?? '',
+            fingerprint: v['fp']?.toString() ?? 'chrome',
+            alpn: v['alpn']?.toString() ?? 'http/1.1',
+            allowInsecure: true,
+          );
+        } catch (_) {}
+      }
+
+      // پارس اختصاصی لینک‌های Shadowsocks
+      if (rawUrl.startsWith('ss://')) {
+        try {
+          final rest = rawUrl.substring(5);
+          final hashIdx = rest.indexOf('#');
+          final linkPart = hashIdx != -1 ? rest.substring(0, hashIdx) : rest;
+          final alias = hashIdx != -1 ? Uri.decodeComponent(rest.substring(hashIdx + 1)) : 'سرور Shadowsocks';
+
+          String method = '2022-blake3-aes-128-gcm';
+          String password = '';
+          String server = '127.0.0.1';
+          int port = 8388;
+
+          if (linkPart.contains('@')) {
+            final parts = linkPart.split('@');
+            var b64User = parts[0];
+            while (b64User.length % 4 != 0) { b64User += '='; }
+            final decUser = utf8.decode(base64Url.decode(b64User));
+            final up = decUser.split(':');
+            if (up.length >= 2) {
+              method = up[0];
+              password = up.sublist(1).join(':');
+            }
+            final hp = parts[1].split(':');
+            server = hp[0];
+            port = int.tryParse(hp[1]) ?? 8388;
+          }
+
+          return V2rayConfig(
+            protocol: 'shadowsocks',
+            alias: alias,
+            address: server,
+            port: port,
+            uuidOrPassword: password,
+            security: method,
+          );
+        } catch (_) {}
+      }
+
       final uri = Uri.parse(rawUrl);
       var protocol = uri.scheme.toLowerCase();
       if (protocol == 'hy2') protocol = 'hysteria2';
@@ -335,9 +409,41 @@ class V2rayConfig {
   }
 
   String toRawUrl() {
+    if (protocol == 'vmess') {
+      final Map<String, dynamic> vmessJson = {
+        'v': '2',
+        'ps': alias,
+        'add': address,
+        'port': port,
+        'id': uuidOrPassword,
+        'aid': 0,
+        'net': transport,
+        'type': 'none',
+        'host': host,
+        'path': path,
+        'tls': security == 'tls' ? 'tls' : '',
+        'sni': sni.isNotEmpty ? sni : host,
+        'alpn': alpn,
+        'fp': fingerprint,
+      };
+      final b64 = base64Encode(utf8.encode(jsonEncode(vmessJson)));
+      return 'vmess://$b64';
+    }
+
     final Map<String, String> queryParams = {};
     
-    if (protocol == 'hysteria2') {
+    if (protocol == 'shadowsocks' || protocol == 'ss') {
+      final userinfo = base64Url.encode(utf8.encode('$security:$uuidOrPassword')).replaceAll('=', '');
+      final encodedAlias = Uri.encodeComponent(alias);
+      return 'ss://$userinfo@$address:$port#$encodedAlias';
+    } else if (protocol == 'tuic') {
+      if (sni.isNotEmpty) queryParams['sni'] = sni;
+      queryParams['congestion_controller'] = 'bbr';
+      queryParams['udp_relay_mode'] = 'native';
+      queryParams['alpn'] = alpn.isNotEmpty ? alpn : 'h3';
+      if (allowInsecure) queryParams['insecure'] = '1';
+      if (echConfig.isNotEmpty) queryParams['ech'] = echConfig;
+    } else if (protocol == 'hysteria2') {
       if (sni.isNotEmpty) queryParams['sni'] = sni;
       if (allowInsecure) queryParams['insecure'] = '1';
       if (echConfig.isNotEmpty) queryParams['ech'] = echConfig;
@@ -475,19 +581,517 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   final TextEditingController _psiphonPathController = TextEditingController(text: 'psiphon-tunnel-core.exe');
   final TextEditingController _goodbyedpiPathController = TextEditingController(text: 'goodbyedpi.exe');
   
-  // تنظیمات اختصاصی هسته و افکت GoodbyeDPI
+  // تنظیمات اختصاصی و ماتریس پریست‌های هوشمند GoodbyeDPI
   final TextEditingController _goodbyedpiArgsController = TextEditingController(text: '-9 -p -r -s -f 2 -k 2 -n -e 2');
+  final List<Map<String, String>> _adaptiveGoodbyeDpiPresets = [
+    {'name': 'پیشنهادی ایران (-9 تهاجمی)', 'args': '-9 -p -r -s -f 2 -k 2 -n -e 2'},
+    {'name': 'ضد قطعی همراه اول (-5 ملایم)', 'args': '-5 -p -s -e 1 -f 1 -k 1'},
+    {'name': 'جعل چکسام و پکت فیک', 'args': '-9 --wrong-chksum -p -r -e 2'},
+    {'name': 'سبک و پینگ پایین (-1 پسیو)', 'args': '-1 -p -r'},
+    {'name': 'حالت مستقیم (بدون گودبای‌دی‌پی)', 'args': 'off'},
+  ];
+  int _currentAdaptivePresetIndex = 0;
   // کنترلرهای اختصاصی اینترنت اضطراری DNSTT
   final TextEditingController _dnsttDomainController = TextEditingController(text: 't.dnstt.online');
   final TextEditingController _dnsttPubkeyController = TextEditingController(text: '');
   final TextEditingController _dnsttDohController = TextEditingController(text: 'https://1.1.1.1/dns-query');
   final TextEditingController _dnsttPortController = TextEditingController(text: '5300');
-  String _selectedGoodbyeDpiPreset = 'iran_recommended';
+  String _selectedGoodbyeDpiPreset = 'auto';
   bool _useGoodbyeDpiDashboard = true;
   bool _useGoodbyeDpiAether = true;
   bool _useGoodbyeDpiTor = true;
   bool _useGoodbyeDpiPsiphon = true;
+  bool _useGoodbyeDpiDns = true;
   bool _isGoodbyeDpiRunning = false;
+
+  // متغیرها و موتور شتاب‌دهنده شبکه ویندوز (TCP Turbo & BBR)
+  bool _isTcpTurboEnabled = true;
+  bool _isApplyingTcpTurbo = false;
+
+  Future<void> _applyWindowsTcpTurbo(bool enable) async {
+    if (!Platform.isWindows) return;
+    setState(() => _isApplyingTcpTurbo = true);
+    try {
+      final script = enable ? r'''
+$ErrorActionPreference = 'SilentlyContinue'
+netsh int tcp set supplemental template=internet congestionprovider=ctcp
+netsh int tcp set supplemental template=internet congestionprovider=bbr2
+netsh int tcp set global autotuninglevel=normal
+netsh int tcp set global sack=enabled
+netsh int tcp set global ecncapability=enabled
+netsh int tcp set global timestamps=enabled
+netsh int tcp set global fastopen=enabled
+netsh int tcp set global rss=enabled
+''' : r'''
+$ErrorActionPreference = 'SilentlyContinue'
+netsh int tcp set supplemental template=internet congestionprovider=default
+netsh int tcp set global autotuninglevel=normal
+netsh int tcp set global sack=enabled
+netsh int tcp set global ecncapability=disabled
+netsh int tcp set global timestamps=disabled
+netsh int tcp set global fastopen=disabled
+''';
+      final tempDir = Directory.systemTemp;
+      final scriptFile = File('${tempDir.path}\\rc_tcp_turbo.ps1');
+      await scriptFile.writeAsString(script);
+
+      // اجرای تضمینی با دسترسی Administrator در ویندوز (Verb RunAs)
+      final elevateCmd = "Start-Process powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"${scriptFile.path}\"' -Verb RunAs -WindowStyle Hidden";
+      await Process.run('powershell.exe', [
+        '-NoProfile',
+        '-Command',
+        elevateCmd,
+      ], runInShell: false);
+
+      // صبر کوتاه جهت ثبت در کرنل ویندوز
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      setState(() => _isTcpTurboEnabled = enable);
+      AppLogger.info("TCP_TURBO", enable ? "شتاب‌دهنده شبکه CTCP/BBR با مجوز ادمین فعال شد." : "تنظیمات TCP به حالت پیش‌فرض ویندوز بازگشت.");
+    } catch (e) {
+      AppLogger.warn("TCP_TURBO", "خطا در تنظیم توربو TCP: $e");
+    } finally {
+      if (mounted) setState(() => _isApplyingTcpTurbo = false);
+    }
+  }
+
+  // متغیرهای اختصاصی اسپلیت تانل دامنه‌ها و برنامه‌ها
+  bool _bypassIran = true;
+  final TextEditingController _customRuleDomainController = TextEditingController();
+  String _selectedRuleType = 'direct';
+  List<Map<String, String>> _splitRules = [];
+
+  // متغیرهای اسپلیت‌تانل بر اساس فایل اجرایی نرم‌افزارها (Per-App Routing)
+  final TextEditingController _appProcessController = TextEditingController();
+  String _selectedAppRuleType = 'direct';
+  List<Map<String, String>> _appRules = [];
+
+  // متغیرهای هات‌اسپات وای‌فای اختصاصی (Wi-Fi Virtual Hotspot)
+  final TextEditingController _hotspotSsidController = TextEditingController(text: 'RedCloud');
+  final TextEditingController _hotspotPassController = TextEditingController(text: '12345678');
+  bool _hasHotspotPassword = true;
+  bool _obscureHotspotPassword = true;
+  bool _isHotspotRunning = false;
+  String _hotspotStatusText = '';
+
+  // سیستم مدیریت کاربران، مانیتورینگ زنده و بلک‌لیست مک‌آدرس
+  List<String> _hotspotMacBlacklist = [];
+  int _hotspotMaxClientsLimit = 0; // 0 = نامحدود
+  List<Map<String, String>> _liveHotspotClients = [];
+  Timer? _hotspotMonitorTimer;
+  bool _isPollingHotspotClients = false;
+
+  Future<void> _saveHotspotSecurityToDisk() async {
+    try {
+      final file = await _getLocalFile('saved_hotspot_security.json');
+      final data = {
+        'blacklist': _hotspotMacBlacklist,
+        'max_clients': _hotspotMaxClientsLimit,
+      };
+      await file.writeAsString(jsonEncode(data));
+    } catch (_) {}
+  }
+
+  // =========================================================================
+  // سیستم حافظه دائمی (ذخیره آخرین کشور، کانفیگ و بازی انتخابی)
+  // =========================================================================
+  Future<void> _savePreferencesToDisk() async {
+    try {
+      final file = await _getLocalFile('saved_preferences.json');
+      final data = {
+        'last_dashboard_node_url': _selectedNode?.rawUrl,
+        'last_tor_country': _selectedTorCountry,
+        'last_psiphon_country': _selectedPsiphonCountry,
+        'last_aether_mode': _selectedAetherMode,
+        'last_aether_noize': _selectedAetherNoize,
+        'last_game_id': _selectedGame?.id,
+        'last_game_region': _selectedGamingRegion,
+        'last_game_dns_mode': _selectedGamingDnsMode,
+        'hk_dashboard': _hkDashboard,
+        'hk_gaming': _hkGaming,
+        'hk_aether': _hkAether,
+        'hk_tor': _hkTor,
+        'hk_psiphon': _hkPsiphon,
+        'hk_tun': _hkTun,
+      };
+      await file.writeAsString(jsonEncode(data));
+    } catch (_) {}
+  }
+
+  Future<void> _loadPreferencesFromDisk() async {
+    try {
+      final file = await _getLocalFile('saved_preferences.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final Map<String, dynamic> data = jsonDecode(content);
+
+        setState(() {
+          if (data['last_tor_country'] != null && _torCountries.containsKey(data['last_tor_country'])) {
+            _selectedTorCountry = data['last_tor_country'];
+          }
+          if (data['last_psiphon_country'] != null && _psiphonCountries.containsKey(data['last_psiphon_country'])) {
+            _selectedPsiphonCountry = data['last_psiphon_country'];
+          }
+          if (data['last_aether_mode'] != null && _aetherModes.containsKey(data['last_aether_mode'])) {
+            _selectedAetherMode = data['last_aether_mode'];
+          }
+          if (data['last_aether_noize'] != null && _aetherNoizeProfiles.containsKey(data['last_aether_noize'])) {
+            _selectedAetherNoize = data['last_aether_noize'];
+          }
+          if (data['last_game_region'] != null) {
+            _selectedGamingRegion = data['last_game_region'];
+          }
+          if (data['last_game_dns_mode'] != null) {
+            _selectedGamingDnsMode = data['last_game_dns_mode'];
+          }
+          if (data['last_dashboard_node_url'] != null) {
+            final match = _savedNodeItems.where((i) => i.node.rawUrl == data['last_dashboard_node_url']).firstOrNull;
+            if (match != null) _selectedNode = match.node;
+          }
+          if (data['last_game_id'] != null) {
+            final gMatch = _gamingRegistry.allGames.where((g) => g.id == data['last_game_id']).firstOrNull;
+            if (gMatch != null) _selectedGame = gMatch;
+          }
+          _hkDashboard = data['hk_dashboard'] ?? 'D';
+          _hkGaming = data['hk_gaming'] ?? 'G';
+          _hkAether = data['hk_aether'] ?? 'A';
+          _hkTor = data['hk_tor'] ?? 'T';
+          _hkPsiphon = data['hk_psiphon'] ?? 'P';
+          _hkTun = data['hk_tun'] ?? 'M';
+        });
+      }
+    } catch (_) {}
+    await _registerAllGlobalHotkeys();
+  }
+
+  PhysicalKeyboardKey _resolvePhysicalKey(String letter) {
+    switch (letter.toUpperCase()) {
+      case 'A': return PhysicalKeyboardKey.keyA;
+      case 'B': return PhysicalKeyboardKey.keyB;
+      case 'C': return PhysicalKeyboardKey.keyC;
+      case 'D': return PhysicalKeyboardKey.keyD;
+      case 'E': return PhysicalKeyboardKey.keyE;
+      case 'F': return PhysicalKeyboardKey.keyF;
+      case 'G': return PhysicalKeyboardKey.keyG;
+      case 'H': return PhysicalKeyboardKey.keyH;
+      case 'I': return PhysicalKeyboardKey.keyI;
+      case 'J': return PhysicalKeyboardKey.keyJ;
+      case 'K': return PhysicalKeyboardKey.keyK;
+      case 'L': return PhysicalKeyboardKey.keyL;
+      case 'M': return PhysicalKeyboardKey.keyM;
+      case 'N': return PhysicalKeyboardKey.keyN;
+      case 'O': return PhysicalKeyboardKey.keyO;
+      case 'P': return PhysicalKeyboardKey.keyP;
+      case 'Q': return PhysicalKeyboardKey.keyQ;
+      case 'R': return PhysicalKeyboardKey.keyR;
+      case 'S': return PhysicalKeyboardKey.keyS;
+      case 'T': return PhysicalKeyboardKey.keyT;
+      case 'U': return PhysicalKeyboardKey.keyU;
+      case 'V': return PhysicalKeyboardKey.keyV;
+      case 'W': return PhysicalKeyboardKey.keyW;
+      case 'X': return PhysicalKeyboardKey.keyX;
+      case 'Y': return PhysicalKeyboardKey.keyY;
+      case 'Z': return PhysicalKeyboardKey.keyZ;
+      default: return PhysicalKeyboardKey.keyD;
+    }
+  }
+
+  /// ثبت و اتصال استاندارد کلیدهای میانبر سراسری کیبورد بدون اخطار منسوخ شدن
+  Future<void> _registerAllGlobalHotkeys() async {
+    if (!Platform.isWindows) return;
+    try {
+      await hotKeyManager.unregisterAll();
+
+      final list = [
+        {'action': 'dashboard', 'key': _hkDashboard, 'callback': () => _toggleV2RayConnection()},
+        {'action': 'gaming', 'key': _hkGaming, 'callback': () => _toggleGamingBoost()},
+        {'action': 'aether', 'key': _hkAether, 'callback': () => _toggleAetherConnection()},
+        {'action': 'tor', 'key': _hkTor, 'callback': () => _toggleTorConnection()},
+        {'action': 'psiphon', 'key': _hkPsiphon, 'callback': () => _togglePsiphonConnection()},
+        {'action': 'tun', 'key': _hkTun, 'callback': () {
+          setState(() {
+            _useTunMode = !_useTunMode;
+            if (_useTunMode) _useSystemProxy = false;
+          });
+          _updateSystemTrayMenu();
+        }},
+      ];
+
+      DateTime lastHotkeyTrigger = DateTime.now();
+      for (var item in list) {
+        final hk = HotKey(
+          key: _resolvePhysicalKey(item['key'] as String),
+          modifiers: [HotKeyModifier.control, HotKeyModifier.shift],
+          scope: HotKeyScope.system,
+        );
+        await hotKeyManager.register(
+          hk,
+          keyDownHandler: (_) {
+            // سد ضد تکرار: نادیده گرفتن فشردن‌های مکرر در کمتر از ۱.۵ ثانیه جهت جلوگیری از لگ
+            final now = DateTime.now();
+            if (now.difference(lastHotkeyTrigger).inMilliseconds < 1500) {
+              return;
+            }
+            lastHotkeyTrigger = now;
+            (item['callback'] as VoidCallback)();
+          },
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadHotspotSecurityFromDisk() async {
+    try {
+      final file = await _getLocalFile('saved_hotspot_security.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final data = jsonDecode(content);
+        setState(() {
+          _hotspotMacBlacklist = List<String>.from(data['blacklist'] ?? []);
+          _hotspotMaxClientsLimit = data['max_clients'] ?? 0;
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// ساخت پکت استاندارد TLS ClientHello بر اساس SNI سرور برای تست دقیق فرگمنت
+  List<int> _buildSmartTlsClientHello(String sni) {
+    final sniBytes = utf8.encode(sni);
+    final serverNameList = [
+      0x00,
+      (sniBytes.length >> 8) & 0xFF,
+      sniBytes.length & 0xFF,
+      ...sniBytes,
+    ];
+    final serverNameExt = [
+      0x00, 0x00,
+      ((serverNameList.length + 2) >> 8) & 0xFF,
+      (serverNameList.length + 2) & 0xFF,
+      (serverNameList.length >> 8) & 0xFF,
+      serverNameList.length & 0xFF,
+      ...serverNameList,
+    ];
+    final supportedVersionsExt = [0x00, 0x2b, 0x00, 0x03, 0x02, 0x03, 0x04];
+    final extensions = [...serverNameExt, ...supportedVersionsExt];
+    final cipherSuites = [0x13, 0x01, 0x13, 0x02, 0xc0, 0x2f, 0xc0, 0x30];
+    final random = List<int>.generate(32, (i) => (i * 9 + 7) % 256);
+
+    final handshakeBody = [
+      0x03, 0x03,
+      ...random,
+      0x00,
+      (cipherSuites.length >> 8) & 0xFF,
+      cipherSuites.length & 0xFF,
+      ...cipherSuites,
+      0x01, 0x00,
+      (extensions.length >> 8) & 0xFF,
+      extensions.length & 0xFF,
+      ...extensions,
+    ];
+
+    final handshake = [
+      0x01,
+      0x00,
+      (handshakeBody.length >> 8) & 0xFF,
+      handshakeBody.length & 0xFF,
+      ...handshakeBody,
+    ];
+
+    return [
+      0x16,
+      0x03, 0x01,
+      (handshake.length >> 8) & 0xFF,
+      handshake.length & 0xFF,
+      ...handshake,
+    ];
+  }
+
+  /// تست عملی شکستن پکت در بایت مشخص و اندازه تاخیر
+  Future<int> _probeFragmentLatency(String host, int port, String sni, int splitOffset, int delayMs) async {
+    Socket? socket;
+    try {
+      final packet = _buildSmartTlsClientHello(sni.isEmpty ? host : sni);
+      final sw = Stopwatch()..start();
+
+      socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2500));
+      socket.setOption(SocketOption.tcpNoDelay, true);
+
+      final safeSplit = splitOffset.clamp(1, packet.length - 1);
+      final part1 = packet.sublist(0, safeSplit);
+      final part2 = packet.sublist(safeSplit);
+
+      socket.add(part1);
+      await socket.flush();
+
+      if (delayMs > 0) {
+        await Future.delayed(Duration(milliseconds: delayMs));
+      }
+
+      socket.add(part2);
+      await socket.flush();
+
+      final completer = Completer<int>();
+      socket.listen((data) {
+        if (!completer.isCompleted) {
+          if (data.isNotEmpty && data[0] == 0x16) {
+            completer.complete(sw.elapsedMilliseconds);
+          } else {
+            completer.complete(sw.elapsedMilliseconds);
+          }
+        }
+      }, onError: (_) {
+        if (!completer.isCompleted) completer.complete(-1);
+      }, onDone: () {
+        if (!completer.isCompleted) completer.complete(-1);
+      });
+
+      final res = await completer.future.timeout(const Duration(milliseconds: 2500), onTimeout: () => -1);
+      sw.stop();
+      return res;
+    } catch (_) {
+      return -1;
+    } finally {
+      try { socket?.destroy(); } catch (_) {}
+    }
+  }
+
+  Future<void> _fetchConnectedHotspotClients() async {
+    // ۱. اگر هات‌اسپات خاموش است، فوراً لیست را صفر کن و تاریخچه رم را نخوان
+    if (!Platform.isWindows) return;
+    if (!_isHotspotRunning) {
+      if (_liveHotspotClients.isNotEmpty && mounted) {
+        setState(() => _liveHotspotClients = []);
+      }
+      return;
+    }
+
+    if (_isPollingHotspotClients) return;
+    _isPollingHotspotClients = true;
+    try {
+      // ۲. فقط دستگاه‌های زنده (Reachable) با مک‌آدرس‌های یکتا خوانده شوند
+      final psScript = r'''
+$neighbors = Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object {
+    $_.IPAddress -like '192.168.137.*' -and
+    $_.IPAddress -ne '192.168.137.1' -and
+    $_.IPAddress -ne '192.168.137.255' -and
+    ($_.State -eq 'Reachable' -or $_.State -eq 'Permanent') -and
+    $_.LinkLayerAddress -ne '00-00-00-00-00-00'
+}
+$list = @()
+$seenMacs = @{}
+foreach ($n in $neighbors) {
+    $ip = $n.IPAddress
+    $mac = $n.LinkLayerAddress.ToUpper().Replace(':', '-')
+    if (-not $seenMacs.ContainsKey($mac)) {
+        $seenMacs[$mac] = $true
+        # تست پینگ سریع ۱ میلی‌ثانیه‌ای برای اطمینان از آنلاین بودن واقعی دستگاه
+        $isAlive = Test-Connection -ComputerName $ip -Count 1 -Quiet -TimeoutSeconds 1 -ErrorAction SilentlyContinue
+        if ($isAlive) {
+            $name = "Phone ($ip)"
+            try {
+                $hostEntry = [System.Net.Dns]::GetHostEntry($ip)
+                if ($hostEntry.HostName) { $name = $hostEntry.HostName }
+            } catch {}
+            $list += [PSCustomObject]@{ ip = $ip; mac = $mac; name = $name }
+        }
+    }
+}
+if ($list.Count -gt 0) { $list | ConvertTo-Json -Compress } else { Write-Output "[]" }
+''';
+      final res = await Process.run('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        psScript,
+      ], runInShell: false);
+
+      final out = res.stdout.toString().trim();
+      if (out.isNotEmpty && out.startsWith('[')) {
+        final decoded = jsonDecode(out);
+        List<Map<String, String>> clients = [];
+        if (decoded is List) {
+          for (var item in decoded) {
+            clients.add({
+              'ip': item['ip']?.toString() ?? '',
+              'mac': item['mac']?.toString() ?? '',
+              'name': item['name']?.toString() ?? '',
+            });
+          }
+        } else if (decoded is Map) {
+          clients.add({
+            'ip': decoded['ip']?.toString() ?? '',
+            'mac': decoded['mac']?.toString() ?? '',
+            'name': decoded['name']?.toString() ?? '',
+          });
+        }
+
+        // اعمال مسدودسازی فایروال برای مک‌های لیست سیاه
+        int allowedCount = 0;
+        for (var client in clients) {
+          final mac = client['mac']!;
+          final ip = client['ip']!;
+          final isBanned = _hotspotMacBlacklist.contains(mac);
+          final isOverLimit = _hotspotMaxClientsLimit > 0 && allowedCount >= _hotspotMaxClientsLimit;
+
+          if (isBanned || isOverLimit) {
+            Process.run('netsh', [
+              'advfirewall', 'firewall', 'add', 'rule',
+              'name=RC_BAN_$mac',
+              'dir=in',
+              'action=block',
+              'remoteip=$ip'
+            ], runInShell: false);
+          } else {
+            allowedCount++;
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _liveHotspotClients = clients;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _liveHotspotClients = []);
+      }
+    } catch (_) {
+    } finally {
+      _isPollingHotspotClients = false;
+    }
+  }
+
+  Future<void> _banHotspotClientMac(String mac, {String? ip}) async {
+    final cleanMac = mac.trim().toUpperCase();
+    if (cleanMac.isEmpty || _hotspotMacBlacklist.contains(cleanMac)) return;
+    setState(() {
+      _hotspotMacBlacklist.add(cleanMac);
+    });
+    await _saveHotspotSecurityToDisk();
+    if (ip != null && ip.isNotEmpty) {
+      await Process.run('netsh', [
+        'advfirewall', 'firewall', 'add', 'rule',
+        'name=RC_BAN_$cleanMac',
+        'dir=in',
+        'action=block',
+        'remoteip=$ip'
+      ], runInShell: false);
+    }
+    _fetchConnectedHotspotClients();
+  }
+
+  Future<void> _unbanHotspotClientMac(String mac) async {
+    final cleanMac = mac.trim().toUpperCase();
+    setState(() {
+      _hotspotMacBlacklist.remove(cleanMac);
+    });
+    await _saveHotspotSecurityToDisk();
+    await Process.run('netsh', [
+      'advfirewall', 'firewall', 'delete', 'rule',
+      'name=RC_BAN_$cleanMac'
+    ], runInShell: false);
+    _fetchConnectedHotspotClients();
+  }
 
   final TextEditingController _serverSearchController = TextEditingController();
   String _serverSearchQuery = '';
@@ -507,6 +1111,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   String _selectedUtlsFingerprint = 'chrome';
   bool _enableFragment = false;
   bool _enableRecordFragment = false;
+  bool _enableEch = true; // فعال‌سازی خودکار و پیش‌فرض ECH
   bool _enableTlsSpoof = false;
   bool _useTunMode = false;
   bool _useTunModeAether = false;
@@ -522,6 +1127,29 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   int _consecutiveDegradedCount = 0;
   bool _isHealingInProgress = false;
   String _activeProtocolName = 'Direct VLESS';
+
+  // متغیرهای اختصاصی تب گیمینگ (Gaming Mode & Anti-Ban State)
+  final GamingRegistry _gamingRegistry = GamingRegistry();
+  GameItem? _selectedGame;
+  String _selectedGamingRegion = 'auto';
+  String _selectedGamingDnsMode = 'local'; // 'local' یا 'resolver'
+  bool _isUpdatingLocalDns = false;
+
+  // کلیدهای میانبر قابل شخصی‌سازی سراسری
+  String _hkDashboard = 'D';
+  String _hkGaming = 'G';
+  String _hkAether = 'A';
+  String _hkTor = 'T';
+  String _hkPsiphon = 'P';
+  String _hkTun = 'M';
+  bool _isGamingRunning = false;
+  bool _isGamingStarting = false;
+  String _gamingStatusStep = '';
+  GamingLiveMetrics? _gamingMetrics;
+  Timer? _gamingMetricsTimer;
+  String _gameSearchQuery = '';
+  String _selectedGameCategory = 'all';
+  bool _enableGamingBbr = true;
 
   // متغیرهای بخش اشتراک‌گذاری LAN
   bool _isLanShareRunning = false;
@@ -591,6 +1219,11 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   bool _isPsiphonMasqueRunning = false;
   bool _isPsiphonMasqueEnabled = true;
   Timer? _psiphonProgressTimer;
+
+  // متغیرهای اختصاصی فناوری CDN Fronting سایفون
+  bool _usePsiphonCdnFronting = false;
+  String _psiphonCdnMode = 'cdn'; // 'cdn' یا 'direct'
+  String _selectedCdnRegion = 'auto'; // 'auto', 'JP', 'US', 'SE'
   
   String _selectedTorCountry = "تصادفی (Random)";
   String _selectedPsiphonCountry = "تصادفی (Random)";
@@ -701,6 +1334,146 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   bool _isDnsRunning = false;
   int? _dnsPing;
   bool _isPingingDns = false;
+
+  // متغیرهای اسکنر هوشمند دی‌ان‌اس
+  final TextEditingController _dnsScanDomainController = TextEditingController(text: 'discord.com');
+  bool _isScanningDnsForDomain = false;
+  String _dnsScanProgressText = '';
+  int _selectedDnsThreadCount = 0;
+  DnsScannerProgress? _dnsScannerProgress;
+  Timer? _dnsScannerPollingTimer;
+
+  void _stopSmartDnsDomainScan() {
+    stopDnsDomainScanner();
+    _dnsScannerPollingTimer?.cancel();
+    setState(() => _isScanningDnsForDomain = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('dns_scan_cancelled_toast'.tr()), duration: const Duration(seconds: 1)),
+    );
+  }
+
+  Future<void> _runSmartDnsDomainScan() async {
+    final raw = _dnsScanDomainController.text.trim();
+    if (raw.isEmpty) return;
+
+    setState(() {
+      _isScanningDnsForDomain = true;
+      _dnsScanProgressText = 'dns_scanning_progress'.tr();
+      _dnsScannerProgress = null;
+    });
+
+    _dnsScannerPollingTimer?.cancel();
+    _dnsScannerPollingTimer = Timer.periodic(const Duration(milliseconds: 200), (t) async {
+      if (!_isScanningDnsForDomain) {
+        t.cancel();
+        return;
+      }
+      try {
+        final prog = await getDnsScannerProgress();
+        if (mounted) setState(() => _dnsScannerProgress = prog);
+      } catch (_) {}
+    });
+
+    try {
+      final results = await scanAndRankDnsForTarget(
+        target: raw,
+        concurrency: _selectedDnsThreadCount > 0 ? _selectedDnsThreadCount : null,
+      );
+
+      if (results.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('dns_scan_failed_toast'.tr()), backgroundColor: Colors.redAccent),
+          );
+        }
+      } else {
+        // تمیزکاری نام دامنه
+        String cleanDom = raw.replaceAll('https://', '').replaceAll('http://', '').split('/').first;
+
+        // حذف اسکن‌های قبلی همین دامنه برای جلوگیری از شلوغی
+        _dnsList.removeWhere((d) => d.name.contains('[اسکن]') || d.name.contains('[Scan]'));
+
+        final List<DnsProfile> newProfiles = [];
+        for (int i = 0; i < results.length; i++) {
+          final item = results[i];
+          final profile = DnsProfile(
+            name: '[اسکن] $cleanDom (#${i + 1} - ${item.latencyMs}ms)',
+            primary: item.primaryIp,
+            secondary: item.primaryIp,
+            description: 'تایید اصالت برای $cleanDom (${item.dnsName}) | آی‌پی سرور: ${item.resolvedIp}',
+            dnsType: 'udp',
+            isCustom: true,
+          );
+          newProfiles.add(profile);
+        }
+
+        setState(() {
+          _dnsList.insertAll(0, newProfiles);
+          _selectedDns = newProfiles.first;
+        });
+
+        await _saveDnsToDisk();
+        _testDnsPing();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('dns_scan_success_toast'.tr(params: {'count': results.length.toString()})),
+              backgroundColor: const Color(0xFF2DCA73),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error("DNS_SCAN", "Error scanning domain DNS", e);
+    } finally {
+      _dnsScannerPollingTimer?.cancel();
+      if (mounted) setState(() => _isScanningDnsForDomain = false);
+    }
+  }
+
+  Future<void> _clearScannedDnsProfiles() async {
+    setState(() {
+      _dnsList.removeWhere((d) => d.name.contains('[اسکن]') || d.name.contains('[Scan]'));
+      if (!_dnsList.contains(_selectedDns)) {
+        _selectedDns = _dnsList.first;
+      }
+    });
+    await _saveDnsToDisk();
+    _testDnsPing();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('scanned_dns_cleared_toast'.tr()), duration: const Duration(seconds: 1)),
+      );
+    }
+  }
+
+  // متغیرهای رادار زنده دفع حملات فیلترینگ
+  int _radarRstCount = 0;
+  int _radarStunCount = 0;
+  int _radarDnsCount = 0;
+  int _radarCarrierMtu = 1360;
+  Timer? _radarUpdateTimer;
+
+  void _startRadarPolling() {
+    _radarUpdateTimer?.cancel();
+    _radarUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      try {
+        final file = File('${Directory.systemTemp.path}\\RedCloud\\radar.txt');
+        if (await file.exists()) {
+          final content = await file.readAsString();
+          final parts = content.trim().split(',');
+          if (parts.length >= 4 && mounted) {
+            setState(() {
+              _radarRstCount = int.tryParse(parts[0]) ?? 0;
+              _radarStunCount = int.tryParse(parts[1]) ?? 0;
+              _radarCarrierMtu = int.tryParse(parts[3]) ?? 1360;
+            });
+          }
+        }
+      } catch (_) {}
+    });
+  }
 
   bool _useSystemProxy = true; 
   String _statusMessage = "سیستم آماده اتصال است";
@@ -915,6 +1688,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         'utls_fingerprint': _selectedUtlsFingerprint,
         'tls_fragment': _enableFragment,
         'tls_record_fragment': _enableRecordFragment,
+        'enable_ech': _enableEch,
         'fallback_delay': _fallbackDelayController.text,
         'tls_spoof_enabled': _enableTlsSpoof,
         'tls_spoof_sni': _tlsSpoofController.text,
@@ -928,6 +1702,7 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
         'use_goodbyedpi_aether': _useGoodbyeDpiAether,
         'use_goodbyedpi_tor': _useGoodbyeDpiTor,
         'use_goodbyedpi_psiphon': _useGoodbyeDpiPsiphon,
+        'use_goodbyedpi_dns': _useGoodbyeDpiDns,
       };
       await file.writeAsString(jsonEncode(data));
     } catch (e, st) {
@@ -965,6 +1740,279 @@ Future<void> _saveDnsttToDisk() async {
   }
 
 
+  Future<void> _applySystemProxyOverride() async {
+    if (!Platform.isWindows) return;
+    try {
+      List<String> bypassList = ['<local>', 'localhost', '127.0.0.1'];
+      if (_bypassIran) {
+        bypassList.addAll([
+          '*.ir',
+          '*.shaparak.ir',
+          '*.telewebion.com',
+          '*.aparat.com',
+          '*.divar.ir',
+          '*.snapp.ir',
+          '*.digikala.com',
+          '10.*',
+          '172.16.*',
+          '192.168.*',
+        ]);
+      }
+      for (var rule in _splitRules) {
+        if (rule['type'] == 'direct') {
+          final domain = rule['domain']!.trim();
+          if (domain.isNotEmpty) {
+            bypassList.add(domain.startsWith('*') ? domain : '*$domain*');
+          }
+        }
+      }
+      final overrideStr = bypassList.join(';');
+      await Process.run(
+        'reg',
+        [
+          'add',
+          'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+          '/v', 'ProxyOverride',
+          '/t', 'REG_SZ',
+          '/d', overrideStr,
+          '/f'
+        ],
+        runInShell: true,
+      );
+    } catch (_) {}
+  }
+
+  // مدیریت پایدار هات‌اسپات + اتصال خودکار به رله LAN و هدایت پکت‌ها به فیلترشکن فعال
+  Future<void> _toggleHotspot() async {
+    if (!Platform.isWindows) return;
+    final ssid = _hotspotSsidController.text.trim().isEmpty ? 'RedCloud-Wi-Fi' : _hotspotSsidController.text.trim();
+    final pass = _hasHotspotPassword ? _hotspotPassController.text.trim() : '';
+
+    if (_hasHotspotPassword && pass.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رمز عبور هات‌اسپات باید حداقل ۸ کاراکتر باشد!'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    setState(() {
+      _hotspotStatusText = _isHotspotRunning ? 'در حال خاموش‌سازی هات‌اسپات...' : 'در حال راه‌اندازی هات‌اسپات و آماده‌سازی تونل ($ssid)...';
+    });
+
+    try {
+      final tempDir = Directory.systemTemp;
+      final scriptFile = File('${tempDir.path}\\rc_hotspot_action.ps1');
+
+      if (_isHotspotRunning) {
+        const stopScript = r'''
+$ErrorActionPreference = 'SilentlyContinue'
+try {
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    [Windows.Networking.Connectivity.NetworkInformation, Windows.Networking.Connectivity, ContentType = WindowsRuntime] | Out-Null
+    [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager, Windows.Networking.NetworkOperators, ContentType = WindowsRuntime] | Out-Null
+    $profiles = [Windows.Networking.Connectivity.NetworkInformation]::GetConnectionProfiles()
+    foreach ($p in $profiles) {
+        try {
+            $mgr = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager]::CreateFromConnectionProfile($p)
+            if ($mgr -and $mgr.TetheringOperationalState -eq 1) {
+                $mgr.StopTetheringAsync() | Out-Null
+            }
+        } catch {}
+    }
+} catch {}
+netsh wlan stop hostednetwork | Out-Null
+Write-Output "STOPPED"
+''';
+        await scriptFile.writeAsString(stopScript);
+        await Process.run('powershell.exe', [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          scriptFile.path,
+        ], runInShell: false);
+
+        setState(() {
+          _isHotspotRunning = false;
+          _hotspotStatusText = 'هات‌اسپات با موفقیت خاموش شد.';
+        });
+      } else {
+        // ۱. روشن کردن خودکار رله LAN برای هدایت هوشمند ترافیک به سایفون/تور/اتر/ویتوری فعال
+        try {
+          if (!_isLanShareRunning) {
+            final port = int.tryParse(_lanPortController.text.trim()) ?? 10808;
+            await startLanRelay(port: port);
+            final ip = await getLocalIpAddress();
+            setState(() {
+              _isLanShareRunning = true;
+              _lanIp = ip;
+            });
+          }
+        } catch (_) {}
+
+        final startScript = '''
+\$ErrorActionPreference = 'Stop'
+try {
+    # 1. فعال‌سازی سرویس هات‌اسپات و قابلیت Forwarding شفاف ویندوز به کارت TUN
+    Start-Service -Name icssvc -ErrorAction SilentlyContinue
+    Set-NetIPInterface -Forwarding Enabled -ErrorAction SilentlyContinue
+
+    netsh advfirewall firewall add rule name="RC_LAN_Share" dir=in action=allow protocol=TCP localport=10808 -ErrorAction SilentlyContinue
+
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    \$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { \$_.Name -eq 'AsTask' -and \$_.GetParameters().Count -eq 1 -and \$_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+    Function AwaitOp(\$WinRtTask, \$ResultType) {
+        \$asTask = \$asTaskGeneric.MakeGenericMethod(\$ResultType)
+        \$netTask = \$asTask.Invoke(\$null, @(\$WinRtTask))
+        \$netTask.Wait(9000) | Out-Null
+        \$netTask.Result
+    }
+    Function AwaitAct(\$WinRtAction) {
+        \$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { \$_.Name -eq 'AsTask' -and \$_.GetParameters().Count -eq 1 -and -not \$_.IsGenericMethod })[0]
+        \$netTask = \$asTask.Invoke(\$null, @(\$WinRtAction))
+        \$netTask.Wait(9000) | Out-Null
+    }
+
+    [Windows.Networking.Connectivity.NetworkInformation, Windows.Networking.Connectivity, ContentType = WindowsRuntime] | Out-Null
+    [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager, Windows.Networking.NetworkOperators, ContentType = WindowsRuntime] | Out-Null
+
+    # 2. پیدا کردن پروفایل اینترنت فعال
+    \$profile = [Windows.Networking.Connectivity.NetworkInformation]::GetInternetConnectionProfile()
+    if (-not \$profile) {
+        \$profile = [Windows.Networking.Connectivity.NetworkInformation]::GetConnectionProfiles() | Where-Object { \$_.GetNetworkConnectivityLevel() -ne 'None' } | Select-Object -First 1
+    }
+
+    if (-not \$profile) {
+        Write-Output "ERR_NO_INTERNET_PROFILE"
+        exit
+    }
+
+    \$mgr = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager]::CreateFromConnectionProfile(\$profile)
+    if (-not \$mgr) {
+        Write-Output "ERR_TETHERING_UNSUPPORTED"
+        exit
+    }
+
+    if (\$mgr.TetheringOperationalState -eq 1) {
+        Write-Output "SUCCESS"
+        exit
+    }
+
+    # 3. پیکربندی نام و پسورد هات‌اسپات
+    try {
+        \$cfg = \$mgr.GetCurrentAccessPointConfiguration()
+        \$cfg.Ssid = "$ssid"
+        ${_hasHotspotPassword ? "\$cfg.Passphrase = '$pass'" : ""}
+        try { \$cfg.Band = 1 } catch {}
+        AwaitAct (\$mgr.ConfigureAccessPointAsync(\$cfg))
+    } catch {}
+
+    # 4. استارت هات‌اسپات
+    \$op = \$mgr.StartTetheringAsync()
+    \$res = AwaitOp \$op ([Windows.Networking.NetworkOperators.NetworkOperatorTetheringOperationResult])
+    if (\$res.Status -eq 'Success' -or \$mgr.TetheringOperationalState -eq 1) {
+        Write-Output "SUCCESS"
+    } else {
+        Write-Output "STATUS_FAIL:\$(\$res.Status)"
+    }
+} catch {
+    Write-Output "ERR:\$(\$_.Exception.Message)"
+}
+''';
+        await scriptFile.writeAsString(startScript);
+
+        final res = await Process.run('powershell.exe', [
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          scriptFile.path,
+        ], runInShell: false);
+
+        final out = res.stdout.toString().trim();
+        final err = res.stderr.toString().trim();
+        final rawResponse = out.isNotEmpty ? out : err;
+
+        if (rawResponse.contains("SUCCESS")) {
+          setState(() {
+            _isHotspotRunning = true;
+            _hotspotStatusText = '✅ وای‌فای هات‌اسپات متصل شد! آی‌پی پروکسی در گوشی: 192.168.137.1 و پورت: 10808';
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('هات‌اسپات شفاف فعال شد؛ دستگاه‌ها خودکار از فیلترشکن عبور می‌کنند!'), 
+                backgroundColor: Color(0xFF2DCA73),
+              ),
+            );
+          }
+        } else {
+          setState(() {
+            _isHotspotRunning = false;
+            if (rawResponse.contains("WiFiNotTurnedOn")) {
+              _hotspotStatusText = 'خطا: وای‌فای لپ‌تاپ خاموش است! ابتدا Wi-Fi ویندوز را روشن کنید.';
+            } else if (rawResponse.contains("ERR_NO_INTERNET_PROFILE")) {
+              _hotspotStatusText = 'خطا: اتصال اینترنت شناسایی نشد (ابتدا به مودم وصل شوید).';
+            } else {
+              _hotspotStatusText = 'دسترسی هات‌اسپات مسدود است؛ در حال باز کردن تنظیمات ویندوز...';
+              Process.run('cmd.exe', ['/c', 'start', 'ms-settings:network-mobilehotspot']);
+            }
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isHotspotRunning = false;
+        _hotspotStatusText = 'خطای سیستمی: $e';
+      });
+    }
+  }
+
+  Future<void> _saveSplitTunnelToDisk() async {
+    try {
+      final file = await _getLocalFile('saved_split_tunnel.json');
+      final tempFile = File('${Directory.systemTemp.path}\\RedCloud\\saved_split_tunnel.json');
+      final data = {
+        'bypass_iran': _bypassIran,
+        'rules': _splitRules,
+        'app_rules': _appRules,
+      };
+      final jsonStr = jsonEncode(data);
+      await file.writeAsString(jsonStr);
+      if (await tempFile.parent.exists()) {
+        await tempFile.writeAsString(jsonStr);
+      }
+      await _applySystemProxyOverride();
+      AppLogger.info("SPLIT_TUNNEL", "تنظیمات اسپلیت تانل و برنامه‌ها ذخیره شد.");
+    } catch (e, st) {
+      AppLogger.error("STORAGE", "خطا در ذخیره اسپلیت تانل", e, st);
+    }
+  }
+
+  Future<void> _loadSplitTunnelFromDisk() async {
+    try {
+      final file = await _getLocalFile('saved_split_tunnel.json');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final Map<String, dynamic> decoded = jsonDecode(content);
+        setState(() {
+          _bypassIran = decoded['bypass_iran'] ?? true;
+          if (decoded['rules'] != null) {
+            _splitRules = List<Map<String, String>>.from(
+              (decoded['rules'] as List).map((r) => Map<String, String>.from(r)),
+            );
+          }
+          if (decoded['app_rules'] != null) {
+            _appRules = List<Map<String, String>>.from(
+              (decoded['app_rules'] as List).map((r) => Map<String, String>.from(r)),
+            );
+          }
+        });
+        await _applySystemProxyOverride();
+      }
+    } catch (_) {}
+  }
+
   Future<void> _loadAntiDpiFromDisk() async {
     try {
       final file = await _getLocalFile('saved_anti_dpi.json');
@@ -975,6 +2023,7 @@ Future<void> _saveDnsttToDisk() async {
           _selectedUtlsFingerprint = decoded['utls_fingerprint'] ?? 'chrome';
           _enableFragment = decoded['tls_fragment'] ?? false;
           _enableRecordFragment = decoded['tls_record_fragment'] ?? false;
+          _enableEch = decoded['enable_ech'] ?? true;
           _fallbackDelayController.text = decoded['fallback_delay'] ?? '500ms';
           _enableTlsSpoof = decoded['tls_spoof_enabled'] ?? false;
           _tlsSpoofController.text = decoded['tls_spoof_sni'] ?? 'zoom.us';
@@ -983,11 +2032,12 @@ Future<void> _saveDnsttToDisk() async {
           _aetherTeamController.text = decoded['aether_team'] ?? '';
           _goodbyedpiPathController.text = decoded['goodbyedpi_path'] ?? 'goodbyedpi.exe';
           _goodbyedpiArgsController.text = decoded['goodbyedpi_args'] ?? '-9 -p -r -s -f 2 -k 2 -n -e 2';
-          _selectedGoodbyeDpiPreset = decoded['goodbyedpi_preset'] ?? 'iran_recommended';
+          _selectedGoodbyeDpiPreset = decoded['goodbyedpi_preset'] ?? 'auto';
           _useGoodbyeDpiDashboard = decoded['use_goodbyedpi_dashboard'] ?? true;
           _useGoodbyeDpiAether = decoded['use_goodbyedpi_aether'] ?? true;
           _useGoodbyeDpiTor = decoded['use_goodbyedpi_tor'] ?? true;
           _useGoodbyeDpiPsiphon = decoded['use_goodbyedpi_psiphon'] ?? true;
+          _useGoodbyeDpiDns = decoded['use_goodbyedpi_dns'] ?? true;
         });
       }
     } catch (e, st) {
@@ -1276,16 +2326,24 @@ Future<void> _saveDnsttToDisk() async {
       if (mounted) setState(() => _isDnscryptRunning = false);
     } catch (_) {}
   }
-  // مدیریت فرآیند GoodbyeDPI به عنوان افکت لایه اول
-  Future<void> _maybeStartGoodbyeDpi(bool shouldStart) async {
+  // مدیریت هوشمند و دینامیک فرآیند GoodbyeDPI با قابلیت تغییر زنده‌ی پریست‌ها
+  Future<void> _maybeStartGoodbyeDpi(bool shouldStart, {String? explicitArgs}) async {
     if (!Platform.isWindows) return;
     try {
       if (shouldStart) {
         final path = _goodbyedpiPathController.text.trim().isEmpty ? 'goodbyedpi.exe' : _goodbyedpiPathController.text.trim();
-        final args = _goodbyedpiArgsController.text.trim().isEmpty ? 'default' : _goodbyedpiArgsController.text.trim();
+        final args = explicitArgs ?? (_goodbyedpiArgsController.text.trim().isEmpty ? 'default' : _goodbyedpiArgsController.text.trim());
+        
+        if (args == 'off') {
+          await stopGoodbyedpiCore();
+          if (mounted) setState(() => _isGoodbyeDpiRunning = false);
+          AppLogger.info("GOODBYEDPI", "گودبای‌دی‌پی طبق استراتژی هوشمند موقتاً خاموش شد.");
+          return;
+        }
+
         await startGoodbyedpiCore(binaryPath: path, args: args);
         if (mounted) setState(() => _isGoodbyeDpiRunning = true);
-        AppLogger.info("GOODBYEDPI", "افکت محافظتی پکت‌های GoodbyeDPI روی کارت شبکه فعال شد.");
+        AppLogger.info("GOODBYEDPI", "افکت GoodbyeDPI با آرگومان [$args] روی کارت شبکه فعال شد.");
       } else {
         await stopGoodbyedpiCore();
         if (mounted) setState(() => _isGoodbyeDpiRunning = false);
@@ -1293,6 +2351,24 @@ Future<void> _saveDnsttToDisk() async {
     } catch (e) {
       AppLogger.warn("GOODBYEDPI", "خطا در تغییر وضعیت GoodbyeDPI: $e");
     }
+  }
+
+  /// پایشگر علائم حیاتی: چرخش خودکار پریست‌های گودبای‌دی‌پی فقط در صورت سکون و گیر کردن اتصال
+  Future<void> _advanceToNextGoodbyeDpiPreset(String coreName) async {
+    // فقط در صورتی که کاربر گزینه Auto را انتخاب کرده باشد چرخش هوشمند فعال شود
+    if (_selectedGoodbyeDpiPreset != 'auto') return;
+
+    _currentAdaptivePresetIndex = (_currentAdaptivePresetIndex + 1) % _adaptiveGoodbyeDpiPresets.length;
+    final nextPreset = _adaptiveGoodbyeDpiPresets[_currentAdaptivePresetIndex];
+    
+    if (mounted) {
+      setState(() {
+        _statusMessage = "⚡ سکون در $coreName شناسایی شد؛ سوییچ هوشمند به: ${nextPreset['name']}";
+      });
+    }
+    
+    await _maybeStartGoodbyeDpi(true, explicitArgs: nextPreset['args']);
+    AppLogger.info("ADAPTIVE_DPI", "سوئیچ به پریست جدید برای $coreName: ${nextPreset['name']}");
   }
 
   Future<void> _maybeStopGoodbyeDpi() async {
@@ -1364,7 +2440,7 @@ Future<void> _saveDnsttToDisk() async {
                           if (val != null) {
                             setDialogState(() {
                               _selectedGoodbyeDpiPreset = val;
-                              if (val == 'iran_recommended') {
+                              if (val == 'auto' || val == 'iran_recommended') {
                                 _goodbyedpiArgsController.text = '-9 -p -r -s -f 2 -k 2 -n -e 2';
                               } else if (val == 'mode_1') {
                                 _goodbyedpiArgsController.text = '-1';
@@ -1375,6 +2451,10 @@ Future<void> _saveDnsttToDisk() async {
                           }
                         },
                         items: [
+                          DropdownMenuItem(
+                            value: 'auto', 
+                            child: Text(isEn ? 'Auto (Smart Adaptive Failover - Recommended)' : 'انتخاب خودکار هوشمند (Auto Adaptive - پیشنهادی)'),
+                          ),
                           DropdownMenuItem(
                             value: 'iran_recommended', 
                             child: Text(isEn ? 'Iran Recommended (Aggressive -9 & full fragmentation)' : 'پیش‌فرض پیشنهادی ایران (حالت تهاجمی -9 و فرگمنت کامل)'),
@@ -1437,6 +2517,48 @@ Future<void> _saveDnsttToDisk() async {
           },
         );
       },
+    );
+  }
+
+  Widget _buildTcpTurboSwitchTile() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    return _buildGlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      borderRadius: 16,
+      borderColor: _isTcpTurboEnabled ? const Color(0xFFFFC837).withValues(alpha: 0.6) : Colors.white12,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt_rounded, size: 19, color: _isTcpTurboEnabled ? const Color(0xFFFFC837) : Colors.grey),
+          const SizedBox(width: 8),
+          Text(
+            isEn ? 'TCP Turbo (BBR)' : 'توربو TCP (ضد پکت‌لاس)',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          if (_isApplyingTcpTurbo)
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC837)))
+          else
+            Switch(
+              value: _isTcpTurboEnabled,
+              activeThumbColor: const Color(0xFFFFC837),
+              activeTrackColor: const Color(0xFFFFC837).withValues(alpha: 0.4),
+              onChanged: (val) async {
+                await _applyWindowsTcpTurbo(val);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(val 
+                          ? (isEn ? 'TCP Turbo (BBR & SACK) Activated!' : 'شتاب‌دهنده BBR و ضد پکت‌لاس ویندوز فعال شد!')
+                          : (isEn ? 'TCP settings reset to Windows default.' : 'تنظیمات TCP به حالت پیش‌فرض ویندوز بازگشت.')),
+                      backgroundColor: val ? const Color(0xFF2DCA73) : Colors.amber[800],
+                    ),
+                  );
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -1695,13 +2817,25 @@ Future<void> _saveDnsttToDisk() async {
     }
     _checkStatus();
     _testDnsPing();
+    _startRadarPolling();
     _loadSubGroupsFromDisk();
     _loadNodesFromDisk();
     _loadDnsFromDisk();
     _loadAntiDpiFromDisk();
     _loadDnsttFromDisk();
+    _loadSplitTunnelFromDisk();
+    _loadHotspotSecurityFromDisk();
+    _loadPreferencesFromDisk();
     _checkForUpdates();
     _initLanShareState();
+    LocalDnsService().init();
+    _gamingRegistry.init().then((_) {
+      if (mounted && _gamingRegistry.allGames.isNotEmpty) {
+        setState(() {
+          _selectedGame = _gamingRegistry.allGames.first;
+        });
+      }
+    });
     _fetchGithubAccounts(); // بارگذاری سریع از کش محلی در بدو اجرای برنامه
   }
 
@@ -1722,12 +2856,15 @@ Future<void> _saveDnsttToDisk() async {
 
   @override
   void dispose() {
+    _radarUpdateTimer?.cancel();
     _pulseController?.dispose();
     _scanStatsTimer?.cancel();
     _aetherProgressTimer?.cancel();
     _torProgressTimer?.cancel();
     _psiphonProgressTimer?.cancel();
     _dnsToastTimer?.cancel();
+    _hotspotMonitorTimer?.cancel();
+    _hotspotMonitorTimer = null;
     _serverSearchController.dispose();
     _lanPortController.dispose();
     _customSniController.dispose();
@@ -1738,9 +2875,12 @@ Future<void> _saveDnsttToDisk() async {
     _goodbyedpiPathController.dispose();
     _goodbyedpiArgsController.dispose();
     _stopCore2Monitoring();
+    _gamingMetricsTimer?.cancel();
+    _dnsScannerPollingTimer?.cancel();
     _stopTrafficMonitoring();
     _stopTelemetryReporting();
     if (Platform.isWindows) {
+      hotKeyManager.unregisterAll();
       windowManager.removeListener(this);
       trayManager.removeListener(this);
     }
@@ -2398,7 +3538,7 @@ Future<void> _saveDnsttToDisk() async {
                                 setDialogState(() => selectedProtocol = val);
                               }
                             },
-                            items: ['vless', 'trojan', 'hysteria2'].map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
+                            items: ['vless', 'vmess', 'trojan', 'hysteria2', 'tuic', 'shadowsocks'].map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
                           )
                         ],
                       ),
@@ -2609,14 +3749,15 @@ Future<void> _saveDnsttToDisk() async {
     );
   }
 
-  void _openAddDnsDialog() {
-    final nameController = TextEditingController();
-    final primaryController = TextEditingController();
-    final secondaryController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final dohUrlController = TextEditingController();
-    final dotHostController = TextEditingController();
-    String selectedType = 'udp';
+  void _openAddOrEditDnsDialog({DnsProfile? editDns}) {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final nameController = TextEditingController(text: editDns?.name ?? '');
+    final primaryController = TextEditingController(text: editDns?.primary ?? '');
+    final secondaryController = TextEditingController(text: editDns?.secondary ?? '');
+    final descriptionController = TextEditingController(text: editDns?.description ?? '');
+    final dohUrlController = TextEditingController(text: editDns?.dohUrl ?? '');
+    final dotHostController = TextEditingController(text: editDns?.dotHost ?? '');
+    String selectedType = editDns?.dnsType ?? 'udp';
 
     showDialog(
       context: context,
@@ -2625,11 +3766,20 @@ Future<void> _saveDnsttToDisk() async {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Color(0xFF6DD5ED), width: 1.4),
+              ),
               title: Row(
                 children: [
-                  Icon(Icons.add_moderator_rounded, color: Theme.of(context).colorScheme.primary),
+                  Icon(editDns == null ? Icons.add_moderator_rounded : Icons.edit_rounded, color: const Color(0xFF6DD5ED)),
                   const SizedBox(width: 12),
-                  const Text('افزودن DNS سفارشی جدید', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    editDns == null 
+                        ? (isEn ? 'Add Custom DNS' : 'افزودن DNS سفارشی جدید')
+                        : (isEn ? 'Edit DNS Profile' : 'ویرایش مشخصات دی‌ان‌اس'), 
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               content: SizedBox(
@@ -2638,40 +3788,38 @@ Future<void> _saveDnsttToDisk() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDialogField('نام نمایشی دی‌ان‌اس', nameController),
+                      _buildDialogField(isEn ? 'DNS Display Name' : 'نام نمایشی دی‌ان‌اس', nameController),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('نوع پروتکل اتصال DNS:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(isEn ? 'Protocol Type:' : 'نوع پروتکل اتصال DNS:', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           DropdownButton<String>(
                             value: selectedType,
                             dropdownColor: const Color(0xFF090B10),
                             underline: const SizedBox(),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             onChanged: (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedType = val);
-                              }
+                              if (val != null) setDialogState(() => selectedType = val);
                             },
                             items: ['udp', 'doh', 'dot'].map((type) => DropdownMenuItem(value: type, child: Text(type.toUpperCase()))).toList(),
                           )
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildDialogField('آدرس آی‌پی اصلی (Primary IP)', primaryController),
+                      _buildDialogField(isEn ? 'Primary IP Address' : 'آدرس آی‌پی اصلی (Primary IP)', primaryController),
                       const SizedBox(height: 12),
-                      _buildDialogField('آدرس آی‌پی ثانویه (Secondary IP)', secondaryController),
+                      _buildDialogField(isEn ? 'Secondary IP Address' : 'آدرس آی‌پی ثانویه (Secondary IP)', secondaryController),
                       const SizedBox(height: 12),
                       if (selectedType == 'doh') ...[
-                        _buildDialogField('لینک بستر DoH', dohUrlController),
+                        _buildDialogField(isEn ? 'DoH URL' : 'لینک بستر DoH (HTTPS)', dohUrlController),
                         const SizedBox(height: 12),
                       ],
                       if (selectedType == 'dot') ...[
-                        _buildDialogField('هاست امن DoT', dotHostController),
+                        _buildDialogField(isEn ? 'DoT Host' : 'هاست امن DoT (TLS)', dotHostController),
                         const SizedBox(height: 12),
                       ],
-                      _buildDialogField('توضیحات کوتاه دی‌ان‌اس', descriptionController),
+                      _buildDialogField(isEn ? 'Short Description' : 'توضیحات کوتاه دی‌ان‌اس', descriptionController),
                     ],
                   ),
                 ),
@@ -2679,22 +3827,17 @@ Future<void> _saveDnsttToDisk() async {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+                  child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    if (nameController.text.trim().isEmpty || primaryController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('وارد کردن نام دی‌ان‌اس و آی‌پی اصلی اجباری است.')),
-                      );
-                      return;
-                    }
+                    if (nameController.text.trim().isEmpty || primaryController.text.trim().isEmpty) return;
 
-                    final newDns = DnsProfile(
+                    final updated = DnsProfile(
                       name: nameController.text.trim(),
                       primary: primaryController.text.trim(),
                       secondary: secondaryController.text.trim().isEmpty ? primaryController.text.trim() : secondaryController.text.trim(),
-                      description: descriptionController.text.trim().isEmpty ? 'دی‌ان‌اس سفارشی کاربر' : descriptionController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty ? 'دی‌ان‌اس کاربر' : descriptionController.text.trim(),
                       dnsType: selectedType,
                       dohUrl: selectedType == 'doh' ? dohUrlController.text.trim() : null,
                       dotHost: selectedType == 'dot' ? dotHostController.text.trim() : null,
@@ -2702,23 +3845,278 @@ Future<void> _saveDnsttToDisk() async {
                     );
 
                     setState(() {
-                      _dnsList.add(newDns);
-                      _selectedDns = newDns;
+                      if (editDns == null) {
+                        _dnsList.add(updated);
+                        _selectedDns = updated;
+                      } else {
+                        final idx = _dnsList.indexOf(editDns);
+                        if (idx != -1) _dnsList[idx] = updated;
+                        if (_selectedDns == editDns) _selectedDns = updated;
+                      }
                     });
-                    
-                    final navigator = Navigator.of(context);
+
                     await _saveDnsToDisk();
-                    navigator.pop();
+                    if (context.mounted) Navigator.of(context).pop();
                     _testDnsPing();
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C5DD3)),
-                  child: const Text('افزودن دی‌ان‌اس', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2193B0)),
+                  child: Text(
+                    editDns == null ? (isEn ? 'Add' : 'افزودن') : (isEn ? 'Save' : 'ذخیره تغییرات'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );
           },
         );
       },
+    );
+  }
+
+  /// پنجره مدرن و اختصاصی مدیریت، تفکیک، ویرایش و حذف دی‌ان‌اس‌ها
+  void _openDnsManagerDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    String filterType = 'all'; // 'all', 'scanned', 'official', 'custom'
+    String searchQuery = '';
+    final searchCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final filtered = _dnsList.where((d) {
+              final isScan = d.name.contains('[اسکن]') || d.name.contains('[Scan]');
+              final isCust = d.isCustom && !isScan;
+              final isOff = !d.isCustom;
+
+              if (filterType == 'scanned' && !isScan) return false;
+              if (filterType == 'official' && !isOff) return false;
+              if (filterType == 'custom' && !isCust) return false;
+
+              if (searchQuery.isNotEmpty) {
+                final q = searchQuery.toLowerCase();
+                return d.name.toLowerCase().contains(q) || d.primary.contains(q);
+              }
+              return true;
+            }).toList();
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: const BorderSide(color: Color(0xFF6DD5ED), width: 1.4),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6DD5ED).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.dns_rounded, color: Color(0xFF6DD5ED), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        isEn ? 'DNS Profiles Manager' : 'مدیریت و انتخاب دی‌ان‌اس‌ها',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          _openAddOrEditDnsDialog();
+                          setDialogState(() {});
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2193B0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(isEn ? 'Add' : 'افزودن جدید', style: const TextStyle(fontSize: 11)),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      )
+                    ],
+                  )
+                ],
+              ),
+              content: SizedBox(
+                width: 650,
+                height: 520,
+                child: Column(
+                  children: [
+                    // نوار سرچ و فیلتر دسته‌بندی
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 38,
+                            child: TextField(
+                              controller: searchCtrl,
+                              onChanged: (v) => setDialogState(() => searchQuery = v.trim()),
+                              style: const TextStyle(fontSize: 12),
+                              decoration: InputDecoration(
+                                hintText: isEn ? 'Search DNS name or IP...' : 'جستجوی نام یا آی‌پی دی‌ان‌اس...',
+                                prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Colors.grey),
+                                filled: true,
+                                fillColor: const Color(0xFF090B10),
+                                contentPadding: EdgeInsets.zero,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            _buildFilterChip(isEn ? 'All' : 'همه', 'all', filterType, (v) => setDialogState(() => filterType = v)),
+                            _buildFilterChip(isEn ? '⚡ Scanned' : '⚡ اسکن‌شده', 'scanned', filterType, (v) => setDialogState(() => filterType = v)),
+                            _buildFilterChip(isEn ? '🌐 Official' : '🌐 رسمی', 'official', filterType, (v) => setDialogState(() => filterType = v)),
+                            _buildFilterChip(isEn ? '🛠️ Custom' : '🛠️ سفارشی', 'custom', filterType, (v) => setDialogState(() => filterType = v)),
+                          ],
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // لیست تمیز و کارتی دی‌ان‌اس‌ها با دکمه ویرایش و حذف
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(child: Text(isEn ? 'No DNS profiles found.' : 'هیچ دی‌ان‌اسی در این دسته یافت نشد.', style: const TextStyle(color: Colors.grey)))
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final dns = filtered[index];
+                                final isSelected = _selectedDns == dns;
+                                final isScan = dns.name.contains('[اسکن]') || dns.name.contains('[Scan]');
+
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() => _selectedDns = dns);
+                                    setDialogState(() {});
+                                    _testDnsPing();
+                                    Navigator.of(ctx).pop();
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? const Color(0xFF6DD5ED).withValues(alpha: 0.15) : const Color(0xFF090B10),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected ? const Color(0xFF6DD5ED) : Colors.white10,
+                                        width: isSelected ? 1.4 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                          color: isSelected ? const Color(0xFF6DD5ED) : Colors.grey,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isScan ? Colors.amber.withValues(alpha: 0.2) : Colors.white10,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            dns.dnsType.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isScan ? Colors.amberAccent : const Color(0xFF6DD5ED),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                dns.name,
+                                                style: TextStyle(
+                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                                  color: isSelected ? Colors.white : Colors.white70,
+                                                  fontSize: 12.5,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'IP: ${dns.primary}  ${dns.secondary.isNotEmpty ? "|  ${dns.secondary}" : ""}',
+                                                style: const TextStyle(fontSize: 10.5, color: Colors.grey, fontFamily: 'monospace'),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.grey),
+                                          tooltip: isEn ? 'Edit' : 'ویرایش',
+                                          onPressed: () {
+                                            _openAddOrEditDnsDialog(editDns: dns);
+                                            setDialogState(() {});
+                                          },
+                                        ),
+                                        if (dns.isCustom || isScan)
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                                            tooltip: isEn ? 'Delete' : 'حذف',
+                                            onPressed: () async {
+                                              setState(() {
+                                                _dnsList.remove(dns);
+                                                if (_selectedDns == dns) {
+                                                  _selectedDns = _dnsList.first;
+                                                }
+                                              });
+                                              setDialogState(() {});
+                                              await _saveDnsToDisk();
+                                            },
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value, String current, ValueChanged<String> onSelect) {
+    final isSel = value == current;
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(fontSize: 10.5, color: isSel ? Colors.black : Colors.grey, fontWeight: FontWeight.bold)),
+      selected: isSel,
+      selectedColor: const Color(0xFF6DD5ED),
+      backgroundColor: const Color(0xFF090B10),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      onSelected: (_) => onSelect(value),
     );
   }
 
@@ -2802,16 +4200,91 @@ Future<void> _saveDnsttToDisk() async {
     try {
       await trayManager.setIcon(iconPath); 
       await trayManager.setToolTip('RedCloud VPN');
-
-      List<MenuItem> items = [
-        MenuItem(key: 'show_window', label: 'باز کردن برنامه'),
-        MenuItem.separator(),
-        MenuItem(key: 'exit_app', label: 'خروج کامل'),
-      ];
-      await trayManager.setContextMenu(Menu(items: items));
+      await _updateSystemTrayMenu();
     } catch (e) {
       AppLogger.warn("TRAY", "خطا در تنظیمات سیستم‌تری: $e");
     }
+  }
+
+  /// به‌روزرسانی فوق‌سریع و هوشمند منوی سینی ویندوز (بدون لوپ و مصرف صفر منابع)
+  Future<void> _updateSystemTrayMenu() async {
+    if (!Platform.isWindows) return;
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final bool isAnyConnected = _isProxyRunning || _isHybridRunning || _isAetherRunning || _isTorRunning || _isPsiphonRunning || _isGamingRunning;
+
+    // ۱. استخراج عنوان وضعیت زنده
+    String statusTitle;
+    if (_isGamingRunning) {
+      final game = _selectedGame?.name ?? 'Game';
+      final ping = _gamingMetrics?.currentPingMs ?? -1;
+      statusTitle = isEn 
+          ? '● Status: Gaming Active ($game ${ping > 0 ? "- $ping ms" : ""})'
+          : '● وضعیت: گیمینگ ($game ${ping > 0 ? "- $ping ms" : ""})';
+    } else if (_isHybridRunning) {
+      statusTitle = isEn ? '● Status: Connected (Hybrid Tunnel)' : '● وضعیت: متصل (اتصال هیبریدی)';
+    } else if (_isProxyRunning) {
+      final sName = _selectedNode?.name ?? 'V2Ray';
+      statusTitle = isEn ? '● Status: Connected ($sName)' : '● وضعیت: متصل ($sName)';
+    } else if (_isAetherRunning) {
+      statusTitle = isEn ? '● Status: Connected (Aether MASQUE)' : '● وضعیت: متصل (شبکه اِتر)';
+    } else if (_isTorRunning || _isTorMasqueRunning) {
+      statusTitle = isEn ? '● Status: Connected (Tor Network)' : '● وضعیت: متصل (شبکه تور)';
+    } else if (_isPsiphonRunning || _isPsiphonMasqueRunning) {
+      statusTitle = isEn ? '● Status: Connected (Psiphon)' : '● وضعیت: متصل (سایفون)';
+    } else {
+      statusTitle = isEn ? '○ Status: Disconnected' : '○ وضعیت: قطع اتصال';
+    }
+
+    try {
+      final List<MenuItem> items = [
+        // ردیف ۱: عنوان وضعیت (غیرقابل کلیک و صرفاً نمایشی)
+        MenuItem(key: 'status_info', label: statusTitle, disabled: true),
+        MenuItem.separator(),
+
+        // ردیف ۲: دکمه قطع یا وصل سریع
+        MenuItem(
+          key: 'toggle_connect',
+          label: isAnyConnected 
+              ? (isEn ? '🔴 Disconnect' : '🔴 قطع اتصال (Disconnect)')
+              : (isEn ? '⚡ Quick Connect' : '⚡ اتصال سریع (Quick Connect)'),
+        ),
+        MenuItem.separator(),
+
+        // ردیف ۳: سوییچ‌های تک‌کلیکی
+        MenuItem(
+          key: 'toggle_tun',
+          label: _useTunMode 
+              ? (isEn ? '✔ Virtual TUN Adapter (ON)' : '✔ کارت شبکه مجازی (TUN: روشن)')
+              : (isEn ? '✖ Virtual TUN Adapter (OFF)' : '✖ کارت شبکه مجازی (TUN: خاموش)'),
+        ),
+        MenuItem(
+          key: 'toggle_sys_proxy',
+          label: _useSystemProxy 
+              ? (isEn ? '✔ System Proxy (ON)' : '✔ پروکسی سیستم (Proxy: روشن)')
+              : (isEn ? '✖ System Proxy (OFF)' : '✖ پروکسی سیستم (Proxy: خاموش)'),
+        ),
+        MenuItem(
+          key: 'toggle_gaming',
+          label: _isGamingRunning
+              ? (isEn ? '🎮 Stop Gaming Booster' : '🎮 توقف بوستر گیمینگ')
+              : (isEn ? '🎮 Start Gaming Booster' : '🎮 شروع بوستر گیمینگ'),
+        ),
+        MenuItem.separator(),
+
+        // ردیف ۴: ابزار نجات اینترنت و پاکسازی پروکسی ویندوز
+        MenuItem(
+          key: 'fix_stuck_proxy',
+          label: isEn ? '🧹 Clear Stuck Proxy & Fix Internet' : '🧹 پاکسازی فوری پروکسی و اینترنت',
+        ),
+        MenuItem.separator(),
+
+        // ردیف ۵: گزینه‌های عمومی
+        MenuItem(key: 'show_window', label: isEn ? '📂 Open Application' : '📂 باز کردن برنامه'),
+        MenuItem(key: 'exit_app', label: isEn ? '❌ Exit Completely' : '❌ خروج کامل'),
+      ];
+
+      await trayManager.setContextMenu(Menu(items: items));
+    } catch (_) {}
   }
 
   @override
@@ -2836,7 +4309,91 @@ Future<void> _saveDnsttToDisk() async {
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) async {
-    if (menuItem.key == 'show_window') {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
+    // ۱. قطع یا وصل سریع ترافیک
+    if (menuItem.key == 'toggle_connect') {
+      final bool isAny = _isProxyRunning || _isHybridRunning || _isAetherRunning || _isTorRunning || _isPsiphonRunning || _isGamingRunning;
+      if (isAny) {
+        if (_isGamingRunning) await stopGamingBoost();
+        if (_isHybridRunning) await stopHybridConnection();
+        if (_isProxyRunning) await stopProxyCore();
+        if (_isAetherRunning) await stopAetherCore();
+        if (_isTorRunning) await stopTorCore();
+        if (_isPsiphonRunning) await stopPsiphonCore();
+        setState(() {
+          _isGamingRunning = false;
+          _isHybridRunning = false;
+          _isProxyRunning = false;
+          _isAetherRunning = false;
+          _isTorRunning = false;
+          _isPsiphonRunning = false;
+        });
+      } else {
+        await _toggleV2RayConnection();
+      }
+      await _updateSystemTrayMenu();
+    }
+    // ۲. سوییچ کارت شبکه TUN
+    else if (menuItem.key == 'toggle_tun') {
+      setState(() {
+        _useTunMode = !_useTunMode;
+        if (_useTunMode) _useSystemProxy = false;
+      });
+      await _updateSystemTrayMenu();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_useTunMode 
+                ? (isEn ? 'TUN Mode enabled.' : 'کارت شبکه مجازی TUN فعال شد.') 
+                : (isEn ? 'TUN Mode disabled.' : 'کارت شبکه مجازی TUN خاموش شد.')),
+            backgroundColor: _useTunMode ? const Color(0xFF2DCA73) : Colors.amber[800],
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+    // ۳. سوییچ پروکسی سیستم
+    else if (menuItem.key == 'toggle_sys_proxy') {
+      if (!_useTunMode) {
+        setState(() => _useSystemProxy = !_useSystemProxy);
+        if (_isProxyRunning || _isHybridRunning) {
+          await Process.run(
+            'reg',
+            ['add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings', '/v', 'ProxyEnable', '/t', 'REG_DWORD', '/d', _useSystemProxy ? '1' : '0', '/f'],
+            runInShell: true,
+          );
+        }
+        await _updateSystemTrayMenu();
+      }
+    }
+    // ۴. شروع یا توقف بوستر گیمینگ
+    else if (menuItem.key == 'toggle_gaming') {
+      await _toggleGamingBoost();
+      await _updateSystemTrayMenu();
+    }
+    // ۵. پاکسازی فوری پروکسی رجیستری و بازگرداندن اینترنت
+    else if (menuItem.key == 'fix_stuck_proxy') {
+      try {
+        await Process.run(
+          'reg',
+          ['add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings', '/v', 'ProxyEnable', '/t', 'REG_DWORD', '/d', '0', '/f'],
+          runInShell: true,
+        );
+        await resetSystemDns();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isEn ? 'System proxy cleared! Internet restored.' : 'پروکسی ویندوز پاکسازی شد! اینترنت آزاد شد.'),
+              backgroundColor: const Color(0xFF2DCA73),
+            ),
+          );
+        }
+      } catch (_) {}
+      await _updateSystemTrayMenu();
+    }
+    // ۶. باز کردن پنجره برنامه
+    else if (menuItem.key == 'show_window') {
       await windowManager.show();
       await windowManager.focus();
       if (mounted) {
@@ -2847,12 +4404,16 @@ Future<void> _saveDnsttToDisk() async {
           _pulseController?.repeat(reverse: true);
         }
       }
-    } else if (menuItem.key == 'exit_app') {
+      await _updateSystemTrayMenu();
+    }
+    // ۷. خروج کامل از نرم‌افزار
+    else if (menuItem.key == 'exit_app') {
       AppLogger.info("APP_LIFECYCLE", "خروج کامل از نرم‌افزار توسط کاربر...");
       await _maybeStopGoodbyeDpi();
       await _maybeStopDnscrypt();
       
       if (_isUdp2rawActive) await stopUdp2RawCore();
+      if (_isGamingRunning) await stopGamingBoost();
       if (_isLanShareRunning) await stopLanRelay();
       if (_isHybridRunning) await stopHybridConnection();
       if (_isProxyRunning) await stopProxyCore();
@@ -2965,6 +4526,34 @@ Future<void> _saveDnsttToDisk() async {
       _isLoadingIpInfo = true;
     });
 
+    // خواندن مستقیم و آنی مشخصات خروجی سایفون از گزارش رسمی اِتر
+    if ((_isPsiphonRunning || _isPsiphonMasqueRunning) && _usePsiphonCdnFronting) {
+      try {
+        final exitFile = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
+        if (await exitFile.exists()) {
+          final line = await exitFile.readAsString();
+          // نمونه خط: [+] psiphon through the tunnel exit: 172.232.129.119, SE via ARN, 2160ms
+          if (line.contains("exit:")) {
+            final afterExit = line.split("exit:")[1].trim();
+            final parts = afterExit.split(",");
+            if (parts.length >= 2) {
+              final realIp = parts[0].trim();
+              final countryPart = parts[1].trim().split(" ")[0].trim();
+              setState(() {
+                _publicIp = realIp;
+                _countryCode = countryPart;
+                _countryName = countryPart == "SE" ? "Sweden" : (countryPart == "JP" ? "Japan" : countryPart);
+                _cityName = parts[1].trim();
+                _isLoadingIpInfo = false;
+                _statusMessage = "متصل به سایفون فرانتینگ (${_countryName})";
+              });
+              return;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     final providers = [
       'http://ip-api.com/json/?fields=status,country,countryCode,city,query',
       'https://freeipapi.com/api/json/',
@@ -2983,7 +4572,8 @@ Future<void> _saveDnsttToDisk() async {
           client.badCertificateCallback = (cert, host, port) => true;
 
           if (_isPsiphonRunning || _isPsiphonMasqueRunning) {
-            client.findProxy = (uri) => "PROXY 127.0.0.1:9081";
+            final proxyPort = _usePsiphonCdnFronting ? 1821 : 9081;
+            client.findProxy = (uri) => "PROXY 127.0.0.1:$proxyPort";
           } else if (_isTorRunning || _isTorMasqueRunning) {
             client.findProxy = (uri) => "PROXY 127.0.0.1:9051";
           } else if (_isHybridRunning || _isProxyRunning) {
@@ -3019,6 +4609,10 @@ Future<void> _saveDnsttToDisk() async {
                     : "اتصال پایدار و ترافیک فعال است (لوکیشن: $_countryName).";
               });
               AppLogger.info("IP_GEO", "اطلاعات آی‌پی دریافت شد: $ip ($country)");
+
+              // فعال‌سازی ناظر خودکار هویت: تطابق ساعت سیستم با کشور خروجی
+              _syncTimezoneToCountry(countryCode);
+              _updateSystemTrayMenu(); // آپدیت خودکار منوی تری به وضعیت متصل
               return;
             }
           }
@@ -3150,7 +4744,8 @@ Future<void> _saveDnsttToDisk() async {
       await stopProxyCore();
     }
     _stopTrafficMonitoring();
-    await _maybeStopGoodbyeDpi();
+    // در حین چرخش و اسکن مجدد، لایه ضد DPI باید روشن بماند تا اسکنر کور نشود
+    await _maybeStartGoodbyeDpi(true);
     
     setState(() {
       _statusMessage = "ظرفیت اکانت به پایان رسید! در حال چرخش خودکار و اسکن هوشمند...";
@@ -3180,6 +4775,9 @@ Future<void> _saveDnsttToDisk() async {
     }
 
     _scanStatsTimer?.cancel();
+    // محافظت از تمام پکت‌های اسکنر در سطح کارت شبکه
+    await _maybeStartGoodbyeDpi(true);
+
     setState(() {
       _isScanning = true;
       _scannedTotal = 0;
@@ -3264,6 +4862,9 @@ Future<void> _saveDnsttToDisk() async {
     try {
       await stopCloudflareScanner();
       _scanStatsTimer?.cancel();
+      if (!_isProxyRunning && !_isHybridRunning) {
+        await _maybeStopGoodbyeDpi();
+      }
       setState(() {
         _statusMessage = isEn 
             ? "Stop command sent. Collecting clean IPs..." 
@@ -3311,6 +4912,11 @@ Future<void> _saveDnsttToDisk() async {
             }
           }
 
+          if (_isGamingRunning) {
+            await stopGamingBoost();
+            _gamingMetricsTimer?.cancel();
+            setState(() => _isGamingRunning = false);
+          }
           if (_isAetherRunning || _isAetherConnecting) {
             _aetherProgressTimer?.cancel();
             await stopAetherCore();
@@ -3727,11 +5333,18 @@ Future<void> _saveDnsttToDisk() async {
             }
 
             final percent = await getTorBootstrapProgress();
+            final lastProgress = _torProgressPercent;
+
             if (mounted) {
               setState(() {
                 _torProgressPercent = percent;
                 _statusMessage = "پیشرفت اتصال تور: $percent٪";
               });
+            }
+
+            // ناظر هوشمند علائم حیاتی: اگر روی درصد پایین قفل کرد و هیچ پیشرفتی نداشت، پریست را عوض کن
+            if (percent < 20 && percent == lastProgress && timer.tick > 8 && timer.tick % 8 == 0) {
+              await _advanceToNextGoodbyeDpiPreset("Tor");
             }
 
             if (percent >= 100) {
@@ -3847,13 +5460,22 @@ Future<void> _saveDnsttToDisk() async {
           // اجرای لایه اول GoodbyeDPI برای باز کردن هندشیک سرورهای سایفون
           await _maybeStartGoodbyeDpi(_useGoodbyeDpiPsiphon);
 
-          final countryCode = _psiphonCountries[_selectedPsiphonCountry] ?? "";
+          final rawCountryCode = _psiphonCountries[_selectedPsiphonCountry] ?? "";
+          // در حالت CDN Fronting، منطقه کاملاً مجزا از لیست سنتی کنترل می‌شود
+          final targetRegion = _usePsiphonCdnFronting ? _selectedCdnRegion : rawCountryCode;
+          final countryCode = _usePsiphonCdnFronting
+              ? "$targetRegion##cdn##$_psiphonCdnMode"
+              : rawCountryCode;
           
           setState(() {
             _isPsiphonConnecting = true;
-            _statusMessage = _isPsiphonMasqueEnabled 
-                ? "در حال ایجاد پل ضدسانسور مسک و برقراری ارتباط با سایفون..." 
-                : "در حال اتصال به هسته سایفون...";
+            _statusMessage = _usePsiphonCdnFronting
+                ? (_isPsiphonMasqueEnabled
+                    ? "در حال راه‌اندازی CDN Fronting بر بستر پل مسک اِتر..."
+                    : "در حال اتصال به سرورهای سایفون با فناوری CDN Fronting...")
+                : (_isPsiphonMasqueEnabled 
+                    ? "در حال ایجاد پل ضدسانسور مسک و برقراری ارتباط با سایفون..." 
+                    : "در حال اتصال به هسته سایفون...");
           });
 
           final String msg = _isPsiphonMasqueEnabled
@@ -3888,37 +5510,43 @@ Future<void> _saveDnsttToDisk() async {
               });
             }
 
+            // ناظر هوشمند علائم حیاتی سایفون: اگر در مرحله دست‌دهی متوقف ماند، پریست را تغییر بده
+            if (!isDone && timer.tick > 12 && timer.tick % 10 == 0) {
+              await _advanceToNextGoodbyeDpiPreset("Psiphon");
+            }
+
             if (isDone) {
               timer.cancel();
               if (mounted) {
-                if (_useTunModePsiphon) {
-                  await startProxyWithNode(
-                    binaryPath: _binaryPathController.text.trim(),
-                    selectedNode: ProxyNode(
-                      name: "Psiphon-TUN",
-                      protocol: "socks",
-                      rawUrl: "socks://127.0.0.1:9080#Psiphon-TUN",
-                    ),
-                    useSystemProxy: false,
-                    customSni: null,
-                    enableFragment: false,
-                    enableRecordFragment: false,
-                    tlsSpoof: null,
-                    useTunMode: true,
-                    dnsType: _selectedDns.dnsType,
-                    dnsPrimary: _selectedDns.primary,
-                    dnsSecondary: _selectedDns.secondary,
-                    dnsDohUrl: _selectedDns.dohUrl,
-                    dnsDotHost: _selectedDns.dotHost,
-                    utlsFingerprint: null,
-                    fragmentFallbackDelay: null,
-                  );
-                }
+                final psPort = _usePsiphonCdnFronting ? 1821 : 9080;
+
+                // راه‌اندازی خودکار Sing-box به عنوان رابط پروکسی وب و کارت TUN روی پورت سایفون
+                await startProxyWithNode(
+                  binaryPath: _binaryPathController.text.trim(),
+                  selectedNode: ProxyNode(
+                    name: "Psiphon-Egress",
+                    protocol: "socks",
+                    rawUrl: "socks://127.0.0.1:$psPort#Psiphon-Egress",
+                  ),
+                  useSystemProxy: _useTunModePsiphon ? false : _useSystemProxy,
+                  customSni: null,
+                  enableFragment: false,
+                  enableRecordFragment: false,
+                  tlsSpoof: null,
+                  useTunMode: _useTunModePsiphon,
+                  dnsType: _selectedDns.dnsType,
+                  dnsPrimary: _selectedDns.primary,
+                  dnsSecondary: _selectedDns.secondary,
+                  dnsDohUrl: _selectedDns.dohUrl,
+                  dnsDotHost: _selectedDns.dotHost,
+                  utlsFingerprint: null,
+                  fragmentFallbackDelay: null,
+                );
 
                 final calib = await createProtocolCalibratedProfile(
                   protocolName: _isPsiphonMasqueEnabled ? 'Psiphon over MASQUE' : 'Psiphon Network',
                   modeOrRegion: _isPsiphonMasqueEnabled ? 'پل مسک ($_selectedPsiphonCountry)' : _selectedPsiphonCountry,
-                  localPort: 9081,
+                  localPort: _usePsiphonCdnFronting ? 1821 : 9081,
                   measuredLatencyMs: 240.0,
                   isFastPath: true,
                 );
@@ -3935,7 +5563,8 @@ Future<void> _saveDnsttToDisk() async {
                 _startCore2Monitoring();
               }
               
-              Future.delayed(const Duration(milliseconds: 1500), () {
+              // مهلت کوتاه جهت ثبت فایل خروجی اِتر و استعلام لوکیشن نهایی
+              Future.delayed(const Duration(milliseconds: 3500), () {
                 if (mounted && (_isPsiphonRunning || _isPsiphonMasqueRunning)) {
                   _fetchIpInfo();
                 }
@@ -3964,12 +5593,15 @@ Future<void> _saveDnsttToDisk() async {
       if (Platform.isWindows) {
         if (_isDnsRunning) {
           final msg = await resetSystemDns();
+          await _maybeStopGoodbyeDpi();
           setState(() {
             _isDnsRunning = false;
             _statusMessage = msg;
           });
         } else {
           setState(() => _statusMessage = "در حال اعمال دی‌ان‌اس...");
+          // فعال‌سازی قطعی درایور GoodbyeDPI برای مهار ارور QUIC و عبور از فیلتر SNI
+          await _maybeStartGoodbyeDpi(_useGoodbyeDpiDns);
           
           final msg = await setSystemDns(
             primary: _selectedDns.primary,
@@ -4035,13 +5667,103 @@ Future<void> _saveDnsttToDisk() async {
     }
   }
 
+  String? _originalWindowsTimezone;
+
+  /// ناظر هوشمند: انطباق ساعت ویندوز با کشور خروجی بدون دخالت کاربر
+  Future<void> _syncTimezoneToCountry(String countryCode) async {
+    if (!Platform.isWindows) return;
+    final cc = countryCode.trim().toUpperCase();
+    if (cc.isEmpty || cc == 'IR') return;
+
+    try {
+      if (_originalWindowsTimezone == null) {
+        final res = await Process.run('tzutil.exe', ['/g'], runInShell: false);
+        final currentTz = res.stdout.toString().trim();
+        if (currentTz.isNotEmpty) {
+          _originalWindowsTimezone = currentTz;
+        }
+      }
+
+      String targetTz;
+      switch (cc) {
+        case 'DE':
+        case 'NL':
+        case 'SE':
+        case 'IT':
+        case 'AT':
+        case 'CH':
+        case 'PL':
+        case 'ES':
+        case 'BE':
+          targetTz = 'W. Europe Standard Time';
+          break;
+        case 'FR':
+          targetTz = 'Romance Standard Time';
+          break;
+        case 'GB':
+        case 'UK':
+          targetTz = 'GMT Standard Time';
+          break;
+        case 'US':
+        case 'CA':
+          targetTz = 'Eastern Standard Time';
+          break;
+        case 'SG':
+          targetTz = 'Singapore Standard Time';
+          break;
+        case 'JP':
+          targetTz = 'Tokyo Standard Time';
+          break;
+        case 'TR':
+          targetTz = 'Turkey Standard Time';
+          break;
+        case 'AR':
+          targetTz = 'Argentina Standard Time';
+          break;
+        default:
+          targetTz = 'UTC';
+      }
+
+      await Process.run('tzutil.exe', ['/s', targetTz], runInShell: false);
+      AppLogger.info('IDENTITY_GUARD', '🕒 منطقه زمانی سیستم به طور خودکار با کشور $cc هماهنگ شد ($targetTz)');
+
+      // توقف سنسور اسکن وای‌فای محلی ویندوز جهت جلوگیری از نشت مک‌آدرس مودم‌های ایران
+      Process.run('net.exe', ['stop', 'lfsvc'], runInShell: false);
+      AppLogger.info('IDENTITY_GUARD', '📍 سنسور مکان‌یابی فیزیکی ویندوز (lfsvc) جهت فریب و اسپوف لوکیشن متوقف شد.');
+    } catch (_) {}
+  }
+
+  /// بازگرداندن ساعت و سنسور مکان‌یابی ویندوز به حالت اولیه موقع قطع اتصال
+  Future<void> _restoreOriginalTimezone() async {
+    if (!Platform.isWindows) return;
+    try {
+      if (_originalWindowsTimezone != null) {
+        await Process.run('tzutil.exe', ['/s', _originalWindowsTimezone!], runInShell: false);
+        AppLogger.info('IDENTITY_GUARD', '🕒 منطقه زمانی ویندوز به حالت اولیه بازگشت: $_originalWindowsTimezone');
+        _originalWindowsTimezone = null;
+      }
+      // فعال‌سازی مجدد سنسور مکان‌یابی ویندوز موقع قطع اتصال
+      Process.run('net.exe', ['start', 'lfsvc'], runInShell: false);
+    } catch (_) {}
+  }
+
   void _resetIpInfo() {
+    _restoreOriginalTimezone();
+    _updateSystemTrayMenu();
     setState(() {
       _publicIp = null;
       _countryCode = null;
       _countryName = null;
       _cityName = null;
+      _radarRstCount = 0;
+      _radarStunCount = 0;
     });
+    try {
+      final radarFile = File('${Directory.systemTemp.path}\\RedCloud\\radar.txt');
+      if (radarFile.existsSync()) {
+        radarFile.deleteSync();
+      }
+    } catch (_) {}
   }
 
   _TabTheme _getTabTheme(int index) {
@@ -4133,6 +5855,14 @@ Future<void> _saveDnsttToDisk() async {
           glow: const Color(0xFFED213A),
           icon: Icons.shield_rounded,
           title: 'menu_anti_dpi'.tr(),
+        );
+      case 11:
+        return _TabTheme(
+          gradient: const [Color(0xFFFF416C), Color(0xFFFF4B2B)],
+          accent: const Color(0xFFFF4B2B),
+          glow: const Color(0xFFFF416C),
+          icon: Icons.sports_esports_rounded,
+          title: 'menu_gaming'.tr(),
         );
       
       default:
@@ -4295,6 +6025,8 @@ Future<void> _saveDnsttToDisk() async {
                         child: Column(
                           children: [
                             _buildSidebarItem(0),
+                            const SizedBox(height: 5),
+                            _buildSidebarItem(11), // تب اختصاصی گیمینگ
                             const SizedBox(height: 5),
                             _buildSidebarItem(1),
                             const SizedBox(height: 5),
@@ -4578,6 +6310,8 @@ Future<void> _saveDnsttToDisk() async {
         return _buildHelpPage();
       case 10:
         return _buildAntiDpiSettingsPage();
+      case 11:
+        return _buildGamingPage();
       
       default:
         return _buildDashboardPage();
@@ -4610,65 +6344,81 @@ Future<void> _saveDnsttToDisk() async {
               ),
             ),
             const SizedBox(width: 12),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildGlassContainer(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  borderRadius: 16,
-                  borderColor: _useSmartOptimizer ? const Color(0xFF2DCA73).withValues(alpha: 0.6) : Colors.white12,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome_rounded, size: 18, color: _useSmartOptimizer ? const Color(0xFF2DCA73) : Colors.grey),
-                      const SizedBox(width: 8),
-                      const Text('اتصال هوشمند', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 6),
-                      Switch(
-                        value: _useSmartOptimizer,
-                        activeThumbColor: const Color(0xFF2DCA73),
-                        activeTrackColor: const Color(0xFF2DCA73).withValues(alpha: 0.4),
-                        onChanged: isAnyRunning ? null : (bool val) {
-                          setState(() {
-                            _useSmartOptimizer = val;
-                          });
-                        },
+                // ردیف اول: اتصال هوشمند + حالت هیبریدی
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildGlassContainer(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      borderRadius: 14,
+                      borderColor: _useSmartOptimizer ? const Color(0xFF2DCA73).withValues(alpha: 0.6) : Colors.white12,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 16, color: _useSmartOptimizer ? const Color(0xFF2DCA73) : Colors.grey),
+                          const SizedBox(width: 6),
+                          const Text('اتصال هوشمند', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 6),
+                          Switch(
+                            value: _useSmartOptimizer,
+                            activeThumbColor: const Color(0xFF2DCA73),
+                            activeTrackColor: const Color(0xFF2DCA73).withValues(alpha: 0.4),
+                            onChanged: isAnyRunning ? null : (bool val) {
+                              setState(() {
+                                _useSmartOptimizer = val;
+                              });
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _buildGoodbyeDpiSwitchTile(
-                  tabName: 'dash_title'.tr(),
-                  value: _useGoodbyeDpiDashboard,
-                  onChanged: (val) {
-                    setState(() => _useGoodbyeDpiDashboard = val);
-                    _saveAntiDpiToDisk();
-                  },
-                ),
-                const SizedBox(width: 10),
-                _buildGlassContainer(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  borderRadius: 16,
-                  borderColor: _isHybridModeEnabled ? const Color(0xFF00D2FF).withValues(alpha: 0.6) : Colors.white12,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.hub_rounded, size: 18, color: _isHybridModeEnabled ? const Color(0xFF00D2FF) : Colors.grey),
-                      const SizedBox(width: 8),
-                      Text('hybrid_mode'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 6),
-                      Switch(
-                        value: _isHybridModeEnabled,
-                        activeThumbColor: const Color(0xFF00D2FF),
-                        activeTrackColor: const Color(0xFFFF8008).withValues(alpha: 0.5),
-                        onChanged: isAnyRunning ? null : (bool val) {
-                          setState(() {
-                            _isHybridModeEnabled = val;
-                          });
-                        },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildGlassContainer(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      borderRadius: 14,
+                      borderColor: _isHybridModeEnabled ? const Color(0xFF00D2FF).withValues(alpha: 0.6) : Colors.white12,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.hub_rounded, size: 16, color: _isHybridModeEnabled ? const Color(0xFF00D2FF) : Colors.grey),
+                          const SizedBox(width: 6),
+                          Text('hybrid_mode'.tr(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 6),
+                          Switch(
+                            value: _isHybridModeEnabled,
+                            activeThumbColor: const Color(0xFF00D2FF),
+                            activeTrackColor: const Color(0xFFFF8008).withValues(alpha: 0.5),
+                            onChanged: isAnyRunning ? null : (bool val) {
+                              setState(() {
+                                _isHybridModeEnabled = val;
+                              });
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // ردیف دوم: شتاب‌دهنده توربو BBR + افکت GoodbyeDPI
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTcpTurboSwitchTile(),
+                    const SizedBox(width: 8),
+                    _buildGoodbyeDpiSwitchTile(
+                      tabName: 'dash_title'.tr(),
+                      value: _useGoodbyeDpiDashboard,
+                      onChanged: (val) {
+                        setState(() => _useGoodbyeDpiDashboard = val);
+                        _saveAntiDpiToDisk();
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -4846,6 +6596,105 @@ Future<void> _saveDnsttToDisk() async {
                       ),
                       const SizedBox(height: 16),
                       _buildLocationCard(), 
+                      const SizedBox(height: 16),
+                      // رادار زنده دفع حملات و سقف دکل مخابراتی
+                      _buildGlassContainer(
+                        borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.35),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.radar_rounded, color: Color(0xFF00D2FF), size: 18),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      AppTranslations.currentLang == 'en' ? 'Live Defense & PMTU Radar' : 'رادار زنده دفع حملات و سقف دکل',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2DCA73).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.4)),
+                                  ),
+                                  child: Text(
+                                    'دکل MTU: ${_radarCarrierMtu}B',
+                                    style: const TextStyle(color: Color(0xFF2DCA73), fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF090B10),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.currentLang == 'en' ? 'Fake RST Dropped' : 'پکت‌های RST خنثی‌شده',
+                                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '$_radarRstCount',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008), fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF090B10),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.currentLang == 'en' ? 'WebRTC Shielded' : 'نشت WebRTC مهارشده',
+                                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '$_radarStunCount',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00D2FF), fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       if (_latestCalibration != null) ...[
                         _buildGlassContainer(
@@ -5054,13 +6903,20 @@ Future<void> _saveDnsttToDisk() async {
               ),
               child: Text('aether_badge'.tr(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
-            _buildGoodbyeDpiSwitchTile(
-              tabName: 'aether_title'.tr(),
-              value: _useGoodbyeDpiAether,
-              onChanged: (val) {
-                setState(() => _useGoodbyeDpiAether = val);
-                _saveAntiDpiToDisk();
-              },
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTcpTurboSwitchTile(),
+                const SizedBox(width: 8),
+                _buildGoodbyeDpiSwitchTile(
+                  tabName: 'aether_title'.tr(),
+                  value: _useGoodbyeDpiAether,
+                  onChanged: (val) {
+                    setState(() => _useGoodbyeDpiAether = val);
+                    _saveAntiDpiToDisk();
+                  },
+                ),
+              ],
             ),
           ],
         ),
@@ -5609,6 +7465,7 @@ Future<void> _saveDnsttToDisk() async {
                               _selectedNode = item.node;
                               _statusMessage = "Active server changed to: ${item.node.name}";
                             });
+                            _savePreferencesToDisk();
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: AnimatedContainer(
@@ -5701,6 +7558,11 @@ Future<void> _saveDnsttToDisk() async {
                                   const SizedBox(width: 12),
                                 ],
                                 IconButton(
+                                  icon: const Icon(Icons.flash_on_rounded, size: 18, color: Color(0xFFFFC837)),
+                                  tooltip: 'کشف هوشمند فرگمنت طلایی (Smart Auto-Tuner)',
+                                  onPressed: () => _openGoldenFragmentDialog(item),
+                                ),
+                                IconButton(
                                   icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
                                   tooltip: 'copied_config_link'.tr(),
                                   onPressed: () {
@@ -5752,6 +7614,13 @@ Future<void> _saveDnsttToDisk() async {
     switch (protocol.toLowerCase()) {
       case 'vless':
         return const Color(0xFF00D2FF);
+      case 'vmess':
+        return const Color(0xFFB388FF);
+      case 'tuic':
+        return const Color(0xFF00E676);
+      case 'shadowsocks':
+      case 'ss':
+        return const Color(0xFFFFB300);
       case 'hysteria2':
       case 'hy2':
         return const Color(0xFFFF8008);
@@ -6058,6 +7927,171 @@ Future<void> _saveDnsttToDisk() async {
                       ),
                       const SizedBox(height: 16),
 
+                      // بخش جدید: هات‌اسپات وای‌فای مجازی ویندوز (Mobile Hotspot)
+                      _buildGlassContainer(
+                        borderColor: const Color(0xFF00C6FF).withValues(alpha: 0.45),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00C6FF).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.wifi_tethering_rounded, color: Color(0xFF00C6FF), size: 22),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          isEn ? 'Virtual Wi-Fi Hotspot' : 'هات‌اسپات وای‌فای ویندوز (Wi-Fi Hotspot)',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                        Text(
+                                          isEn ? 'Share uncensored internet via Laptop Wi-Fi' : 'اشتراک مستقیم اینترنت آزاد با وای‌فای لپ‌تاپ (بدون نیاز به تنظیم در گوشی)',
+                                          style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Switch(
+                                  value: _isHotspotRunning,
+                                  activeThumbColor: const Color(0xFF00C6FF),
+                                  onChanged: (_) => _toggleHotspot(),
+                                ),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 22),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: _hotspotSsidController,
+                                    enabled: !_isHotspotRunning,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    decoration: InputDecoration(
+                                      labelText: isEn ? 'Hotspot Name (SSID)' : 'نام وای‌فای هات‌اسپات (SSID)',
+                                      hintText: 'RedCloud',
+                                      border: const OutlineInputBorder(),
+                                      isDense: true,
+                                      prefixIcon: const Icon(Icons.wifi_rounded, size: 18),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: _hotspotPassController,
+                                    enabled: !_isHotspotRunning && _hasHotspotPassword,
+                                    obscureText: _obscureHotspotPassword,
+                                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                                    decoration: InputDecoration(
+                                      labelText: isEn ? 'Password (Min 8 chars)' : 'رمز عبور (حداقل ۸ کاراکتر)',
+                                      border: const OutlineInputBorder(),
+                                      isDense: true,
+                                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscureHotspotPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                          size: 18,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _obscureHotspotPassword = !_obscureHotspotPassword;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              runSpacing: 10,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      value: _hasHotspotPassword,
+                                      activeColor: const Color(0xFF00D2FF),
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      onChanged: _isHotspotRunning ? null : (v) {
+                                        setState(() => _hasHotspotPassword = v ?? true);
+                                      },
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isEn ? 'WPA2' : 'رمز عبور (WPA2)',
+                                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _openHotspotClientsMonitorDialog,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFF00D2FF),
+                                        side: const BorderSide(color: Color(0xFF00D2FF), width: 1.2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      icon: const Icon(Icons.people_alt_rounded, size: 14),
+                                      label: Text(
+                                        isEn ? 'Clients (${_liveHotspotClients.length})' : 'کاربران (${_liveHotspotClients.length})',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    ElevatedButton.icon(
+                                      onPressed: _toggleHotspot,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _isHotspotRunning ? Colors.redAccent : const Color(0xFF00D2FF),
+                                        foregroundColor: _isHotspotRunning ? Colors.white : Colors.black,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      icon: Icon(_isHotspotRunning ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 16),
+                                      label: Text(
+                                        _isHotspotRunning ? (isEn ? 'Stop' : 'خاموش') : (isEn ? 'Start' : 'روشن کردن'),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (_hotspotStatusText.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _hotspotStatusText,
+                                style: TextStyle(fontSize: 11, color: _isHotspotRunning ? const Color(0xFF2DCA73) : Colors.amberAccent),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
                       _buildHelpAccordion(
                         title: isEn ? 'Android Setup Guide' : 'راهنمای تنظیم در گوشی‌های اندروید (Android)',
                         icon: Icons.android_rounded,
@@ -6169,13 +8203,20 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildGoodbyeDpiSwitchTile(
-                  tabName: 'tor_title'.tr(),
-                  value: _useGoodbyeDpiTor,
-                  onChanged: (val) {
-                    setState(() => _useGoodbyeDpiTor = val);
-                    _saveAntiDpiToDisk();
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTcpTurboSwitchTile(),
+                    const SizedBox(width: 8),
+                    _buildGoodbyeDpiSwitchTile(
+                      tabName: 'tor_title'.tr(),
+                      value: _useGoodbyeDpiTor,
+                      onChanged: (val) {
+                        setState(() => _useGoodbyeDpiTor = val);
+                        _saveAntiDpiToDisk();
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -6289,6 +8330,7 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                                     _selectedTorCountry = newValue;
                                     _statusMessage = "Tor exit node changed to $newValue";
                                   });
+                                  _savePreferencesToDisk();
                                 }
                               },
                               items: _torCountries.keys.map<DropdownMenuItem<String>>((String value) {
@@ -6339,6 +8381,105 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                       ),
                       const SizedBox(height: 16),
                       _buildLocationCard(), 
+                      const SizedBox(height: 16),
+                      // رادار زنده دفع حملات و سقف دکل مخابراتی
+                      _buildGlassContainer(
+                        borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.35),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.radar_rounded, color: Color(0xFF00D2FF), size: 18),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      AppTranslations.currentLang == 'en' ? 'Live Defense & PMTU Radar' : 'رادار زنده دفع حملات و سقف دکل',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2DCA73).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.4)),
+                                  ),
+                                  child: Text(
+                                    'دکل MTU: ${_radarCarrierMtu}B',
+                                    style: const TextStyle(color: Color(0xFF2DCA73), fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF090B10),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.currentLang == 'en' ? 'Fake RST Dropped' : 'پکت‌های RST خنثی‌شده',
+                                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '$_radarRstCount',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008), fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF090B10),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.currentLang == 'en' ? 'WebRTC Shielded' : 'نشت WebRTC مهارشده',
+                                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '$_radarStunCount',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00D2FF), fontFamily: 'monospace'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _buildGlassContainer(
                         padding: const EdgeInsets.all(16),
@@ -6425,13 +8566,20 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildGoodbyeDpiSwitchTile(
-                  tabName: 'psiphon_title'.tr(),
-                  value: _useGoodbyeDpiPsiphon,
-                  onChanged: (val) {
-                    setState(() => _useGoodbyeDpiPsiphon = val);
-                    _saveAntiDpiToDisk();
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTcpTurboSwitchTile(),
+                    const SizedBox(width: 8),
+                    _buildGoodbyeDpiSwitchTile(
+                      tabName: 'psiphon_title'.tr(),
+                      value: _useGoodbyeDpiPsiphon,
+                      onChanged: (val) {
+                        setState(() => _useGoodbyeDpiPsiphon = val);
+                        _saveAntiDpiToDisk();
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -6521,40 +8669,190 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // اگر CDN Fronting روشن باشد، کارت اختصاصی سرورهای آنلاین باز می‌شود
+                      if (_usePsiphonCdnFronting)
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFFFF8008).withValues(alpha: 0.6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.hub_rounded, color: Color(0xFFFF8008), size: 20),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        AppTranslations.currentLang == 'en' ? 'Live CDN Gateways' : 'سرورهای آنلاین CDN Fronting',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2DCA73).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.3)),
+                                    ),
+                                    child: const Text('● Active CDN', style: TextStyle(color: Color(0xFF2DCA73), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                  )
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                AppTranslations.currentLang == 'en' 
+                                    ? 'Select an online CDN egress region:' 
+                                    : 'یکی از سرورهای آنلاین زیر را برای خروج انتخاب کنید:',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF090B10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: DropdownButton<String>(
+                                  value: _selectedCdnRegion,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF0D101A),
+                                  underline: const SizedBox(),
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                  onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (String? newVal) {
+                                    if (newVal != null) {
+                                      setState(() => _selectedCdnRegion = newVal);
+                                    }
+                                  },
+                                  items: [
+                                    const DropdownMenuItem(
+                                      value: 'auto',
+                                      child: Text('⚡ انتخاب هوشمند و خودکار (پیشنهادی - اتصال فوری)'),
+                                    ),
+                                    const DropdownMenuItem(
+                                      value: 'JP',
+                                      child: Text('🇯🇵 ژاپن (Japan - JP)  ● سرور آنلاین'),
+                                    ),
+                                    const DropdownMenuItem(
+                                      value: 'US',
+                                      child: Text('🇺🇸 آمریکا (United States - US)  ● سرور آنلاین'),
+                                    ),
+                                    const DropdownMenuItem(
+                                      value: 'SE',
+                                      child: Text('🇸🇪 سوئد (Sweden - SE)  ● سرور آنلاین'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        // کارت سنتی کشورهای سایفون در حالت عادی
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFF38EF7D).withValues(alpha: 0.35),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.public_rounded, color: Color(0xFF38EF7D), size: 20),
+                                  const SizedBox(width: 12),
+                                  Text('exit_node_country'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              DropdownButton<String>(
+                                value: _selectedPsiphonCountry,
+                                dropdownColor: const Color(0xFF0D101A),
+                                underline: const SizedBox(),
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (String? newValue) {
+                                  if (newValue != null) {
+                                    setState(() {
+                                      _selectedPsiphonCountry = newValue;
+                                      _statusMessage = "Psiphon exit region changed to $newValue";
+                                    });
+                                    _savePreferencesToDisk();
+                                  }
+                                },
+                                items: _psiphonCountries.keys.map<DropdownMenuItem<String>>((String value) {
+                                  final isEn = AppTranslations.currentLang == 'en';
+                                  final displayName = isEn && value.contains('(') ? value.split('(')[1].replaceAll(')', '').trim() : value;
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(displayName),
+                                  );
+                                }).toList(),
+                              )
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      // کارت مدیریت تنظیمات پیشرفته و فناوری CDN Fronting
                       _buildGlassContainer(
-                        borderColor: const Color(0xFF38EF7D).withValues(alpha: 0.35),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        borderColor: _usePsiphonCdnFronting ? const Color(0xFFFF8008).withValues(alpha: 0.6) : Colors.white12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Icon(Icons.public_rounded, color: Color(0xFF38EF7D), size: 20),
-                                const SizedBox(width: 12),
-                                Text('exit_node_country'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: _usePsiphonCdnFronting ? const Color(0xFFFF8008).withValues(alpha: 0.2) : Colors.white10,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(
+                                        Icons.hub_rounded, 
+                                        color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.grey, 
+                                        size: 20
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          AppTranslations.currentLang == 'en' ? 'Advanced Engine (CDN Fronting)' : 'موتور پیشرفته (CDN Fronting)',
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _usePsiphonCdnFronting 
+                                              ? (AppTranslations.currentLang == 'en' ? '● CDN Fronting is Active' : '● فناوری CDN Fronting فعال است')
+                                              : (AppTranslations.currentLang == 'en' ? 'Standard Direct Connection' : 'حالت اتصال مستقیم عادی'),
+                                          style: TextStyle(
+                                            fontSize: 10.5, 
+                                            color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.grey,
+                                            fontWeight: _usePsiphonCdnFronting ? FontWeight.bold : FontWeight.normal
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: (isPsiphonActive || isPsiphonLoading) ? null : _openPsiphonAdvancedDialog,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : const Color(0xFF141828),
+                                    foregroundColor: _usePsiphonCdnFronting ? Colors.black : Colors.white,
+                                    side: BorderSide(color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.white24),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.tune_rounded, size: 15),
+                                  label: Text(
+                                    AppTranslations.currentLang == 'en' ? 'Advanced' : 'تنظیمات پیشرفته',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ],
                             ),
-                            DropdownButton<String>(
-                              value: _selectedPsiphonCountry,
-                              dropdownColor: const Color(0xFF0D101A),
-                              underline: const SizedBox(),
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                              onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedPsiphonCountry = newValue;
-                                    _statusMessage = "Psiphon exit region changed to $newValue";
-                                  });
-                                }
-                              },
-                              items: _psiphonCountries.keys.map<DropdownMenuItem<String>>((String value) {
-  final isEn = AppTranslations.currentLang == 'en';
-  final displayName = isEn && value.contains('(') ? value.split('(')[1].replaceAll(')', '').trim() : value;
-  return DropdownMenuItem<String>(
-    value: value,
-    child: Text(displayName),
-  );
-}).toList(),
-                            )
                           ],
                         ),
                       ),
@@ -6657,9 +8955,34 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('dns_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        Text('dns_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        const SizedBox(height: 32),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('dns_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                Text('dns_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTcpTurboSwitchTile(),
+                const SizedBox(width: 8),
+                _buildGoodbyeDpiSwitchTile(
+                  tabName: 'dns_title'.tr(),
+                  value: _useGoodbyeDpiDns,
+                  onChanged: (val) {
+                    setState(() => _useGoodbyeDpiDns = val);
+                    _saveAntiDpiToDisk();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
         Expanded(
           child: Row(
             children: [
@@ -6722,65 +9045,216 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildGlassContainer(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.radar_rounded, color: Color(0xFF6DD5ED), size: 20),
-                                      const SizedBox(width: 8),
-                                      Text('dns_select'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: DropdownButton<DnsProfile>(
-                                      value: _selectedDns,
-                                      isExpanded: true,
-                                      dropdownColor: const Color(0xFF0D101A),
-                                      underline: const SizedBox(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                      alignment: AlignmentDirectional.centerEnd,
-                                      onChanged: _isDnsRunning ? null : (DnsProfile? newValue) {
-                                        if (newValue != null) {
-                                          setState(() {
-                                            _selectedDns = newValue;
-                                          });
-                                          _testDnsPing();
-                                        }
-                                      },
-                                      items: _dnsList.map<DropdownMenuItem<DnsProfile>>((DnsProfile value) {
-                                        return DropdownMenuItem<DnsProfile>(
-                                          value: value,
-                                          child: Text(
-                                            getDnsName(value),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        );
-                                      }).toList(),
+                      // باکس مدرن اسکنر هوشمند دی‌ان‌اس با راستی‌آزمایی گواهی TLS
+                      _buildGlassContainer(
+                        borderColor: const Color(0xFF6DD5ED).withValues(alpha: 0.4),
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF6DD5ED).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.radar_rounded, color: Color(0xFF6DD5ED), size: 18),
                                     ),
+                                    const SizedBox(width: 10),
+                                    Text('dns_scanner_box_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                if (_dnsList.any((d) => d.name.contains('[اسکن]') || d.name.contains('[Scan]')))
+                                  IconButton(
+                                    icon: const Icon(Icons.cleaning_services_rounded, size: 16, color: Colors.amberAccent),
+                                    tooltip: 'btn_clear_scanned_dns'.tr(),
+                                    onPressed: _clearScannedDnsProfiles,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text('dns_scanner_box_sub'.tr(), style: const TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 40,
+                                    child: TextField(
+                                      controller: _dnsScanDomainController,
+                                      enabled: !_isScanningDnsForDomain,
+                                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                                      decoration: InputDecoration(
+                                        hintText: 'dns_scan_input_hint'.tr(),
+                                        prefixIcon: const Icon(Icons.link_rounded, size: 16, color: Colors.grey),
+                                        filled: true,
+                                        fillColor: const Color(0xFF090B10),
+                                        contentPadding: EdgeInsets.zero,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                if (_isScanningDnsForDomain)
+                                  ElevatedButton.icon(
+                                    onPressed: _stopSmartDnsDomainScan,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.stop_circle_rounded, size: 16),
+                                    label: Text('btn_stop_dns_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
                                   )
-                                ],
+                                else
+                                  ElevatedButton.icon(
+                                    onPressed: _isDnsRunning ? null : _runSmartDnsDomainScan,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6DD5ED),
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.travel_explore_rounded, size: 16),
+                                    label: Text('btn_start_dns_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // نوار انتخاب سطح سرعت و پردازش موازی تردها
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.tune_rounded, size: 13, color: Colors.grey),
+                                    const SizedBox(width: 6),
+                                    Text('سرعت پردازش:', style: TextStyle(fontSize: 10.5, color: Colors.grey[400])),
+                                  ],
+                                ),
+                                DropdownButton<int>(
+                                  value: _selectedDnsThreadCount,
+                                  dropdownColor: const Color(0xFF090B10),
+                                  underline: const SizedBox(),
+                                  isDense: true,
+                                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF6DD5ED), fontWeight: FontWeight.bold),
+                                  onChanged: _isScanningDnsForDomain ? null : (v) {
+                                    if (v != null) setState(() => _selectedDnsThreadCount = v);
+                                  },
+                                  items: [
+                                    DropdownMenuItem(value: 0, child: Text('threads_auto'.tr())),
+                                    DropdownMenuItem(value: 10, child: Text('threads_light'.tr())),
+                                    DropdownMenuItem(value: 25, child: Text('threads_balanced'.tr())),
+                                    DropdownMenuItem(value: 40, child: Text('threads_turbo'.tr())),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            // نوار پیشرفت و نشانگرهای زنده آمار اسکن
+                            if (_isScanningDnsForDomain || _dnsScannerProgress != null) ...[
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: _dnsScannerProgress != null && _dnsScannerProgress!.totalServers > 0
+                                      ? (_dnsScannerProgress!.scannedServers / _dnsScannerProgress!.totalServers)
+                                      : null,
+                                  minHeight: 5,
+                                  backgroundColor: Colors.white10,
+                                  color: const Color(0xFF6DD5ED),
+                                ),
                               ),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF090B10),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: [
+                                    _buildDnsLiveBadge('dns_stat_total'.tr(), '${_dnsScannerProgress?.totalServers ?? 0}', Colors.white70),
+                                    Container(width: 1, height: 20, color: Colors.white10),
+                                    _buildDnsLiveBadge('dns_stat_scanned'.tr(), '${_dnsScannerProgress?.scannedServers ?? 0} (${_dnsScannerProgress?.progressPercent ?? 0}%)', const Color(0xFF6DD5ED)),
+                                    Container(width: 1, height: 20, color: Colors.white10),
+                                    _buildDnsLiveBadge('dns_stat_alive'.tr(), '${_dnsScannerProgress?.aliveServers ?? 0}', const Color(0xFF2DCA73)),
+                                    Container(width: 1, height: 20, color: Colors.white10),
+                                    _buildDnsLiveBadge('dns_stat_dead'.tr(), '${_dnsScannerProgress?.deadServers ?? 0}', Colors.redAccent),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // کارت مدرن نمایش پروفایل فعال و دکمه باز کردن پنجره اختصاصی مدیریت دی‌ان‌اس‌ها
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF6DD5ED).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.verified_user_rounded, color: Color(0xFF6DD5ED), size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text('dns_select'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white10,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(_selectedDns.dnsType.toUpperCase(), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6DD5ED), fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      getDnsName(_selectedDns),
+                                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: _isDnsRunning ? null : _openAddDnsDialog,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2193B0),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ElevatedButton.icon(
+                              onPressed: _isDnsRunning ? null : _openDnsManagerDialog,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6DD5ED),
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.tune_rounded, size: 16),
+                              label: const Text('انتخاب و مدیریت پروفایل‌ها', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
                             ),
-                            icon: const Icon(Icons.add_moderator_rounded, color: Colors.white, size: 18),
-                            label: Text('dns_add_custom'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
                       
@@ -7106,6 +9580,17 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
     );
   }
 
+  Widget _buildDnsLiveBadge(String label, String value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color, fontFamily: 'monospace')),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
+      ],
+    );
+  }
+
   Widget _buildScanStatBadge(String label, String value, Color color) {
     return Column(
       children: [
@@ -7192,6 +9677,221 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                                 await _saveLanguageToDisk();
                               },
                             ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // بخش جدید: مدیریت پیشرفته اسپلیت تانل (Split Tunneling)
+                _buildGlassContainer(
+                  borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.call_split_rounded, color: Color(0xFF00D2FF), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEn ? 'Split Tunneling & Domestic Bypass' : 'اسپلیت تانل و تفکیک ترافیک (Split Tunneling)',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  isEn 
+                                      ? 'Bypass domestic Iran traffic or route specific domains directly with real IP' 
+                                      : 'عبور ترافیک داخلی ایران با آی‌پی واقعی و بدون فیلترشکن (سایت‌های بانکی، اسنپ، دامنه‌های .ir)',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _bypassIran,
+                            activeThumbColor: const Color(0xFF00D2FF),
+                            onChanged: (val) {
+                              setState(() => _bypassIran = val);
+                              _saveSplitTunnelToDisk();
+                            },
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.white12, height: 24),
+
+                      Text(
+                        isEn ? 'Custom Routing Rules (Domain / IP):' : 'قوانین اختصاصی کاربر (افزودن سایت دلخواه):',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: _customRuleDomainController,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: InputDecoration(
+                                hintText: isEn ? 'e.g. shaparak.ir or .ir' : 'مثال: shaparak.ir یا snapp.ir یا .ir',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            value: _selectedRuleType,
+                            dropdownColor: const Color(0xFF090B10),
+                            underline: const SizedBox(),
+                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _selectedRuleType = v);
+                            },
+                            items: [
+                              DropdownMenuItem(value: 'direct', child: Text(isEn ? 'Direct (Real IP)' : 'مستقیم (آی‌پی ایران)')),
+                              DropdownMenuItem(value: 'proxy', child: Text(isEn ? 'Proxy (Tunnel)' : 'عبور از فیلترشکن')),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              final text = _customRuleDomainController.text.trim();
+                              if (text.isNotEmpty) {
+                                setState(() {
+                                  _splitRules.add({'domain': text, 'type': _selectedRuleType});
+                                  _customRuleDomainController.clear();
+                                });
+                                _saveSplitTunnelToDisk();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00D2FF),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: Text(isEn ? 'Add' : 'افزودن', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                          ),
+                        ],
+                      ),
+                      if (_splitRules.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: _splitRules.map((rule) {
+                            final isDirect = rule['type'] == 'direct';
+                            return Chip(
+                              backgroundColor: isDirect ? const Color(0xFF2DCA73).withValues(alpha: 0.15) : const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                              side: BorderSide(color: isDirect ? const Color(0xFF2DCA73) : const Color(0xFF00D2FF), width: 0.8),
+                              label: Text(
+                                "${rule['domain']} (${isDirect ? (isEn ? 'Direct' : 'مستقیم') : (isEn ? 'Proxy' : 'پروکسی')})",
+                                style: TextStyle(fontSize: 11, color: isDirect ? const Color(0xFF2DCA73) : const Color(0xFF00D2FF), fontWeight: FontWeight.bold),
+                              ),
+                              deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                              onDeleted: () {
+                                setState(() => _splitRules.remove(rule));
+                                _saveSplitTunnelToDisk();
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // بخش شتاب‌دهنده شبکه و بهینه‌ساز BBR ویندوز
+                _buildGlassContainer(
+                  borderColor: const Color(0xFFFFC837).withValues(alpha: 0.35),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFC837).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.bolt_rounded, color: Color(0xFFFFC837), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEn ? 'Windows Network Turbo & BBR Accelerator' : 'شتاب‌دهنده شبکه و مهار پکت‌لاس ویندوز (TCP Turbo & BBR)',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isEn
+                                      ? 'Activates Google BBR2, TCP SACK, and disables packet queuing delay for gaming and 4K streaming'
+                                      : 'فعال‌سازی الگوریتم BBR گوگل، جبران پکت‌لاس با SACK و کاهش پینگ بازی‌ها در سطح کرنل ویندوز',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _isTcpTurboEnabled,
+                            activeThumbColor: const Color(0xFFFFC837),
+                            onChanged: _isApplyingTcpTurbo ? null : (val) => _applyWindowsTcpTurbo(val),
+                          ),
+                        ],
+                      ),
+                      const Divider(color: Colors.white12, height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _isTcpTurboEnabled ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                size: 16,
+                                color: _isTcpTurboEnabled ? const Color(0xFF2DCA73) : Colors.grey,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _isTcpTurboEnabled
+                                    ? (isEn ? 'Status: Turbo Mode Active (BBR2 + SACK + Low Ping)' : 'وضعیت: توربو فعال (BBR2 + SACK + پینگ کمینه)')
+                                    : (isEn ? 'Status: Windows Standard TCP' : 'وضعیت: استاندارد پیش‌فرض ویندوز'),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _isTcpTurboEnabled ? const Color(0xFF2DCA73) : Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _isApplyingTcpTurbo ? null : () => _applyWindowsTcpTurbo(false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.grey,
+                              side: const BorderSide(color: Colors.white12),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.restore_rounded, size: 14),
+                            label: Text(isEn ? 'Reset to Windows Default' : 'بازنشانی به پیش‌فرض ویندوز', style: const TextStyle(fontSize: 10.5)),
                           ),
                         ],
                       ),
@@ -7578,6 +10278,77 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                               ),
                             ),
                           ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // بخش جدید: شخصی‌سازی کلیدهای میانبر سراسری کیبورد
+                _buildGlassContainer(
+                  borderColor: const Color(0xFFFF416C).withValues(alpha: 0.4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)]),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.keyboard_rounded, color: Colors.white, size: 22),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('hotkeys_title'.tr(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 2),
+                                  Text('hotkeys_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                ],
+                              ),
+                            ],
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              setState(() {
+                                _hkDashboard = 'D';
+                                _hkGaming = 'G';
+                                _hkAether = 'A';
+                                _hkTor = 'T';
+                                _hkPsiphon = 'P';
+                                _hkTun = 'M';
+                              });
+                              await _savePreferencesToDisk();
+                              await _registerAllGlobalHotkeys();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.restore_rounded, size: 14, color: Colors.grey),
+                            label: Text('reset_hotkeys'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          )
+                        ],
+                      ),
+                      const Divider(color: Colors.white12, height: 24),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 12,
+                        children: [
+                          _buildHotkeySettingTile('hotkey_dashboard'.tr(), _hkDashboard, (val) => _updateSingleHotkey('dashboard', val)),
+                          _buildHotkeySettingTile('hotkey_gaming'.tr(), _hkGaming, (val) => _updateSingleHotkey('gaming', val)),
+                          _buildHotkeySettingTile('hotkey_aether'.tr(), _hkAether, (val) => _updateSingleHotkey('aether', val)),
+                          _buildHotkeySettingTile('hotkey_tor'.tr(), _hkTor, (val) => _updateSingleHotkey('tor', val)),
+                          _buildHotkeySettingTile('hotkey_psiphon'.tr(), _hkPsiphon, (val) => _updateSingleHotkey('psiphon', val)),
+                          _buildHotkeySettingTile('hotkey_tun'.tr(), _hkTun, (val) => _updateSingleHotkey('tun', val)),
                         ],
                       ),
                     ],
@@ -8076,6 +10847,509 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
     );
   }
 
+  /// دیالوگ حرفه‌ای مانیتورینگ زنده هات‌اسپات، محدودیت تعداد کاربر و بلک‌لیست مک‌آدرس
+  /// دیالوگ آزمایشگاه اختصاصی کشف فرگمنت طلایی برای سرور انتخاب‌شده
+  void _openGoldenFragmentDialog(SavedNodeItem item) {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final config = V2rayConfig.parse(item.node.rawUrl);
+    final host = config.address;
+    final port = config.port;
+    final sni = config.sni.isNotEmpty ? config.sni : host;
+
+    final strategies = [
+      {'name': isEn ? 'Header Micro-Split' : 'فرگمنت میکرو هدر (Header Micro-Split)', 'len': '1-3', 'interval': '15ms', 'split': 2, 'delay': 15, 'ping': null},
+      {'name': isEn ? 'SNI Segmentation' : 'تفکیک افزونه دامنه (SNI Segmentation)', 'len': '40-60', 'interval': '25ms', 'split': 45, 'delay': 25, 'ping': null},
+      {'name': isEn ? 'Low-Latency Mode' : 'فرگمنت کم‌تاخیر (Low-Latency Mode)', 'len': '2-5', 'interval': '5ms', 'split': 3, 'delay': 5, 'ping': null},
+      {'name': isEn ? 'Standard TLS Split' : 'فرگمنت استاندارد رکورد (Standard TLS Split)', 'len': '100-150', 'interval': '10ms', 'split': 120, 'delay': 10, 'ping': null},
+    ];
+
+    bool isTesting = false;
+    int? bestIndex;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: const BorderSide(color: Color(0xFFFFC837), width: 1.4),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFC837).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.flash_on_rounded, color: Color(0xFFFFC837), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(isEn ? 'Smart Fragment Auto-Tuner' : 'کاشف هوشمند فرگمنت طلایی (Auto-Tuner)', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text('${item.node.name} ($host:$port)', style: const TextStyle(fontSize: 10.5, color: Colors.grey), overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+              content: SizedBox(
+                width: 540,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isEn
+                          ? 'This tool tests 4 surgical TLS fragmentation strategies against your ISP DPI to discover the lowest ping and bypass handshake blocks.'
+                          : 'این آزمایشگاه ۴ الگوی شکستن پکت را روی فیلترینگ اپراتور شما تست می‌کند تا بهترین بازه بایت و تاخیر را برای این سرور کشف کند.',
+                      style: const TextStyle(fontSize: 11.5, color: Colors.white70, height: 1.5),
+                    ),
+                    const SizedBox(height: 16),
+                    ...strategies.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final s = entry.value;
+                      final ping = s['ping'] as int?;
+                      final isBest = bestIndex == idx;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isBest ? const Color(0xFF2DCA73).withValues(alpha: 0.12) : const Color(0xFF090B10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isBest ? const Color(0xFF2DCA73) : Colors.white12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(s['name'].toString(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? const Color(0xFF2DCA73) : Colors.white)),
+                                const SizedBox(height: 2),
+                                Text('طول: ${s['len']} | تاخیر: ${s['interval']}', style: const TextStyle(fontSize: 10.5, color: Colors.grey, fontFamily: 'monospace')),
+                              ],
+                            ),
+                            if (ping == null)
+                              Text(isTesting ? 'در حال تست...' : 'تست‌نشده', style: const TextStyle(fontSize: 11, color: Colors.grey))
+                            else if (ping == -1)
+                              const Text('تایم‌اوت ❌', style: TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.bold))
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2DCA73).withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text('$ping ms ✅', style: const TextStyle(fontSize: 11, color: Color(0xFF2DCA73), fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isTesting ? null : () async {
+                          setDialogState(() {
+                            isTesting = true;
+                            bestIndex = null;
+                            for (var s in strategies) { s['ping'] = null; }
+                          });
+
+                          int minPing = 99999;
+                          int? winner;
+
+                          for (int i = 0; i < strategies.length; i++) {
+                            final p = await _probeFragmentLatency(
+                              host,
+                              port,
+                              sni,
+                              strategies[i]['split'] as int,
+                              strategies[i]['delay'] as int,
+                            );
+                            setDialogState(() {
+                              strategies[i]['ping'] = p;
+                              if (p > 0 && p < minPing) {
+                                minPing = p;
+                                winner = i;
+                              }
+                            });
+                          }
+
+                          setDialogState(() {
+                            isTesting = false;
+                            bestIndex = winner;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFC837),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: isTesting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                            : const Icon(Icons.play_arrow_rounded),
+                        label: Text(isTesting ? 'در حال آزمایش ۴ استراتژی...' : 'شروع آزمایش و کشف بهترین فرگمنت', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(isEn ? 'Close' : 'بستن', style: const TextStyle(color: Colors.grey)),
+                ),
+                if (bestIndex != null)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final winner = strategies[bestIndex!];
+                      final len = winner['len'];
+                      final interval = winner['interval'];
+
+                      final uri = Uri.parse(item.node.rawUrl);
+                      final qParams = Map<String, String>.from(uri.queryParameters);
+                      qParams['frag_len'] = len.toString();
+                      qParams['frag_interval'] = interval.toString();
+
+                      final newUri = uri.replace(queryParameters: qParams);
+                      item.node = ProxyNode(
+                        name: item.node.name,
+                        protocol: item.node.protocol,
+                        rawUrl: newUri.toString(),
+                      );
+                      if (_selectedNode == item.node) {
+                        _selectedNode = item.node;
+                      }
+
+                      await _saveNodesToDisk();
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('فرگمنت طلایی ($len با تاخیر $interval) روی سرور ذخیره شد!'),
+                            backgroundColor: const Color(0xFF2DCA73),
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2DCA73), foregroundColor: Colors.black),
+                    icon: const Icon(Icons.check_circle_rounded, size: 16),
+                    label: const Text('اعمال و ذخیره فرگمنت برنده', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openHotspotClientsMonitorDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final manualMacController = TextEditingController();
+
+    // اجرای فوری اولین استعلام
+    _fetchConnectedHotspotClients();
+
+    // شروع پایش زنده هر ۳ ثانیه فقط تا زمانی که این دیالوگ باز است
+    _hotspotMonitorTimer?.cancel();
+    _hotspotMonitorTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _fetchConnectedHotspotClients();
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: const BorderSide(color: Color(0xFF00D2FF), width: 1.4),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.devices_rounded, color: Color(0xFF00D2FF), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        isEn ? 'Hotspot Client Management' : 'مدیریت و مانیتورینگ زنده کاربران هات‌اسپات',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  )
+                ],
+              ),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ۱. نوار تنظیم سقف مجاز اتصال همزمان کاربران
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF090B10),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.group_rounded, color: Color(0xFF2DCA73), size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  isEn ? 'Max Client Limit:' : 'سقف مجاز تعداد کاربر:',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            DropdownButton<int>(
+                              value: _hotspotMaxClientsLimit,
+                              dropdownColor: const Color(0xFF090B10),
+                              underline: const SizedBox(),
+                              style: const TextStyle(color: Color(0xFF2DCA73), fontSize: 12, fontWeight: FontWeight.bold),
+                              onChanged: (val) async {
+                                if (val != null) {
+                                  setDialogState(() => _hotspotMaxClientsLimit = val);
+                                  setState(() => _hotspotMaxClientsLimit = val);
+                                  await _saveHotspotSecurityToDisk();
+                                  _fetchConnectedHotspotClients();
+                                }
+                              },
+                              items: [
+                                DropdownMenuItem(value: 0, child: Text(isEn ? 'Unlimited' : 'نامحدود')),
+                                DropdownMenuItem(value: 1, child: Text(isEn ? '1 Device' : '۱ کاربر')),
+                                DropdownMenuItem(value: 2, child: Text(isEn ? '2 Devices' : '۲ کاربر')),
+                                DropdownMenuItem(value: 3, child: Text(isEn ? '3 Devices' : '۳ کاربر')),
+                                DropdownMenuItem(value: 5, child: Text(isEn ? '5 Devices' : '۵ کاربر')),
+                                DropdownMenuItem(value: 10, child: Text(isEn ? '10 Devices' : '۱۰ کاربر')),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ۲. لیست دستگاه‌های متصل زنده
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            isEn ? 'Connected Devices (${_liveHotspotClients.length}):' : 'دستگاه‌های متصل آنلاین (${_liveHotspotClients.length} کاربر):',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          InkWell(
+                            onTap: () async {
+                              await _fetchConnectedHotspotClients();
+                              setDialogState(() {});
+                            },
+                            child: const Row(
+                              children: [
+                                Icon(Icons.sync_rounded, size: 14, color: Color(0xFF00D2FF)),
+                                SizedBox(width: 4),
+                                Text('استعلام دستی', style: TextStyle(fontSize: 11, color: Color(0xFF00D2FF))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      if (_liveHotspotClients.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF090B10),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              isEn ? 'No devices currently connected.' : 'در حال حاضر هیچ دستگاهی به هات‌اسپات متصل نیست.',
+                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._liveHotspotClients.map((client) {
+                          final isBanned = _hotspotMacBlacklist.contains(client['mac']);
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF090B10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isBanned ? Colors.redAccent.withValues(alpha: 0.5) : Colors.white12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.smartphone_rounded,
+                                  color: isBanned ? Colors.redAccent : const Color(0xFF2DCA73),
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        client['name']!,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Text('IP: ${client['ip']}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'monospace')),
+                                          const SizedBox(width: 12),
+                                          Text('MAC: ${client['mac']}', style: const TextStyle(fontSize: 11, color: Colors.white60, fontFamily: 'monospace')),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                ),
+                                if (isBanned)
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      await _unbanHotspotClientMac(client['mac']!);
+                                      setDialogState(() {});
+                                    },
+                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2DCA73), foregroundColor: Colors.black),
+                                    icon: const Icon(Icons.check_circle_outline_rounded, size: 14),
+                                    label: Text(isEn ? 'Unban' : 'آزاد کردن', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  )
+                                else
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      await _banHotspotClientMac(client['mac']!, ip: client['ip']);
+                                      setDialogState(() {});
+                                    },
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                                    icon: const Icon(Icons.block_rounded, size: 14),
+                                    label: Text(isEn ? 'Ban Device' : 'مسدودسازی (بن)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                      const Divider(color: Colors.white12, height: 26),
+
+                      // ۳. بخش بلک‌لیست و ثبت دستی مک‌آدرس
+                      Text(
+                        isEn ? 'Blacklisted MAC Addresses (Block List):' : 'لیست سیاه مک‌آدرس‌ها (دستگاه‌های مسدود شده):',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: manualMacController,
+                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                              decoration: InputDecoration(
+                                hintText: isEn ? 'e.g. A4-C3-F0-12-89-AB' : 'مثال: A4-C3-F0-12-89-AB',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final raw = manualMacController.text.trim();
+                              if (raw.isNotEmpty) {
+                                await _banHotspotClientMac(raw);
+                                manualMacController.clear();
+                                setDialogState(() {});
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                              foregroundColor: Colors.redAccent,
+                              side: const BorderSide(color: Colors.redAccent),
+                            ),
+                            icon: const Icon(Icons.add_moderator_rounded, size: 16),
+                            label: Text(isEn ? 'Add to Blacklist' : 'افزودن به بلک‌لیست', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      if (_hotspotMacBlacklist.isEmpty)
+                        Text(
+                          isEn ? 'No MAC addresses are currently blacklisted.' : 'هیچ دستگاهی در لیست سیاه قرار ندارد.',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: _hotspotMacBlacklist.map((mac) {
+                            return Chip(
+                              backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                              side: const BorderSide(color: Colors.redAccent, width: 0.8),
+                              label: Text(
+                                mac,
+                                style: const TextStyle(fontSize: 11, color: Colors.redAccent, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                              ),
+                              deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                              onDeleted: () async {
+                                await _unbanHotspotClientMac(mac);
+                                setDialogState(() {});
+                              },
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      // تضمین ۱۰۰٪ توقف حلقه و صفر شدن مصرف رم و سی‌پی‌یو به محض بستن پنجره
+      _hotspotMonitorTimer?.cancel();
+      _hotspotMonitorTimer = null;
+      AppLogger.info("HOTSPOT_MONITOR", "پنجره مانیتور بسته شد؛ حلقه استعلام زنده متوقف گردید.");
+    });
+  }
+
   Widget _buildHelpAccordion({
     required String title,
     required IconData icon,
@@ -8259,7 +11533,40 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
                   const Divider(color: Colors.white12, height: 36),
 
                   Text(
-                    isEn ? '3. Packet Fragmentation (TLS Fragmentation)' : '۳. قطعه‌بندی پکت‌های امنیتی (Fragmentation)', 
+                    isEn ? '3. Encrypted Client Hello (Auto-ECH)' : '۳. رمزنگاری کامل هدر دامنه (Auto-ECH)', 
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF00D2FF)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    isEn 
+                        ? 'Encrypts the SNI header with Cloudflare post-quantum keys so DPI cannot see the destination domain' 
+                        : 'رمزنگاری کامل نام دامنه با کلیدهای پسا-کوانتومی تا فیلترینگ نتواند مقصد را بخواند',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      isEn ? 'Enable Encrypted Client Hello (ECH)' : 'فعال‌سازی رمزنگاری خودکار ECH', 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      isEn ? 'Stealth SNI encryption (Recommended: Always ON)' : 'استتار نام دامنه (پیشنهادی: همیشه روشن)', 
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                    value: _enableEch,
+                    activeThumbColor: const Color(0xFF00D2FF),
+                    onChanged: (bool value) {
+                      setState(() {
+                        _enableEch = value;
+                      });
+                      _saveAntiDpiToDisk();
+                    },
+                  ),
+                  const Divider(color: Colors.white12, height: 36),
+
+                  Text(
+                    isEn ? '4. Packet Fragmentation (TLS Fragmentation)' : '۴. قطعه‌بندی پکت‌های امنیتی (Fragmentation)', 
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFFF8008)),
                   ),
                   const SizedBox(height: 8),
@@ -8485,6 +11792,66 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
     );
   }
 
+  Future<void> _updateSingleHotkey(String action, String keyLetter) async {
+    setState(() {
+      if (action == 'dashboard') _hkDashboard = keyLetter;
+      if (action == 'gaming') _hkGaming = keyLetter;
+      if (action == 'aether') _hkAether = keyLetter;
+      if (action == 'tor') _hkTor = keyLetter;
+      if (action == 'psiphon') _hkPsiphon = keyLetter;
+      if (action == 'tun') _hkTun = keyLetter;
+    });
+    await _savePreferencesToDisk();
+    await _registerAllGlobalHotkeys();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('hotkeys_saved_toast'.tr()), duration: const Duration(seconds: 1)),
+      );
+    }
+  }
+
+  Widget _buildHotkeySettingTile(String title, String currentKey, ValueChanged<String> onChanged) {
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+    return Container(
+      width: 290,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF090B10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Text('Ctrl + Shift + ', style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.grey)),
+                DropdownButton<String>(
+                  value: currentKey,
+                  dropdownColor: const Color(0xFF141828),
+                  underline: const SizedBox(),
+                  isDense: true,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF00D2FF), fontFamily: 'monospace'),
+                  items: letters.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+                  onChanged: (v) {
+                    if (v != null) onChanged(v);
+                  },
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return _buildGlassContainer(
       padding: const EdgeInsets.all(18),
@@ -8516,7 +11883,932 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
       ),
     );
   }
+  // =========================================================================
+  // منطق و متدهای هسته گیمینگ (Gaming Controller & HUD)
+  // =========================================================================
+
+  void _startGamingMetricsPolling() {
+    _gamingMetricsTimer?.cancel();
+    _gamingMetricsTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!_isGamingRunning) {
+        _gamingMetricsTimer?.cancel();
+        return;
+      }
+      try {
+        final metrics = await getGamingLiveMetrics();
+        if (mounted) {
+          setState(() {
+            _gamingMetrics = metrics;
+          });
+        }
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _toggleGamingBoost() async {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    if (_selectedGame == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isEn ? 'Please select a game first!' : 'لطفاً ابتدا یک بازی را انتخاب کنید!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (_isGamingRunning) {
+      setState(() => _isGamingStarting = true);
+      try {
+        await stopGamingBoost();
+        await _maybeStopGoodbyeDpi();
+        _gamingMetricsTimer?.cancel();
+        setState(() {
+          _isGamingRunning = false;
+          _isGamingStarting = false;
+          _gamingMetrics = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isEn ? 'Gaming booster stopped.' : 'بوستر گیمینگ متوقف و سیستم به حالت عادی برگشت.'),
+              backgroundColor: const Color(0xFF6C5DD3),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isGamingStarting = false);
+      }
+      return;
+    }
+
+    // خاموش کردن اتصالات فعال قبلی جهت جلوگیری از تداخل کارت‌های شبکه
+    if (_isHybridRunning) await stopHybridConnection();
+    if (_isProxyRunning) await stopProxyCore();
+    if (_isAetherRunning) await stopAetherCore();
+    if (_isTorRunning) await stopTorCore();
+    if (_isPsiphonRunning) await stopPsiphonCore();
+
+    // فعال‌سازی قطعی لایه ضد فیلترینگ و فرگمنت پکت‌های گیمینگ (GoodbyeDPI)
+    await _maybeStartGoodbyeDpi(true);
+
+    setState(() {
+      _isGamingStarting = true;
+      _gamingStatusStep = 'status_testing_dns'.tr();
+    });
+
+    try {
+      // گام ۱: تست راستی‌آزمایی و ضد مسمومیت DNS برای دامنه‌های بازی
+      await Future.delayed(const Duration(milliseconds: 300));
+      setState(() => _gamingStatusStep = 'status_benchmarking_jitter'.tr());
+
+      // گام ۲: پیکربندی و راه‌اندازی بوستر گیمینگ
+      final config = GamingBoostConfig(
+        gameId: _selectedGame!.id,
+        gameName: _selectedGame!.name,
+        executables: _selectedGame!.executables,
+        authDomains: _selectedGame!.authDomains,
+        preferredRegion: _selectedGamingRegion,
+        enableKernelTweaks: _enableGamingBbr,
+        dnsMode: _selectedGamingDnsMode,
+      );
+
+      final msg = await startGamingBoost(
+        singboxPath: _binaryPathController.text.trim(),
+        aetherPath: _aetherPathController.text.trim(),
+        config: config,
+      );
+
+      setState(() {
+        _isGamingRunning = true;
+        _isGamingStarting = false;
+        _gamingStatusStep = 'status_gaming_active'.tr();
+      });
+
+      _startGamingMetricsPolling();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: const Color(0xFF2DCA73),
+          ),
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error("GAMING_BOOST", "Error starting gaming booster", e, st);
+      setState(() => _isGamingStarting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEn ? 'Failed to start gaming boost: $e' : 'خطا در فعال‌سازی بوستر گیمینگ: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _openAddCustomGameDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final nameCtrl = TextEditingController();
+    final exeCtrl = TextEditingController();
+    final domainCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF121520),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFFF4B2B), width: 1.4),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.add_circle_outline_rounded, color: Color(0xFFFF4B2B)),
+            const SizedBox(width: 10),
+            Text(isEn ? 'Add Custom Game' : 'افزودن بازی دلخواه', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: InputDecoration(
+                  labelText: isEn ? 'Game Name' : 'نام بازی',
+                  hintText: 'e.g. Call of Duty / FiveM',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: exeCtrl,
+                decoration: InputDecoration(
+                  labelText: isEn ? 'Executable (.exe)' : 'فایل اجرایی (.exe)',
+                  hintText: 'e.g. game.exe or Shipping.exe',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: domainCtrl,
+                decoration: InputDecoration(
+                  labelText: isEn ? 'Auth Domain (Optional)' : 'دامنه تست لاگین (اختیاری)',
+                  hintText: 'e.g. auth.game.com',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(isEn ? 'Cancel' : 'انصراف', style: const TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty || exeCtrl.text.trim().isEmpty) return;
+              await _gamingRegistry.addCustomGame(
+                name: nameCtrl.text.trim(),
+                exeFileName: exeCtrl.text.trim(),
+                testDomain: domainCtrl.text.trim(),
+              );
+              setState(() {});
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF4B2B), foregroundColor: Colors.white),
+            child: Text(isEn ? 'Add Game' : 'ثبت بازی', style: const TextStyle(fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGamingPage() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    final games = _gamingRegistry.filterGames(query: _gameSearchQuery, category: _selectedGameCategory);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // هدر تب گیمینگ
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)]),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('PRO GAMING', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('gaming_title'.tr(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('gaming_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 11.5)),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                _buildGlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  borderRadius: 14,
+                  borderColor: _enableGamingBbr ? const Color(0xFFFFC837).withValues(alpha: 0.6) : Colors.white12,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFFFC837)),
+                      const SizedBox(width: 6),
+                      Text(isEn ? 'Kernel BBR' : 'شتاب‌دهنده BBR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 6),
+                      Switch(
+                        value: _enableGamingBbr,
+                        activeThumbColor: const Color(0xFFFFC837),
+                        onChanged: _isGamingRunning ? null : (v) => setState(() => _enableGamingBbr = v),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton.icon(
+                  onPressed: _isGamingRunning ? null : _openAddCustomGameDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF141828),
+                    foregroundColor: const Color(0xFFFF4B2B),
+                    side: const BorderSide(color: Color(0xFFFF4B2B), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: Text('add_custom_game'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            )
+          ],
+        ),
+        const SizedBox(height: 18),
+
+        // بخش اصلی: اگر بازی در حال اجراست HUD مانیتورینگ زنده را نشان بده، در غیر این صورت گرید انتخاب بازی
+        Expanded(
+          child: _isGamingRunning ? _buildLiveGamingHud() : _buildGameSelectionView(games),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGameSelectionView(List<GameItem> games) {
+    final bool isEn = AppTranslations.currentLang == 'en';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ستون سمت چپ: گرید و لیست بازی‌ها
+        Expanded(
+          flex: 6,
+          child: Column(
+            children: [
+              // نوار جستجو و فیلتر دسته‌بندی
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 38,
+                      child: TextField(
+                        onChanged: (v) => setState(() => _gameSearchQuery = v.trim()),
+                        style: const TextStyle(fontSize: 12),
+                        decoration: InputDecoration(
+                          hintText: 'search_game'.tr(),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Colors.grey),
+                          filled: true,
+                          fillColor: const Color(0xFF090B10),
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF090B10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _selectedGameCategory,
+                      dropdownColor: const Color(0xFF0D101A),
+                      underline: const SizedBox(),
+                      style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedGameCategory = v);
+                      },
+                      items: _gamingRegistry.categories.map((c) => DropdownMenuItem(value: c, child: Text(c.toUpperCase()))).toList(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // گرید کارت‌های بازی
+              Expanded(
+                child: _buildGlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.25,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: games.length,
+                    itemBuilder: (context, index) {
+                      final game = games[index];
+                      final isSelected = _selectedGame?.id == game.id;
+
+                      return InkWell(
+                        onTap: () => setState(() => _selectedGame = game),
+                        borderRadius: BorderRadius.circular(14),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? game.accentColor.withValues(alpha: 0.18) : const Color(0xFF090B10),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected ? game.accentColor : Colors.white10,
+                              width: isSelected ? 1.8 : 1.0,
+                            ),
+                            boxShadow: isSelected
+                                ? [BoxShadow(color: game.accentColor.withValues(alpha: 0.35), blurRadius: 14)]
+                                : null,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Icon(game.iconData, color: isSelected ? game.accentColor : Colors.grey, size: 24),
+                                  if (isSelected)
+                                    Icon(Icons.check_circle_rounded, color: game.accentColor, size: 16)
+                                  else
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.05),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(game.primaryProtocol, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                    ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    game.name,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? Colors.white : Colors.white70),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    game.executables.first,
+                                    style: const TextStyle(fontSize: 9.5, color: Colors.grey, fontFamily: 'monospace'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+
+        // ستون سمت راست: انتخاب ریجن و دکمه راه‌اندازی
+        Expanded(
+          flex: 4,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildGlassContainer(
+                  borderColor: const Color(0xFFFF4B2B).withValues(alpha: 0.4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.public_rounded, color: Color(0xFFFF4B2B), size: 18),
+                          const SizedBox(width: 8),
+                          Text('game_region'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildRegionTile('auto', 'region_auto'.tr(), Icons.auto_awesome_rounded, const Color(0xFF00D2FF)),
+                      const SizedBox(height: 8),
+                      _buildRegionTile('turkey', 'region_turkey'.tr(), Icons.flag_rounded, const Color(0xFFFF8008)),
+                      const SizedBox(height: 8),
+                      _buildRegionTile('uae', 'region_uae'.tr(), Icons.location_on_rounded, const Color(0xFF2DCA73)),
+                      const SizedBox(height: 8),
+                      _buildRegionTile('germany', 'region_germany'.tr(), Icons.hub_rounded, const Color(0xFF6C5DD3)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // بخش انتخاب مود DNS و دکمه آپدیت ۴۸ ساعته
+                _buildGlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.dns_rounded, color: Color(0xFF00D2FF), size: 16),
+                              const SizedBox(width: 6),
+                              Text('dns_mode_label'.tr(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          InkWell(
+                            onTap: _isUpdatingLocalDns ? null : () async {
+                              setState(() => _isUpdatingLocalDns = true);
+                              final ok = await LocalDnsService().syncOnlineMappings();
+                              setState(() => _isUpdatingLocalDns = false);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(ok ? 'local_dns_updated'.tr() : 'خطا در ارتباط با سرور دیتابیس DNS'),
+                                    backgroundColor: ok ? const Color(0xFF2DCA73) : Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                _isUpdatingLocalDns 
+                                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D2FF)))
+                                    : const Icon(Icons.sync_rounded, size: 14, color: Color(0xFF00D2FF)),
+                                const SizedBox(width: 4),
+                                Text('update_local_dns'.tr(), style: const TextStyle(fontSize: 10, color: Color(0xFF00D2FF))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedGamingDnsMode = 'local'),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _selectedGamingDnsMode == 'local' ? const Color(0xFF00D2FF).withValues(alpha: 0.2) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: _selectedGamingDnsMode == 'local' ? const Color(0xFF00D2FF) : Colors.white10),
+                                ),
+                                child: Center(
+                                  child: Text('dns_mode_local'.tr(), style: TextStyle(fontSize: 10, fontWeight: _selectedGamingDnsMode == 'local' ? FontWeight.bold : FontWeight.normal)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedGamingDnsMode = 'resolver'),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _selectedGamingDnsMode == 'resolver' ? const Color(0xFFFF8008).withValues(alpha: 0.2) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: _selectedGamingDnsMode == 'resolver' ? const Color(0xFFFF8008) : Colors.white10),
+                                ),
+                                child: Center(
+                                  child: Text('dns_mode_resolver'.tr(), style: TextStyle(fontSize: 10, fontWeight: _selectedGamingDnsMode == 'resolver' ? FontWeight.bold : FontWeight.normal)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // باکس محافظت سشن
+                _buildGlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.security_rounded, color: Color(0xFF2DCA73), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('session_lock_title'.tr(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('session_lock_active'.tr(), style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // دکمه بزرگ استارت بوستر
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isGamingStarting ? null : _toggleGamingBoost,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF4B2B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 8,
+                      shadowColor: const Color(0xFFFF4B2B).withValues(alpha: 0.5),
+                    ),
+                    icon: _isGamingStarting
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.rocket_launch_rounded, size: 22),
+                    label: Text(
+                      _isGamingStarting ? _gamingStatusStep : 'gaming_boost_btn'.tr(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegionTile(String code, String title, IconData icon, Color color) {
+    final isSelected = _selectedGamingRegion == code;
+
+    return InkWell(
+      onTap: () => setState(() => _selectedGamingRegion = code),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.15) : const Color(0xFF090B10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? color : Colors.white10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isSelected ? color : Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : Colors.grey[300]),
+              ),
+            ),
+            if (isSelected) Icon(Icons.radio_button_checked_rounded, color: color, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLiveGamingHud() {
+    final metrics = _gamingMetrics;
+    final ping = metrics?.currentPingMs ?? -1;
+    final jitter = metrics?.currentJitterMs ?? 0;
+    final rstCount = metrics?.rstPacketsDefended ?? _radarRstCount;
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 820),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // نشانگر دایره‌ای پینگ زنده
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF4B2B).withValues(alpha: 0.45),
+                      blurRadius: 36,
+                      spreadRadius: 6,
+                    )
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.sports_esports_rounded, color: Colors.white, size: 36),
+                    const SizedBox(height: 6),
+                    Text(
+                      ping > 0 ? '$ping ms' : 'Optimal',
+                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white, fontFamily: 'monospace'),
+                    ),
+                    const Text('LOWEST PING', style: TextStyle(fontSize: 9, letterSpacing: 1.5, color: Colors.white70, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                '🔥 بازی ${_selectedGame?.name ?? ""} تحت محافظت تونل اختصاصی است',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'سایر برنامه‌ها (تلگرام، کروم، ویندوز) مستقیماً از نت عادی عبور می‌کنند تا پینگ بازی را خراب نکنند.',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey[400]),
+              ),
+              const SizedBox(height: 24),
+
+              // کارت‌های وضعیت HUD
+              Row(
+                children: [
+                  Expanded(child: _buildHudStatCard('hud_live_ping'.tr(), ping > 0 ? '$ping ms' : '< 45ms', Icons.speed_rounded, const Color(0xFF2DCA73))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildHudStatCard('hud_jitter'.tr(), '±$jitter ms', Icons.waves_rounded, const Color(0xFF00D2FF))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildHudStatCard('hud_rst_blocked'.tr(), '$rstCount', Icons.shield_rounded, const Color(0xFFFF8008))),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildHudStatCard('hud_webrtc_shield'.tr(), 'Active', Icons.lock_outline_rounded, const Color(0xFF6C5DD3))),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // دکمه توقف بوستر گیمینگ
+              SizedBox(
+                width: 320,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _toggleGamingBoost,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent, width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.stop_circle_rounded),
+                  label: Text('gaming_stop_btn'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHudStatCard(String title, String value, IconData icon, Color color) {
+    return _buildGlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      borderRadius: 14,
+      borderColor: color.withValues(alpha: 0.35),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(title, style: const TextStyle(fontSize: 10.5, color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color, fontFamily: 'monospace')),
+        ],
+      ),
+    );
+  }
+
+  /// دیالوگ پیشرفته سایفون جهت فعال‌سازی CDN Fronting (درون کلاس State)
+  void _openPsiphonAdvancedDialog() {
+    final bool isEn = AppTranslations.currentLang == 'en';
+    bool tempFronting = _usePsiphonCdnFronting;
+    String tempMode = _psiphonCdnMode;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF121520),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: const BorderSide(color: Color(0xFFFF8008), width: 1.4),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF8008).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cell_tower_rounded, color: Color(0xFFFF8008), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isEn ? 'Psiphon Advanced (CDN Fronting)' : 'تنظیمات پیشرفته سایفون (CDN Fronting)',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          isEn ? 'Bypass extreme censorship using Domain Fronting' : 'عبور از فیلترینگ شدید با پنهان‌سازی پشت سرورهای CDN',
+                          style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF090B10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Text(
+                        isEn 
+                            ? 'CDN Fronting routes Psiphon handshakes disguised as normal traffic to trusted international CDN networks (Akamai & Cloudflare).'
+                            : 'فناوری CDN Fronting پکت‌های اتصال سایفون را با هویت جعلی و قانونی از درون CDNهای بین‌المللی عبور می‌دهد تا در زمان فیلترینگ شدید متصل بمانید.',
+                        style: const TextStyle(fontSize: 11.5, color: Colors.white70, height: 1.6),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: tempFronting ? const Color(0xFFFF8008).withValues(alpha: 0.12) : const Color(0xFF090B10),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: tempFronting ? const Color(0xFFFF8008) : Colors.white12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.flash_on_rounded, color: tempFronting ? const Color(0xFFFF8008) : Colors.grey, size: 22),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isEn ? 'Enable CDN Fronting' : 'فعال‌سازی CDN Fronting',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    isEn ? 'Meek domain fronting mode' : 'پنهان‌سازی ترافیک پشت سرورهای ابری',
+                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Switch(
+                            value: tempFronting,
+                            activeThumbColor: const Color(0xFFFF8008),
+                            onChanged: (v) => setDialogState(() => tempFronting = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (tempFronting) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        isEn ? 'Fronting Protocol Mode:' : 'نوع پروتکل فرانتینگ:',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF090B10),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: DropdownButton<String>(
+                          value: tempMode,
+                          isExpanded: true,
+                          dropdownColor: const Color(0xFF090B10),
+                          underline: const SizedBox(),
+                          style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                          onChanged: (v) {
+                            if (v != null) setDialogState(() => tempMode = v);
+                          },
+                          items: [
+                            DropdownMenuItem(
+                              value: 'cdn',
+                              child: Text(isEn ? 'Meek CDN Mode (Aggressive - Recommended)' : 'حالت کامل CDN Meek (ضد اختلال شدید - پیشنهادی)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'direct',
+                              child: Text(isEn ? 'Direct Mode (Without CDN disguise)' : 'حالت مستقیم (بدون فرانتینگ)'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _usePsiphonCdnFronting = false;
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                  child: Text(isEn ? 'Disable & Reset' : 'غیرفعال‌سازی و حالت عادی', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _usePsiphonCdnFronting = tempFronting;
+                      _psiphonCdnMode = tempMode;
+                    });
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(tempFronting 
+                            ? (isEn ? 'CDN Fronting enabled! Tap connect.' : 'فناوری CDN Fronting فعال شد! اکنون روی دکمه اتصال کلیک کنید.')
+                            : (isEn ? 'Saved in standard mode.' : 'تنظیمات در حالت مستقیم ذخیره شد.')),
+                        backgroundColor: tempFronting ? const Color(0xFF2DCA73) : const Color(0xFF6C5DD3),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8008),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.check_circle_rounded, size: 16),
+                  label: Text(isEn ? 'Apply & Return' : 'اعمال و بازگشت به صفحه اتصال', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
+
 
 class _TabTheme {
   final List<Color> gradient;
