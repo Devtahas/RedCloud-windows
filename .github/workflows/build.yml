@@ -167,30 +167,27 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار نسخه ۴.۲ در تب Releases گیت‌هاب
+    # ۱۰. انتشار خودکار نسخه ۴.۳ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v4.2
-        name: "RedCloud VPN v4.2 - In-App Auto-Updater & Zero-Friction OTA"
+        tag_name: v4.3
+        name: "RedCloud VPN v4.3 - Zero GPU/CPU Spike & Ultra-Smooth Engine"
         body: |
-          🚀 **انتشار رسمی نسخه ۴.۲ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۳ نرم‌افزار RedCloud VPN**
           
-          ### ✨ قابلیت‌های جدید نسخه ۴.۲ (v4.2 Changelog):
-          - 🔄 **سیستم آپدیت خودکار درون‌برنامه‌ای (In-App Auto-Updater):**
-            - نمایش دیالوگ تایید هوشمند وسط صفحه هنگام انتشار نسخه جدید
-            - دانلود زنده و مستقیم فایل ستاپ با نوار درصد پیشرفت (MB / MB)
-            - اجرای مستقل فایل نصب و راه‌اندازی مجدد خودکار برنامه (Auto-Reboot)
-          - ⚡ **کاهش عمیق مصرف پردازنده با `RepaintBoundary`:**
-            - مهار رندرهای مکرر فلاتر و افت مصرف CPU در حین اتصال به زیر ۲ تا ۴ درصد
-          - 🛡️ **استراحت هوشمند درایور پکت کرنل WinDivert:**
-            - خواب ۵ میلی‌ثانیه‌ای تردها برای به صفر رساندن مصرف پردازنده در مواقع بی‌باری
-          - 📦 **استخر ۱۹۳ اکانته هویت اِتر (ATC Pool Engine):**
-            - اتصال فوری و ۱۰۰٪ آفلاین برای کاربران جدید داخل ایران
+          ### ✨ بهبودهای کلیدی نسخه ۴.۳ (v4.3 Changelog):
+          - ⚡ **مهار کامل پرش مصرف گرافیک (GPU) و پردازنده (CPU) در حین اتصال:**
+            - حذف رندر بلور سنگین در زمان چرخش لودینگ و کاهش مصرف GPU از ۶۸٪ به زیر ۱٪
+            - رفع باگ گیر کردن دکمه در وضعیت لودینگ و برقراری آنی وضعیت متصل
+          - 🔄 **سیستم هوشمند به‌روزرسانی خودکار درون‌برنامه‌ای (In-App Auto-Updater):**
+            - دانلود مستقیم فایل ستاپ با نوار درصد پیشرفت و ریبوت خودکار برنامه
+          - 🛡️ **استخر ۱۹۳ اکانته هویت اِتر (ATC Pool Engine):**
+            - اتصال فوری، پایدار و بدون نیاز به ثبت‌نام برای تمامی کاربران
         draft: false
         prerelease: false
         files: |
-          RedCloud_VPN_Setup_v4.2.exe
+          RedCloud_VPN_Setup_v4.3.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
