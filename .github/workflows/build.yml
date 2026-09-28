@@ -167,28 +167,30 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار نسخه ۴.۱ در تب Releases گیت‌هاب
+    # ۱۰. انتشار خودکار نسخه ۴.۲ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v4.1
-        name: "RedCloud VPN v4.1 - Ultimate Performance & Zero CPU Overhead"
+        tag_name: v4.2
+        name: "RedCloud VPN v4.2 - In-App Auto-Updater & Zero-Friction OTA"
         body: |
-          🚀 **انتشار رسمی نسخه ۴.۱ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۲ نرم‌افزار RedCloud VPN**
           
-          ### ✨ بهبودها و بهینه‌سازی‌های نسخه ۴.۱ (v4.1 Changelog):
-          - ⚡ **مهار کامل مصرف پردازنده با ایزولاسیون رندر گرافیکی (`RepaintBoundary`):**
-            - ایزوله کردن انیمیشن‌های چرخشی و جلوگیری از نقاشی مکرر ۶۰ بار در ثانیه کل صفحه
-            - کاهش مصرف پردازنده در حین اتصال از ۶۰٪ به زیر ۲ تا ۳ درصد
-          - 🛡️ **بهینه‌سازی عمیق تِردهای درایور کرنل WinDivert (سپر ضد RST):**
-            - استراحت هوشمند ترد در صورت عدم وجود پکت جهت به صفر رساندن مصرف پس‌زمینه
-          - 📦 **همگام‌سازی کامل استخر اکانت‌های ۱۹۳تایی (ATC Pool Engine):**
-            - بارگذاری آنی هویت‌ها در اولین اجرا بدون تاخیر
-          - 🔧 **رفع خطای دریافت دیتابیس‌های ژئو در بیلد ابری CI/CD**
+          ### ✨ قابلیت‌های جدید نسخه ۴.۲ (v4.2 Changelog):
+          - 🔄 **سیستم آپدیت خودکار درون‌برنامه‌ای (In-App Auto-Updater):**
+            - نمایش دیالوگ تایید هوشمند وسط صفحه هنگام انتشار نسخه جدید
+            - دانلود زنده و مستقیم فایل ستاپ با نوار درصد پیشرفت (MB / MB)
+            - اجرای مستقل فایل نصب و راه‌اندازی مجدد خودکار برنامه (Auto-Reboot)
+          - ⚡ **کاهش عمیق مصرف پردازنده با `RepaintBoundary`:**
+            - مهار رندرهای مکرر فلاتر و افت مصرف CPU در حین اتصال به زیر ۲ تا ۴ درصد
+          - 🛡️ **استراحت هوشمند درایور پکت کرنل WinDivert:**
+            - خواب ۵ میلی‌ثانیه‌ای تردها برای به صفر رساندن مصرف پردازنده در مواقع بی‌باری
+          - 📦 **استخر ۱۹۳ اکانته هویت اِتر (ATC Pool Engine):**
+            - اتصال فوری و ۱۰۰٪ آفلاین برای کاربران جدید داخل ایران
         draft: false
         prerelease: false
         files: |
-          RedCloud_VPN_Setup_v4.1.exe
+          RedCloud_VPN_Setup_v4.2.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "4.1"
+#define AppVersion "4.2"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=4.1.0.0
+VersionInfoVersion=4.2.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=4.1.0.0
+VersionInfoProductVersion=4.2.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -105,7 +105,7 @@ Root: "HKCU"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFla
 [Run]
 ; بستن تمام پروسه‌های قدیمی قبل از اجرای برنامه
 Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe"; Flags: runhidden runascurrentuser; StatusMsg: "آماده‌سازی محیط..."
-Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent shellexec
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall shellexec
 
 [UninstallRun]
 ; بستن تمام فرآیندها و هسته‌های فعال هنگام حذف نرم‌افزار
