@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "4.3"
+#define AppVersion "4.4"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=4.3.0.0
+VersionInfoVersion=4.4.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=4.3.0.0
+VersionInfoProductVersion=4.4.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -56,7 +56,7 @@ Name: "autostart"; Description: "اجرای خودکار برنامه با با�
 
 [Files]
 ; فایل‌های اجرایی و خروجی بیلد نهایی فلاتر
-Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Excludes: "*.pdb,*.obj,*.lib,*.exp"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 ; باینری‌های هسته‌های اصلی برنامه
 Source: "aether.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist

@@ -52,6 +52,13 @@ jobs:
     - name: Build Windows Application (Release Mode)
       run: flutter build windows --release
 
+    # ۷.۵. حذف فایل‌های فوق‌سنگین دیباگ و سیمبل‌های ویندوز (.pdb)
+    - name: Strip Windows Debug Symbols (.pdb)
+      shell: pwsh
+      run: |
+        Get-ChildItem -Path "build\windows\x64\runner\Release" -Filter "*.pdb" -Recurse | Remove-Item -Force
+        Get-ChildItem -Path "." -Filter "*.pdb" -Recurse | Remove-Item -Force
+
     # ۸. دانلود خودکار تمام هسته‌ها، درایورها و دیتابیس‌های ژئو از منابع رسمی
     - name: Download Official Core Binaries & GeoIP Databases
       shell: pwsh
@@ -167,27 +174,24 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار نسخه ۴.۳ در تب Releases گیت‌هاب
+    # ۱۰. انتشار خودکار نسخه ۴.۴ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v4.3
-        name: "RedCloud VPN v4.3 - Zero GPU/CPU Spike & Ultra-Smooth Engine"
+        tag_name: v4.4
+        name: "RedCloud VPN v4.4 - Ultra-Lightweight & Stripped Binary Build"
         body: |
-          🚀 **انتشار رسمی نسخه ۴.۳ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۴ نرم‌افزار RedCloud VPN**
           
-          ### ✨ بهبودهای کلیدی نسخه ۴.۳ (v4.3 Changelog):
-          - ⚡ **مهار کامل پرش مصرف گرافیک (GPU) و پردازنده (CPU) در حین اتصال:**
-            - حذف رندر بلور سنگین در زمان چرخش لودینگ و کاهش مصرف GPU از ۶۸٪ به زیر ۱٪
-            - رفع باگ گیر کردن دکمه در وضعیت لودینگ و برقراری آنی وضعیت متصل
-          - 🔄 **سیستم هوشمند به‌روزرسانی خودکار درون‌برنامه‌ای (In-App Auto-Updater):**
-            - دانلود مستقیم فایل ستاپ با نوار درصد پیشرفت و ریبوت خودکار برنامه
-          - 🛡️ **استخر ۱۹۳ اکانته هویت اِتر (ATC Pool Engine):**
-            - اتصال فوری، پایدار و بدون نیاز به ثبت‌نام برای تمامی کاربران
+          ### ✨ بهبودهای کلیدی نسخه ۴.۴ (v4.4 Changelog):
+          - 📦 **کاهش چشم‌گیر حجم فایل نصبی و برنامه:**
+            - حذف کامل سمبل‌های سنگین دیباگ ویندوز (.pdb) و پاکسازی فایل‌های میانی کامپایلر
+            - فعال‌سازی بهینه‌سازی پیوند کدهای Rust با LTO و قابلیت Strip Symbols
+          - ⚡ **بهبود سرعت لود اولیه و پایداری عملکرد کلی برنامه**
         draft: false
         prerelease: false
         files: |
-          RedCloud_VPN_Setup_v4.3.exe
+          RedCloud_VPN_Setup_v4.4.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

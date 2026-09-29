@@ -19,7 +19,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "4.3";
+const String appCurrentVersion = "4.4";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
