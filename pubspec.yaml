@@ -4,10 +4,10 @@ description: "A new Flutter project."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-# The following defines the version and buiversion: 4.4.0+1ld number for your application.
+# The following defines the version and buiversion: 4.5.0+1ld number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
 # followed by an optional build number separated by a +.
-version: 4.4.0+1
+version: 4.5.0+1
 
 environment:
   sdk: ^3.12.1
@@ -21,7 +21,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   rust_lib_client:
     path: rust_builder
-  flutter_rust_bridge: 2.12.0
+  flutter_rust_bridge: 2.13.0
   http: ^1.6.0
   window_manager: ^0.5.1
   tray_manager: ^0.5.3

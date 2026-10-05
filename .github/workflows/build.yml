@@ -37,7 +37,7 @@ jobs:
     # ۴. نصب ابزار تولید پل ارتباطی flutter_rust_bridge
     - name: Install FRB Codegen
       run: |
-        cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked
+        cargo install flutter_rust_bridge_codegen --version 2.13.0 --locked
 
     # ۵. جنریت کردن کدهای پل ارتباطی Rust و Dart
     - name: Generate Rust Bridge
@@ -167,6 +167,23 @@ jobs:
             Copy-Item $udp2rawExe -Destination "build\windows\x64\runner\Release\udp2raw.exe" -Force
         }
 
+        # ۱۰. دانلود رسمی کلاینت WhiteDNS (موتور رسمی CottenDNS) از مخزن اصلی
+        Write-Host "Downloading official WhiteDNS (CottenDNS) client from GitHub..."
+        Invoke-WebRequest -Uri "https://github.com/WhiteDNS/CottenDNS/releases/latest/download/CottenDns_Client_Windows_AMD64.zip" -OutFile "whitedns.zip"
+        Expand-Archive -Path "whitedns.zip" -DestinationPath "temp-whitedns" -Force
+        $whitednsExe = (Get-ChildItem -Path "temp-whitedns" -Filter "*.exe" -Recurse | Select-Object -First 1).FullName
+        Copy-Item $whitednsExe -Destination "whitedns.exe" -Force
+        Copy-Item $whitednsExe -Destination "build\windows\x64\runner\Release\whitedns.exe" -Force
+
+        # ۱۱. دانلود رسمی کلاینت SlipNet CLI از مخزن اصلی
+        Write-Host "Downloading official SlipNet CLI client from GitHub..."
+        try {
+            Invoke-WebRequest -Uri "https://github.com/anonvector/SlipNet/releases/download/v2.5.3/slipnet-windows-amd64.exe" -OutFile "slipnet.exe"
+        } catch {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/xullexer/PYDNS-Scanner/main/slipnet-client/windows/slipnet-windows-amd64.exe" -OutFile "slipnet.exe"
+        }
+        Copy-Item "slipnet.exe" -Destination "build\windows\x64\runner\Release\slipnet.exe" -Force
+
     # ۹. کامپایل فایل نصبی با Inno Setup (شامل پوشه استخر ATC)
     - name: Compile Installer with Inno Setup
       shell: pwsh
@@ -174,24 +191,25 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار نسخه ۴.۴ در تب Releases گیت‌هاب
+    # ۱۰. انتشار خودکار نسخه ۴.۵ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v4.4
-        name: "RedCloud VPN v4.4 - Ultra-Lightweight & Stripped Binary Build"
+        tag_name: v4.5
+        name: "RedCloud VPN v4.5 - Next-Gen Anti-Censorship Client"
         body: |
-          🚀 **انتشار رسمی نسخه ۴.۴ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۵ نرم‌افزار RedCloud VPN**
           
-          ### ✨ بهبودهای کلیدی نسخه ۴.۴ (v4.4 Changelog):
-          - 📦 **کاهش چشم‌گیر حجم فایل نصبی و برنامه:**
-            - حذف کامل سمبل‌های سنگین دیباگ ویندوز (.pdb) و پاکسازی فایل‌های میانی کامپایلر
-            - فعال‌سازی بهینه‌سازی پیوند کدهای Rust با LTO و قابلیت Strip Symbols
-          - ⚡ **بهبود سرعت لود اولیه و پایداری عملکرد کلی برنامه**
+          ### ✨ قابلیت‌ها و بهینه‌سازی‌های نسخه جدید (v4.5 Changelog):
+          - ⚡ **افزودن ساب اختصاصی RedCloud Hub:** بروزرسانی خودکار هر ۳۰ دقیقه، فیلتر هوشمند ضد تکراری و سقف ۴۰ سرور برتر (حذف خودکار قدیمی‌ها)
+          - 🛡️ **سیستم نجات هوشمند با GoodbyeDPI:** دور زدن اختلالات فیلترینگ با تست خودکار پریست‌های کرنل
+          - 🌐 **حل‌کننده پویا و داینامیک پروکسی خروجی:** شناسایی دقیق آخرین هسته زنجیره و نمایش بی‌درنگ پرچم و مشخصات آی‌پی
+          - 🚀 **پشتیبانی کامل از VLESS Reality با جریان xtls-rprx-vision**
+          - 📦 **حذف کامل فایل‌های سنگین دیباگ (.pdb) جهت سبک‌سازی و افزایش سرعت برنامه**
         draft: false
         prerelease: false
         files: |
-          RedCloud_VPN_Setup_v4.4.exe
+          RedCloud_VPN_Setup_v4.5.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,10 +1,10 @@
 ; =====================================================================
-; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN (نسخه 3.9 Hybrid)
-; مجهز به هسته اِتر v2.1.0، فرانتینگ CDN سایفون، درایور کرنل WinDivert و Sing-box
+; اسکریپت ساخت فایل نصب اختصاصی نرم‌افزار RedCloud VPN
+; مجهز به هسته اِتر، فرانتینگ CDN سایفون، درایور کرنل WinDivert و Sing-box
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "4.4"
+#define AppVersion "4.5"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=4.4.0.0
+VersionInfoVersion=4.5.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=4.4.0.0
+VersionInfoProductVersion=4.5.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -52,7 +52,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "اجرای خودکار برنامه با بالا آمدن ویندوز (Startup)"; GroupDescription: "تنظیمات اضافی:"; Flags: unchecked
+Name: "autostart"; Description: "اجرای خودکار برنامه با بالا آمدن ویندوز (Startup Task)"; GroupDescription: "تنظیمات اضافی:"; Flags: unchecked
 
 [Files]
 ; فایل‌های اجرایی و خروجی بیلد نهایی فلاتر
@@ -64,6 +64,8 @@ Source: "sing-box.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesn
 Source: "tor.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "psiphon-tunnel-core.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "udp2raw.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "slipnet.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "whitedns.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "wintun.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; پوشه حیاتی ترنسپورت‌های فرانتینگ اِتر و سایفون
@@ -95,21 +97,28 @@ Source: "DNS.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexis
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
-Name: "{commonstartup}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: autostart
 
 [Registry]
-; تنظیم اجرای همیشگی برنامه به عنوان Administrator در سطح ماشین و کاربر
+; تنظیم اجرای همیشگی برنامه به عنوان Administrator در سطح سیستم و کاربر
 Root: "HKLM"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; Flags: uninsdeletevalue
 Root: "HKCU"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; Flags: uninsdeletevalue
 
 [Run]
-; بستن تمام پروسه‌های قدیمی قبل از اجرای برنامه
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe"; Flags: runhidden runascurrentuser; StatusMsg: "آماده‌سازی محیط..."
+; ۱. بستن پروسه‌های معلق
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden; StatusMsg: "آماده‌سازی محیط..."
+
+; ۲. ثبت تسک زمان‌بندی‌شده جهت اجرای خودکار با دسترسی ادمین در استارتاپ (بدون مسدود شدن توسط UAC ویندوز)
+Filename: "schtasks.exe"; Parameters: "/Create /TN ""{#AppName}"" /TR """"{app}\{#AppExeName}"""" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: autostart
+
+; ۳. اجرای نهایی نرم‌افزار
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall shellexec
 
 [UninstallRun]
 ; بستن تمام فرآیندها و هسته‌های فعال هنگام حذف نرم‌افزار
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe"; Flags: runhidden
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden
+
+; حذف تسک استارتاپ از Task Scheduler
+Filename: "schtasks.exe"; Parameters: "/Delete /TN ""{#AppName}"" /F"; Flags: runhidden
 
 ; متوقف‌سازی سرویس درایور WinDivert در ویندوز
 Filename: "net.exe"; Parameters: "stop WinDivert"; Flags: runhidden
@@ -122,7 +131,7 @@ Filename: "reg.exe"; Parameters: "add ""HKCU\Software\Microsoft\Windows\CurrentV
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -NoProfile -Command ""Get-NetAdapter | Where-Object {{$_.Status -eq 'Up'}} | Set-DnsClientServerAddress -ResetServerAddresses"""; Flags: runhidden
 
 [UninstallDelete]
-; پاکسازی فایل‌های لاگ و دیتابیس‌های ایجادشده در پوشه برنامه
+; پاکسازی فایل‌های لاگ و کش‌های ایجادشده در پوشه برنامه
 Type: files; Name: "{app}\*.log"
 Type: files; Name: "{app}\*.txt"
 Type: files; Name: "{app}\*.json"
@@ -159,7 +168,7 @@ begin
     ssInstall:
     begin
       // بستن درایورها و پروسه‌ها قبل از استخراج فایل‌ها برای جلوگیری از خطای Access is denied
-      Exec('taskkill.exe', '/F /IM {#AppExeName} /IM goodbyedpi.exe /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec('taskkill.exe', '/F /IM {#AppExeName} /IM goodbyedpi.exe /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('net.exe', 'stop WinDivert', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('net.exe', 'stop WinDivert14', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       WriteSetupLog('INFO', 'SETUP', 'شروع فرآیند استخراج باینری‌ها، ترنسپورت‌های CDN، درایورها و هسته‌ها...');

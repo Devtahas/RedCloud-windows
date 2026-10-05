@@ -31,10 +31,22 @@ static UDP2RAW_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 static ACTIVE_DNS: Mutex<Option<(String, String)>> = Mutex::new(None);
 static ECH_KEY_VAULT: Mutex<Option<String>> = Mutex::new(None);
 
+// ==================== متغیرهای اختصاصی هسته SlipNet ====================
+static SLIPNET_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+static SLIPNET_CONNECTED: AtomicBool = AtomicBool::new(false);
+static SLIPNET_STATUS_MSG: Mutex<String> = Mutex::new(String::new());
+
+// ==================== متغیرهای اختصاصی هسته WhiteDNS ====================
+static WHITEDNS_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+static WHITEDNS_CONNECTED: AtomicBool = AtomicBool::new(false);
+static WHITEDNS_STATUS_MSG: Mutex<String> = Mutex::new(String::new());
+
 // =========================================================================
 // متغیرهای اختصاصی وضعیت تب گیمینگ (Gaming State & Session Lock)
 // =========================================================================
+#[allow(dead_code)]
 static GAMING_PROXY_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+#[allow(dead_code)]
 static GAMING_AETHER_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 static GAMING_BOOST_ACTIVE: AtomicBool = AtomicBool::new(false);
 static GAMING_SESSION_LOCKED: AtomicBool = AtomicBool::new(false);
@@ -121,6 +133,7 @@ fn format_ech_to_pem_lines(raw_key: &str) -> Vec<String> {
 }
 
 /// خواندن سریع کلید از حافظه کش رم، دیسک یا کلید رزرو پشتیبان
+#[allow(dead_code)]
 fn get_cached_or_fallback_ech() -> String {
     let mut vault = ECH_KEY_VAULT.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(ref k) = *vault {
@@ -244,7 +257,9 @@ pub fn kill_all_zombie_cores() {
                 "/IM", "tor.exe",
                 "/IM", "goodbyedpi.exe",
                 "/IM", "dnscrypt-proxy.exe",
-                "/IM", "udp2raw.exe"
+                "/IM", "udp2raw.exe",
+                "/IM", "slipnet.exe",
+                "/IM", "whitedns.exe"
             ])
             .creation_flags(0x08000000)
             .output();
@@ -318,6 +333,19 @@ fn ensure_watchdog_started() {
                         if let Ok(Some(status)) = child.try_wait() {
                             write_log("WARN", "WATCHDOG", &format!("⚠️ هسته GoodbyeDPI متوقف شد (کد خروج: {})", status));
                             *guard = None;
+                        }
+                    }
+                }
+
+                // ۶. پایش سلامت هسته SlipNet
+                {
+                    let mut guard = SLIPNET_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(child) = guard.as_mut() {
+                        if let Ok(Some(status)) = child.try_wait() {
+                            write_log("WARN", "WATCHDOG", &format!("⚠️ هسته SlipNet متوقف شد (کد خروج: {})", status));
+                            *guard = None;
+                            SLIPNET_CONNECTED.store(false, Ordering::SeqCst);
+                            set_windows_system_proxy(false, String::new(), 0);
                         }
                     }
                 }
@@ -454,6 +482,17 @@ pub struct GamingLiveMetrics {
     pub rst_packets_defended: i32,
     pub is_session_locked: bool,
     pub active_region: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[flutter_rust_bridge::frb(non_opaque)]
+pub struct SlipNetProfile {
+    pub name: String,
+    pub tunnel_type: String,
+    pub domain: String,
+    pub public_key: String,
+    pub dns_transport: String,
+    pub resolvers: String,
 }
 
 // =========================================================================
@@ -1345,7 +1384,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
         };
 
         let payload = serde_json::json!({
-            "app_version": "4.4",
+            "app_version": "4.5",
             "os_info": os_info,
             "os_arch": "x64",
             "module": module_owned,
@@ -1372,7 +1411,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
                             let request = format!(
                                 "POST /api/crash-report HTTP/1.1\r\n\
                                  Host: {}\r\n\
-                                 User-Agent: RedCloud-RustCore/4.4\r\n\
+                                 User-Agent: RedCloud-RustCore/4.5\r\n\
                                  Content-Type: application/json\r\n\
                                  Content-Length: {}\r\n\
                                  Connection: close\r\n\r\n{}",
@@ -1632,6 +1671,32 @@ pub fn is_hybrid_connected() -> bool {
 
 pub fn is_dns_active() -> bool {
     ACTIVE_DNS.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+}
+
+pub fn is_slipnet_running() -> bool {
+    let guard = SLIPNET_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+    guard.is_some()
+}
+
+pub fn is_slipnet_connected() -> bool {
+    SLIPNET_CONNECTED.load(Ordering::Relaxed)
+}
+
+pub fn get_slipnet_status_text() -> String {
+    SLIPNET_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+pub fn is_whitedns_running() -> bool {
+    let guard = WHITEDNS_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+    guard.is_some()
+}
+
+pub fn is_whitedns_connected() -> bool {
+    WHITEDNS_CONNECTED.load(Ordering::Relaxed)
+}
+
+pub fn get_whitedns_status_text() -> String {
+    WHITEDNS_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 pub fn get_tor_bootstrap_progress() -> i32 {
@@ -2878,6 +2943,7 @@ pub fn start_hybrid_connection(
                     "action": "hijack-dns"
                 },
                 {
+                    "inbound": ["tun-in"],
                     "process_name": [
                         "aether.exe", 
                         "tor.exe", 
@@ -3018,6 +3084,570 @@ pub fn stop_hybrid_connection() -> Result<String, String> {
 }
 
 // =========================================================================
+// موتور ارکستریتور اختصاصی پروتکل REDCLOUD (Chaining & Orchestration Engine)
+// =========================================================================
+
+pub fn start_redcloud_pipeline(
+    raw_url: String,
+    singbox_path: Option<String>,
+    aether_path: Option<String>,
+    psiphon_path: Option<String>,
+    goodbyedpi_path: Option<String>,
+) -> Result<String, String> {
+    write_log("INFO", "REDCLOUD_ORCHESTRATOR", "🚀 آغاز فراخوانی موتور پایپ‌لاین RedCloud...");
+
+    // پاکسازی زامبی‌ها قبل از برقراری زنجیره
+    kill_all_zombie_cores();
+    let _ = stop_redcloud_pipeline();
+
+    // ۱. استخراج دیتای Base64
+    let rest = raw_url.strip_prefix("redcloud://").unwrap_or(&raw_url);
+    let b64_part = rest.split('#').next().unwrap_or(rest).trim();
+    let mut clean_b64 = b64_part.to_string();
+    while clean_b64.len() % 4 != 0 { clean_b64.push('='); }
+
+    let decoded_bytes = general_purpose::STANDARD.decode(&clean_b64)
+        .or_else(|_| general_purpose::URL_SAFE.decode(&clean_b64))
+        .map_err(|e| format!("خطا در دیکود Base64 کانفیگ: {}", e))?;
+
+    let recipe: serde_json::Value = serde_json::from_slice(&decoded_bytes)
+        .map_err(|e| format!("خطا در پارس جیسون پایپ‌لاین: {}", e))?;
+
+    let chain: Vec<String> = recipe["chain"].as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_lowercase())).collect())
+        .unwrap_or_default();
+
+    let modules = &recipe["modules"];
+    let network = &recipe["network"];
+
+    let tun_mode = network["tun_mode"].as_bool().unwrap_or(false);
+    let system_proxy = network["system_proxy"].as_bool().unwrap_or(true);
+    let anti_rst = network["anti_rst"].as_bool().unwrap_or(true);
+
+    // استخراج لیست دامنه‌های بای‌پاس
+    let bypass_domains: Vec<String> = recipe["bypass_domains"].as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+
+    // ۲. اجرای لایه اول: درایور GoodbyeDPI (اگر در زنجیره باشد)
+    if chain.contains(&"goodbyedpi".to_string()) {
+        let dpi_bin = goodbyedpi_path.unwrap_or_else(|| "goodbyedpi.exe".to_string());
+        let dpi_args = modules["goodbyedpi"]["args"].as_str().unwrap_or("-9 -p -r -s -f 2 -k 2 -n -e 2").to_string();
+        write_log("INFO", "REDCLOUD_CHAIN", &format!("مرحله ۱: فعال‌سازی GoodbyeDPI با آرگومان: {}", dpi_args));
+        let _ = start_goodbyedpi_core(dpi_bin, dpi_args);
+    }
+
+    // ۳. اجرای لایه دوم: هسته اِتر (Aether MASQUE)
+    let mut aether_active = false;
+    if chain.contains(&"aether".to_string()) {
+        let aether_bin = aether_path.unwrap_or_else(|| "aether.exe".to_string());
+        let a_mode = modules["aether"]["mode"].as_str().unwrap_or("masque_h2").to_string();
+        let a_noize = modules["aether"]["noize"].as_str().unwrap_or("firewall").to_string();
+        write_log("INFO", "REDCLOUD_CHAIN", &format!("مرحله ۲: برقراری پل اِتر ({}, نویز: {})...", a_mode, a_noize));
+        
+        let a_res = start_aether_core(aether_bin, a_mode, a_noize, None, None, false);
+        if let Err(e) = a_res {
+            write_log("ERROR", "REDCLOUD_CHAIN", &format!("خطا در استارت اِتر: {}", e));
+            return Err(format!("خطا در راه‌اندازی اِتر: {}", e));
+        }
+
+        // انتظار هوشمند برای آماده‌سازی سوکت ۱۸۱۹ اِتر
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(400));
+            if test_socks5_egress("127.0.0.1:1819", Duration::from_millis(600)) {
+                aether_active = true;
+                break;
+            }
+        }
+
+        if !aether_active {
+            write_log("WARN", "REDCLOUD_CHAIN", "سوکت اِتر با تاخیر مواجه شد، ادامه فرایند پایپ‌لاین...");
+        }
+    }
+
+    // ۴. اجرای لایه سوم: سایفون با یا بدون CDN Fronting
+    if chain.contains(&"psiphon".to_string()) {
+        let psi_bin = psiphon_path.unwrap_or_else(|| "psiphon-tunnel-core.exe".to_string());
+        let psi_region = modules["psiphon"]["region"].as_str().unwrap_or("auto");
+        let psi_cdn_mode = modules["psiphon"]["cdn_mode"].as_str().unwrap_or("cdn");
+        let country_arg = format!("{}##cdn##{}", psi_region, psi_cdn_mode);
+
+        write_log("INFO", "REDCLOUD_CHAIN", &format!("مرحله ۳: اجرای سایفون بر بستر پل ({})", country_arg));
+        
+        if aether_active {
+            let _ = start_psiphon_core_internal(
+                psi_bin,
+                country_arg,
+                system_proxy,
+                Some("masque_chain".to_string()),
+            );
+        } else {
+            let _ = start_psiphon_core(psi_bin, country_arg, system_proxy);
+        }
+    }
+
+    // ۵. اجرای لایه داشبورد (Sing-box) با تزریق مستقیم دامنه‌های بای‌پاس
+    if chain.contains(&"dashboard".to_string()) {
+        let sb_bin = singbox_path.unwrap_or_else(|| "sing-box.exe".to_string());
+        let embedded_raw = modules["dashboard"]["raw_url"].as_str().unwrap_or("");
+        
+        if !embedded_raw.is_empty() {
+            let node = ProxyNode {
+                name: "RedCloud Embedded Node".to_string(),
+                protocol: "vless".to_string(),
+                raw_url: embedded_raw.to_string(),
+            };
+
+            let mut outbound = convert_link_to_outbound(node, None, true, false, None, None, None)?;
+            if aether_active {
+                outbound["detour"] = serde_json::json!("aether-bridge");
+            }
+
+            // ساخت قوانین مسیریابی با تزریق دامنه‌های بای‌پاس
+            let mut route_rules = vec![
+                serde_json::json!({ "action": "sniff" }),
+                serde_json::json!({ "protocol": "dns", "action": "hijack-dns" }),
+            ];
+
+            if !bypass_domains.is_empty() {
+                route_rules.push(serde_json::json!({
+                    "domain_suffix": bypass_domains,
+                    "outbound": "direct"
+                }));
+                write_log("INFO", "REDCLOUD_CHAIN", &format!("🛡️ تعداد {} دامنه بای‌پاس مستقیم به روتینگ سینگ‌باکس اضافه شد.", bypass_domains.len()));
+            }
+
+            route_rules.push(serde_json::json!({ "ip_is_private": true, "outbound": "direct" }));
+
+            let sb_config = serde_json::json!({
+                "log": { "level": "warn" },
+                "inbounds": [{ "type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080 }],
+                "outbounds": [
+                    outbound,
+                    { "type": "socks", "tag": "aether-bridge", "server": "127.0.0.1", "server_port": 1819 },
+                    { "type": "direct", "tag": "direct" }
+                ],
+                "route": { "auto_detect_interface": true, "final": "proxy-out", "rules": route_rules }
+            });
+
+            let work_dir = get_safe_work_dir();
+            let cfg_path = work_dir.join("redcloud_pipeline_singbox.json");
+            let _ = std::fs::write(&cfg_path, sb_config.to_string());
+
+            let resolved_sb = resolve_binary_path(&sb_bin);
+            let mut cmd = Command::new(&resolved_sb);
+            cmd.arg("run").arg("-c").arg(&cfg_path).current_dir(&work_dir);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(child) = cmd.spawn() {
+                #[cfg(target_os = "windows")]
+                assign_child_to_job(&child);
+                let mut guard = PROXY_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+                *guard = Some(child);
+            }
+        }
+    }
+
+    if anti_rst {
+        start_anti_rst_filter();
+    }
+
+    if system_proxy && !tun_mode {
+        set_windows_system_proxy(true, "127.0.0.1".to_string(), 2080);
+    }
+
+    write_log("INFO", "REDCLOUD_ORCHESTRATOR", "✅ تمام لایه‌های پایپ‌لاین RedCloud با موفقیت متصل شدند!");
+    Ok("پایپ‌لاین هوشمند RedCloud با موفقیت متصل شد.".to_string())
+}
+
+pub fn stop_redcloud_pipeline() -> Result<String, String> {
+    write_log("INFO", "REDCLOUD_ORCHESTRATOR", "دستور توقف کامل پایپ‌لاین دریافت شد.");
+    let _ = stop_goodbyedpi_core();
+    let _ = stop_proxy_core();
+    let _ = stop_aether_core();
+    let _ = stop_psiphon_core();
+    stop_anti_rst_filter();
+    set_windows_system_proxy(false, String::new(), 0);
+    Ok("پایپ‌لاین متوقف شد.".to_string())
+}
+
+// =========================================================================
+// موتور اختصاصی و بومی پروتکل SlipNet (DNS Tunneling Engine)
+// =========================================================================
+
+pub fn parse_slipnet_uri(raw_uri: String) -> Result<SlipNetProfile, String> {
+    let raw = raw_uri.trim();
+    if !raw.starts_with("slipnet://") {
+        return Err("لینک نامعتبر است؛ باید با slipnet:// شروع شود.".to_string());
+    }
+
+    let b64_part = &raw[10..];
+    let clean_b64 = b64_part.split('#').next().unwrap_or(b64_part).trim();
+    let mut padded = clean_b64.to_string();
+    while padded.len() % 4 != 0 { padded.push('='); }
+
+    let decoded_bytes = general_purpose::STANDARD.decode(&padded)
+        .or_else(|_| general_purpose::URL_SAFE.decode(&padded))
+        .map_err(|e| format!("خطا در دیکود Base64 کانفیگ SlipNet: {}", e))?;
+
+    let v: serde_json::Value = serde_json::from_slice(&decoded_bytes)
+        .map_err(|e| format!("خطا در پارس جیسون SlipNet: {}", e))?;
+
+    let name = v["name"].as_str().unwrap_or("SlipNet Server").to_string();
+    let tunnel_type = v["type"].as_str().unwrap_or("dnstt").to_lowercase();
+    let domain = v["domain"].as_str().unwrap_or("").to_string();
+    let public_key = v["public_key"].as_str().unwrap_or("").to_string();
+    let dns_transport = v["dns_transport"].as_str().unwrap_or("udp").to_lowercase();
+
+    let resolvers = if let Some(arr) = v["resolvers"].as_array() {
+        arr.iter().filter_map(|x| x.as_str()).collect::<Vec<&str>>().join(", ")
+    } else {
+        v["resolvers"].as_str().unwrap_or("8.8.8.8, 1.1.1.1").to_string()
+    };
+
+    Ok(SlipNetProfile {
+        name,
+        tunnel_type,
+        domain,
+        public_key,
+        dns_transport,
+        resolvers,
+    })
+}
+
+pub fn start_slipnet_core(
+    binary_path: Option<String>,
+    domain: String,
+    pubkey: String,
+    tunnel_type: String,
+    transport: String,
+    resolvers: String,
+    local_port: u16,
+    use_system_proxy: bool,
+) -> Result<String, String> {
+    write_log("INFO", "SLIPNET", &format!("🚀 راه‌اندازی هسته SlipNet برای دامنه: {} (نوع: {}, حامل: {})", domain, tunnel_type, transport));
+
+    let _ = stop_slipnet_core();
+
+    #[cfg(target_os = "windows")]
+    let _ = Command::new("taskkill").args(&["/F", "/IM", "slipnet.exe"]).creation_flags(0x08000000).output();
+
+    let bin_name = binary_path.unwrap_or_else(|| "slipnet.exe".to_string());
+    let resolved_path = resolve_binary_path(&bin_name);
+    if !resolved_path.exists() {
+        let err = format!("فایل اجرایی {:?} یافت نشد. لطفاً از بخش مدیریت هسته‌ها آن را دانلود کنید.", resolved_path);
+        write_log("ERROR", "SLIPNET", &err);
+        return Err(err);
+    }
+
+    let bind_port = if local_port == 0 { 1825 } else { local_port };
+    let bind_addr = format!("127.0.0.1:{}", bind_port);
+
+    let clean_domain = domain.trim().to_string();
+    let clean_pubkey = pubkey.trim().to_string();
+    let first_resolver = resolvers.split(',').next().unwrap_or("8.8.8.8").trim().to_string();
+
+    let work_dir = get_safe_work_dir();
+    let config_path = work_dir.join("slipnet_active_config.json");
+
+    let cfg_json = serde_json::json!({
+        "tunnel_type": tunnel_type.trim().to_lowercase(),
+        "domain": clean_domain,
+        "public_key": clean_pubkey,
+        "transport": transport.trim().to_lowercase(),
+        "resolver": first_resolver,
+        "listen": bind_addr
+    });
+
+    let _ = std::fs::write(&config_path, cfg_json.to_string());
+
+    let mut cmd = Command::new(&resolved_path);
+    cmd.arg("-c").arg(&config_path)
+       .arg("-d").arg(&clean_domain)
+       .arg("-p").arg(&clean_pubkey)
+       .arg("-t").arg(&tunnel_type.trim().to_lowercase())
+       .arg("-m").arg(&transport.trim().to_lowercase())
+       .arg("-r").arg(&first_resolver)
+       .arg("-b").arg(&bind_addr)
+       .current_dir(&work_dir)
+       .stdin(Stdio::null())
+       .stdout(Stdio::piped())
+       .stderr(Stdio::piped());
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    let mut child = cmd.spawn().map_err(|e| {
+        let err = format!("خطا در اجرای فرآیند slipnet.exe: {}", e);
+        write_log("ERROR", "SLIPNET", &err);
+        err
+    })?;
+
+    #[cfg(target_os = "windows")]
+    assign_child_to_job(&child);
+
+    if let Some(stdout) = child.stdout.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                let tr = line.trim().to_string();
+                if tr.is_empty() { continue; }
+                write_log("INFO", "SLIPNET_OUT", &tr);
+
+                let lower = tr.to_lowercase();
+                if lower.contains("listening") || lower.contains("ready") || lower.contains("connected") || lower.contains("established") {
+                    SLIPNET_CONNECTED.store(true, Ordering::SeqCst);
+                }
+
+                let mut st = SLIPNET_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+                *st = tr;
+            }
+        });
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().flatten() {
+                let tr = line.trim().to_string();
+                if tr.is_empty() { continue; }
+                write_log("WARN", "SLIPNET_ERR", &tr);
+                let mut st = SLIPNET_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+                *st = tr;
+            }
+        });
+    }
+
+    {
+        let mut p = SLIPNET_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+        *p = Some(child);
+    }
+
+    SLIPNET_CONNECTED.store(true, Ordering::SeqCst);
+    {
+        let mut st = SLIPNET_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+        *st = format!("SlipNet tunnel active on {}", bind_addr);
+    }
+
+    if use_system_proxy {
+        set_windows_system_proxy(true, "127.0.0.1".to_string(), bind_port);
+    }
+
+    start_anti_rst_filter();
+    write_log("INFO", "SLIPNET", &format!("✅ هسته SlipNet با موفقیت روی {} فعال شد.", bind_addr));
+    Ok(format!("تونل SlipNet روی پورت {} با موفقیت برقرار شد.", bind_port))
+}
+
+pub fn stop_slipnet_core() -> Result<String, String> {
+    write_log("INFO", "SLIPNET", "دستور توقف هسته SlipNet دریافت شد.");
+    SLIPNET_CONNECTED.store(false, Ordering::SeqCst);
+
+    let mut process_guard = SLIPNET_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(mut child) = process_guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[cfg(target_os = "windows")]
+    let _ = Command::new("taskkill").args(&["/F", "/IM", "slipnet.exe"]).creation_flags(0x08000000).output();
+
+    set_windows_system_proxy(false, String::new(), 0);
+    {
+        let mut st = SLIPNET_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+        *st = "SlipNet Disconnected".to_string();
+    }
+
+    Ok("تونل SlipNet با موفقیت متوقف شد.".to_string())
+}
+
+// =========================================================================
+// موتور بومی و اختصاصی تونلینگ WhiteDNS (CottenDNS / MasterDNS)
+// =========================================================================
+
+pub fn start_whitedns_core(
+    binary_path: Option<String>,
+    domain: String,
+    pubkey: String,
+    _engine: String,
+    preset: String,
+    resolvers: String,
+    local_port: u16,
+    use_system_proxy: bool,
+) -> Result<String, String> {
+    write_log("INFO", "WHITEDNS", &format!("🚀 راه‌اندازی کلاینت رسمی CottenDNS برای دامنه: {} (پریست: {})", domain, preset));
+
+    let _ = stop_whitedns_core();
+
+    #[cfg(target_os = "windows")]
+    let _ = Command::new("taskkill").args(&["/F", "/IM", "whitedns.exe"]).creation_flags(0x08000000).output();
+
+    let bin_name = binary_path.unwrap_or_else(|| "whitedns.exe".to_string());
+    let resolved_path = resolve_binary_path(&bin_name);
+    if !resolved_path.exists() {
+        let err = format!("فایل اجرایی {:?} یافت نشد. لطفاً از تب تنظیمات آن را دانلود کنید.", resolved_path);
+        write_log("ERROR", "WHITEDNS", &err);
+        return Err(err);
+    }
+
+    let bind_port = if local_port == 0 { 1826 } else { local_port };
+    let clean_domain = domain.trim().to_string();
+    let clean_pubkey = pubkey.trim().to_string();
+    let clean_preset = if preset.trim().is_empty() { "speed".to_string() } else { preset.trim().to_lowercase() };
+
+    let work_dir = get_safe_work_dir();
+    let config_path = work_dir.join("client_config.toml");
+    let resolvers_path = work_dir.join("client_resolvers.txt");
+
+    // ۱. ایجاد فایل استاندارد ریزالورها
+    let mut resolver_lines = String::new();
+    for r in resolvers.split(',') {
+        let trimmed_r = r.trim();
+        if !trimmed_r.is_empty() {
+            resolver_lines.push_str(trimmed_r);
+            resolver_lines.push('\n');
+        }
+    }
+    if resolver_lines.trim().is_empty() {
+        resolver_lines = "1.1.1.1\n8.8.8.8\n9.9.9.9\n".to_string();
+    }
+    let _ = std::fs::write(&resolvers_path, resolver_lines);
+
+    // ۲. ایجاد فایل ساختاریافته TOML استاندارد موتور CottenDNS
+    let toml_content = format!(
+r#"CONFIG_PRESET = "{preset}"
+DOMAINS = ["{domain}"]
+ENCRYPTION_KEY = "{pubkey}"
+DATA_ENCRYPTION_METHOD = 3
+PROTOCOL_TYPE = "SOCKS5"
+LISTEN_IP = "127.0.0.1"
+LISTEN_PORT = {port}
+STARTUP_MODE = "resolvers"
+RESOLVER_TRANSPORT = "auto"
+PATH_CONTROLLER_MODE = "unified"
+COMPARABLE_PATH_STRIPING = true
+FAST_CONNECT = true
+"#,
+        preset = clean_preset,
+        domain = clean_domain,
+        pubkey = clean_pubkey,
+        port = bind_port
+    );
+
+    let _ = std::fs::write(&config_path, toml_content);
+
+    // ۳. اجرای باینری با آرگومان‌های رسمی و استاندارد CottenDNS
+    let mut cmd = Command::new(&resolved_path);
+    cmd.arg("--config").arg(&config_path)
+       .arg("--resolvers").arg(&resolvers_path)
+       .current_dir(&work_dir)
+       .stdin(Stdio::null())
+       .stdout(Stdio::piped())
+       .stderr(Stdio::piped());
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    let mut child = cmd.spawn().map_err(|e| {
+        let err = format!("خطا در اجرای فرآیند CottenDNS: {}", e);
+        write_log("ERROR", "WHITEDNS", &err);
+        err
+    })?;
+
+    #[cfg(target_os = "windows")]
+    assign_child_to_job(&child);
+
+    if let Some(stdout) = child.stdout.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                let tr = line.trim().to_string();
+                if tr.is_empty() { continue; }
+                write_log("INFO", "COTTENDNS_OUT", &tr);
+
+                let lower = tr.to_lowercase();
+                // شناسایی اتمام اسکن ریزالورها و باز شدن واقعی پورت ساکس
+                if lower.contains("socks5 server started") 
+                    || lower.contains("listening on") 
+                    || lower.contains("tunnel established")
+                    || lower.contains("proxy ready")
+                    || lower.contains("fast_connect pool released") {
+                    WHITEDNS_CONNECTED.store(true, Ordering::SeqCst);
+                }
+
+                let mut st = WHITEDNS_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+                *st = tr;
+            }
+        });
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines().flatten() {
+                let tr = line.trim().to_string();
+                if tr.is_empty() { continue; }
+                write_log("WARN", "COTTENDNS_ERR", &tr);
+                let mut st = WHITEDNS_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+                *st = tr;
+            }
+        });
+    }
+
+    {
+        let mut p = WHITEDNS_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+        *p = Some(child);
+    }
+
+    // بررسی زنده پورت ساکس ۵ (حداکثر ۱۰ ثانیه فرصت برای اسکن ریزالورها و فعال‌سازی)
+    let mut verified = false;
+    for _ in 0..25 {
+        thread::sleep(Duration::from_millis(400));
+        if WHITEDNS_CONNECTED.load(Ordering::Relaxed) || test_socks5_egress(&format!("127.0.0.1:{}", bind_port), Duration::from_millis(600)) {
+            verified = true;
+            break;
+        }
+    }
+
+    if verified {
+        WHITEDNS_CONNECTED.store(true, Ordering::SeqCst);
+        if use_system_proxy {
+            set_windows_system_proxy(true, "127.0.0.1".to_string(), bind_port);
+        }
+        start_anti_rst_filter();
+        write_log("INFO", "WHITEDNS", &format!("✅ اسکن ریزالورها تکمیل شد؛ تونل WhiteDNS روی پورت {} فعال شد.", bind_port));
+        Ok(format!("تونل WhiteDNS (CottenDNS) روی پورت {} فعال شد.", bind_port))
+    } else {
+        write_log("INFO", "WHITEDNS", "اسکنر ریزالورها در پس‌زمینه در حال ارزیابی است...");
+        if use_system_proxy {
+            set_windows_system_proxy(true, "127.0.0.1".to_string(), bind_port);
+        }
+        Ok(format!("موتور در حال ارزیابی ریزالورها روی پورت {} است...", bind_port))
+    }
+}
+
+pub fn stop_whitedns_core() -> Result<String, String> {
+    write_log("INFO", "WHITEDNS", "دستور توقف WhiteDNS دریافت شد.");
+    WHITEDNS_CONNECTED.store(false, Ordering::SeqCst);
+
+    let mut process_guard = WHITEDNS_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(mut child) = process_guard.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[cfg(target_os = "windows")]
+    let _ = Command::new("taskkill").args(&["/F", "/IM", "whitedns.exe"]).creation_flags(0x08000000).output();
+
+    set_windows_system_proxy(false, String::new(), 0);
+    {
+        let mut st = WHITEDNS_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+        *st = "WhiteDNS Disconnected".to_string();
+    }
+
+    Ok("تونل WhiteDNS متوقف شد.".to_string())
+}
+
+// =========================================================================
 // هسته شبکه پیاز تور (Tor Core & Tor over MASQUE)
 // =========================================================================
 
@@ -3145,7 +3775,14 @@ fn start_tor_core_internal(
 }
 
 pub fn start_tor_core(binary_path: String, country_code: String, use_system_proxy: bool) -> Result<String, String> {
-    start_tor_core_internal(binary_path, country_code, use_system_proxy, None)
+    // پذیرش کاملاً پویا و بدون هاردکدِ پروکسی مرحله قبل از خط لوله
+    let (clean_country, upstream_proxy) = if country_code.contains("##proxy##") {
+        let parts: Vec<&str> = country_code.split("##proxy##").collect();
+        (parts[0].to_string(), Some(parts[1].trim().to_string()))
+    } else {
+        (country_code, None)
+    };
+    start_tor_core_internal(binary_path, clean_country, use_system_proxy, upstream_proxy)
 }
 
 pub fn start_tor_over_masque(
@@ -3351,9 +3988,18 @@ fn start_psiphon_core_internal(
         cmd.arg("--psiphon");
         cmd.arg("--psiphon-mode").arg(&cdn_mode);
 
-        // ۳. انتخاب کشور (اگر auto نباشد اعمال می‌شود، در غیر این صورت سریع‌ترین سرور CDN را برمی‌دارد)
-        if !clean_country.is_empty() && clean_country.to_lowercase() != "auto" {
-            cmd.arg("--psiphon-region").arg(&clean_country);
+        // ۳. انتخاب هوشمند کشور: فیلتر فقط روی کشورهایی که واقعاً سرور CDN Fronting دارند
+        let valid_cdn_regions = ["DE", "JP", "SG", "US"];
+        let target_reg = clean_country.to_uppercase();
+        if !clean_country.is_empty() 
+            && clean_country.to_lowercase() != "auto" 
+            && clean_country.to_lowercase() != "random" 
+            && valid_cdn_regions.contains(&target_reg.as_str()) 
+        {
+            cmd.arg("--psiphon-region").arg(&target_reg);
+        } else {
+            // اگر کشور درخواستی مثل SE در استخر CDN نبود یا روی auto/random بود، اجازه می‌دهیم اِتر به صورت خودکار و تصادفی سریع‌ترین سرور آنلاین (DE, JP, SG, US) را انتخاب کند
+            write_log("INFO", "PSIPHON_CDN", "منطقه درخواستی سرور CDN ندارد یا روی auto است؛ انتخاب خودکار بهترین سرور فعال از بین (DE, JP, SG, US)...");
         }
 
         cmd.current_dir(&work_dir)
@@ -3546,7 +4192,14 @@ fn start_psiphon_core_internal(
 }
 
 pub fn start_psiphon_core(binary_path: String, country_code: String, use_system_proxy: bool) -> Result<String, String> {
-    start_psiphon_core_internal(binary_path, country_code, use_system_proxy, None)
+    // پذیرش کاملاً پویا و بدون هاردکدِ پروکسی مرحله قبل از خط لوله
+    let (clean_country, upstream_proxy) = if country_code.contains("##upstream##") {
+        let parts: Vec<&str> = country_code.split("##upstream##").collect();
+        (parts[0].to_string(), Some(parts[1].trim().to_string()))
+    } else {
+        (country_code, None)
+    };
+    start_psiphon_core_internal(binary_path, clean_country, use_system_proxy, upstream_proxy)
 }
 
 pub fn start_psiphon_over_masque(
@@ -3974,7 +4627,7 @@ pub fn start_proxy_with_node(
 
     let is_socks_node = selected_node.protocol == "socks";
 
-    let outbound_json = convert_link_to_outbound(
+    let mut outbound_json = convert_link_to_outbound(
         selected_node.clone(),
         custom_sni,
         enable_fragment,
@@ -3983,6 +4636,25 @@ pub fn start_proxy_with_node(
         utls_fingerprint,
         fragment_fallback_delay,
     )?;
+
+    // استخراج و شناسایی هوشمند پورت مرحله قبل (تور یا اِتر) جهت تانل زنجیره‌ای
+    let mut upstream_bridge_port: Option<u16> = None;
+    if let Ok(parsed_url) = Url::parse(&selected_node.raw_url) {
+        for (key, val) in parsed_url.query_pairs() {
+            if key == "upstream_socks" || key == "detour" || key == "detour_port" {
+                if let Ok(p) = val.parse::<u16>() {
+                    upstream_bridge_port = Some(p);
+                }
+            }
+        }
+    }
+    if upstream_bridge_port.is_none() && !is_socks_node {
+        if is_tor_connected() {
+            upstream_bridge_port = Some(9050);
+        } else if is_aether_connected() {
+            upstream_bridge_port = Some(1819);
+        }
+    }
 
     let mut inbounds = serde_json::json!([
         {
@@ -4129,23 +4801,34 @@ pub fn start_proxy_with_node(
             "final": primary_resolver_tag
         },
         "inbounds": inbounds,
-        "outbounds": [
-            outbound_json,
-            {
-                "type": "block",
-                "tag": "block"
-            },
-            {
-                "type": "direct",
-                "tag": "direct"
+        "outbounds": (|| {
+            let mut list = Vec::new();
+            if let Some(up_port) = upstream_bridge_port {
+                if !is_socks_node {
+                    outbound_json["detour"] = serde_json::json!("upstream-bridge");
+                }
+                list.push(outbound_json);
+                list.push(serde_json::json!({
+                    "type": "socks",
+                    "tag": "upstream-bridge",
+                    "server": "127.0.0.1",
+                    "server_port": up_port
+                }));
+                write_log("INFO", "CHAIN_DETOUR", &format!("🔗 ترافیک VLESS از درون پل ساکس (127.0.0.1:{}) زنجیره‌سازی شد.", up_port));
+            } else {
+                list.push(outbound_json);
             }
-        ],
+            list.push(serde_json::json!({ "type": "block", "tag": "block" }));
+            list.push(serde_json::json!({ "type": "direct", "tag": "direct" }));
+            list
+        })(),
         "route": {
             "auto_detect_interface": true,
             "final": "proxy-out",
             "default_domain_resolver": primary_resolver_tag,
             "rules": [
                 {
+                    "inbound": ["tun-in"],
                     "process_name": [
                         "aether.exe", 
                         "tor.exe", 
@@ -4389,6 +5072,36 @@ pub fn parse_import_links(input: String) -> Result<Vec<ProxyNode>, String> {
             continue;
         }
 
+        // ۰. پشتیبانی اختصاصی از پروتکل ارکستریتور RedCloud (redcloud://)
+        if line_trimmed.starts_with("redcloud://") {
+            let rest = &line_trimmed[11..];
+            let hash_idx = rest.find('#');
+            let b64_part = if let Some(pos) = hash_idx { &rest[..pos] } else { rest };
+            let fragment_name = if let Some(pos) = hash_idx {
+                urlencoding::decode(&rest[pos + 1..]).unwrap_or_else(|_| rest[pos + 1..].into()).to_string()
+            } else {
+                "RedCloud Cyber-Chain".to_string()
+            };
+
+            let mut clean_b64 = b64_part.trim().to_string();
+            while clean_b64.len() % 4 != 0 { clean_b64.push('='); }
+
+            if let Ok(decoded_bytes) = general_purpose::STANDARD.decode(&clean_b64)
+                .or_else(|_| general_purpose::URL_SAFE.decode(&clean_b64)) 
+            {
+                if let Ok(recipe) = serde_json::from_slice::<serde_json::Value>(&decoded_bytes) {
+                    let display_name = recipe["name"].as_str().unwrap_or(&fragment_name).to_string();
+                    nodes.push(ProxyNode {
+                        name: display_name,
+                        protocol: "redcloud".to_string(),
+                        raw_url: line_trimmed.to_string(),
+                    });
+                    write_log("INFO", "IMPORT", "🔗 کانفیگ پایپ‌لاین RedCloud با موفقیت پارس و بارگذاری شد.");
+                    continue;
+                }
+            }
+        }
+
         // ۱. پشتیبانی کامل از لینک‌های مدرن و قدیمی Shadowsocks (ss://)
         if line_trimmed.starts_with("ss://") {
             let rest = &line_trimmed[5..];
@@ -4470,6 +5183,16 @@ fn convert_link_to_outbound(
     let port = parsed_url.port().ok_or("پورت یافت نشد")?;
     
     let protocol = if node.protocol == "hy2" { "hysteria2" } else { node.protocol.as_str() };
+
+    // جلوگیری از کرش در صورت صدا زده شدن برای پایپ‌لاین RedCloud
+    if protocol == "redcloud" {
+        return Ok(serde_json::json!({
+            "type": "socks",
+            "tag": "proxy-out",
+            "server": "127.0.0.1",
+            "server_port": 1819
+        }));
+    }
 
     // ==================== پشتیبانی کامل از خروجی VMess ====================
     if protocol == "vmess" {
@@ -4810,6 +5533,7 @@ fn convert_link_to_outbound(
     let mut sid = "".to_string();
     let mut spx = "".to_string();
     let mut ech_config = "".to_string();
+    let mut flow = "".to_string();
     let mut insecure = true;
 
     for (key, val) in parsed_url.query_pairs() {
@@ -4823,9 +5547,14 @@ fn convert_link_to_outbound(
             "sid" | "short_id" => sid = val.into_owned(),
             "spx" | "spider_x" => spx = val.into_owned(),
             "ech" | "ech_config" => ech_config = val.into_owned(),
+            "flow" => flow = val.into_owned(),
             "insecure" | "allowInsecure" => insecure = val == "1" || val == "true",
             _ => {}
         }
+    }
+
+    if protocol == "vless" && !flow.is_empty() {
+        outbound["flow"] = serde_json::json!(flow);
     }
 
     let final_sni = if let Some(ref cs) = custom_sni {

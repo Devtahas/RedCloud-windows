@@ -94,6 +94,31 @@ class CoreUpdaterService {
       downloadUrl:
           'https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe',
     ),
+    // هسته اختصاصی کلاینت دی‌ان‌اس تونل ویندوز (SlipNet / DNSTT)
+    CoreItem(
+      id: 'slipnet',
+      name: 'SlipNet Engine (DNS Tunnel)',
+      repo: 'SamNet-dev/findns',
+      targetExeName: 'slipnet.exe',
+      isDirectExe: true,
+      isPinned: true,
+      currentVersion: 'v0.2.2',
+      downloadUrl:
+          'https://github.com/SamNet-dev/findns/releases/download/v0.2.2/dnstt-client.exe',
+    ),
+    // هسته رسمی کلاینت وایت دی‌ان‌اس (CottenDNS Client با اسکنر خودکار ریزالور)
+    CoreItem(
+      id: 'whitedns',
+      name: 'WhiteDNS Engine (CottenDNS)',
+      repo: 'WhiteDNS/CottenDNS',
+      targetExeName: 'whitedns.exe',
+      assetKeyword: 'CottenDns_Client_Windows_AMD64',
+      isDirectExe: false,
+      isPinned: false,
+      currentVersion: 'Latest',
+      downloadUrl:
+          'https://github.com/WhiteDNS/CottenDNS/releases/latest/download/CottenDns_Client_Windows_AMD64.zip',
+    ),
   ];
 
   /// دریافت پوشه هدف برای فایل‌های اجرایی
@@ -413,6 +438,8 @@ class CoreUpdaterService {
             if (core.id == 'dnscrypt' && fName.contains('dnscrypt') && fName.endsWith('.exe')) return true;
             if (core.id == 'goodbyedpi' && fName.contains('goodbyedpi') && fName.endsWith('.exe')) return true;
             if (core.id == 'singbox' && fName.contains('sing-box') && fName.endsWith('.exe')) return true;
+            if (core.id == 'slipnet' && fName.contains('slipnet') && fName.endsWith('.exe')) return true;
+            if (core.id == 'whitedns' && (fName.contains('cottendns') || fName.contains('whitedns')) && fName.endsWith('.exe')) return true;
             return false;
           },
           orElse: () => throw Exception('${core.targetExeName} not found in archive'),

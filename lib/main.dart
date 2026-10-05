@@ -19,7 +19,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "4.4";
+const String appCurrentVersion = "4.5";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -286,6 +286,30 @@ class V2rayConfig {
 
   static V2rayConfig parse(String rawUrl) {
     try {
+      // ۰. پارس اختصاصی پروتکل درون‌برنامه‌ای RedCloud Pipeline
+      if (rawUrl.startsWith('redcloud://')) {
+        try {
+          final rest = rawUrl.substring(11).trim();
+          final hashIdx = rest.indexOf('#');
+          var b64 = hashIdx != -1 ? rest.substring(0, hashIdx) : rest;
+          final fragmentName = hashIdx != -1 ? Uri.decodeComponent(rest.substring(hashIdx + 1)) : '';
+          while (b64.length % 4 != 0) { b64 += '='; }
+          final decodedJson = utf8.decode(base64Decode(b64));
+          final Map<String, dynamic> data = jsonDecode(decodedJson);
+          final recipeName = data['name']?.toString() ?? fragmentName;
+          
+          return V2rayConfig(
+            protocol: 'redcloud',
+            alias: recipeName.isNotEmpty ? recipeName : 'RedCloud Chain Pipeline',
+            address: 'Internal Chain',
+            port: 0,
+            uuidOrPassword: 'chain-orchestrator',
+            transport: (data['chain'] as List?)?.join(' ➔ ') ?? 'Pipeline',
+            security: 'cyber-chain',
+          );
+        } catch (_) {}
+      }
+
       // ۱. پارس اختصاصی لینک‌های استاندارد VMess Base64
       if (rawUrl.startsWith('vmess://')) {
         try {
@@ -574,6 +598,8 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   String _coreUpdateStatus = '';
   double _coreUpdateProgress = 0.0;
   bool _hasLanguageBeenSet = false;
+  Timer? _persianHubTimer;
+  bool _isUpdatingPersianHub = false;
   
   final TextEditingController _binaryPathController = TextEditingController(text: 'sing-box.exe');
   final TextEditingController _aetherPathController = TextEditingController(text: 'aether.exe');
@@ -607,6 +633,34 @@ class _MainLayoutContentState extends State<MainLayoutContent> with WindowListen
   // متغیرها و موتور شتاب‌دهنده شبکه ویندوز (TCP Turbo & BBR)
   bool _isTcpTurboEnabled = true;
   bool _isApplyingTcpTurbo = false;
+
+  // ==================== متغیرهای منوی مخفی راست و تب SlipNet ====================
+  bool _isRightSidebarVisible = false; // وضعیت نمایش منوی سمت راست با Ctrl+Shift+W
+  bool _isSlipNetRunning = false;
+  bool _isSlipNetConnecting = false;
+  String _slipNetStatusText = 'آماده اتصال به تونل دی‌ان‌اس';
+  String _selectedSlipNetTunnel = 'dnstt'; // dnstt, noizdns, vaydns, slipstream
+  String _selectedSlipNetTransport = 'udp'; // udp, doh, dot
+  bool _useSlipNetTunMode = false;
+  bool _useSlipNetGoodbyeDpi = true;
+  final TextEditingController _slipnetDomainCtrl = TextEditingController(text: 't.dnstt.online');
+  final TextEditingController _slipnetPubkeyCtrl = TextEditingController(text: '');
+  final TextEditingController _slipnetResolverCtrl = TextEditingController(text: '8.8.8.8, 1.1.1.1');
+  final TextEditingController _slipnetPortCtrl = TextEditingController(text: '1825');
+  final TextEditingController _slipnetRawUriCtrl = TextEditingController();
+
+  // ==================== متغیرها و کنترلرهای اختصاصی WhiteDNS ====================
+  bool _isWhiteDnsRunning = false;
+  bool _isWhiteDnsConnecting = false;
+  String _whiteDnsStatusText = 'آماده اتصال به تونل WhiteDNS';
+  String _selectedWhiteDnsEngine = 'CottenDNS'; // CottenDNS, MasterDNS, StormDNS
+  String _selectedWhiteDnsPreset = 'speed'; // speed, survival, tcp-survival
+  bool _useWhiteDnsTunMode = false;
+  bool _useWhiteDnsGoodbyeDpi = true;
+  final TextEditingController _whiteDnsDomainCtrl = TextEditingController(text: 'whitedns.cloud');
+  final TextEditingController _whiteDnsPubkeyCtrl = TextEditingController(text: '');
+  final TextEditingController _whiteDnsResolversCtrl = TextEditingController(text: '1.1.1.1, 8.8.8.8');
+  final TextEditingController _whiteDnsPortCtrl = TextEditingController(text: '1826');
 
   Future<void> _applyWindowsTcpTurbo(bool enable) async {
     if (!Platform.isWindows) return;
@@ -816,6 +870,30 @@ netsh int tcp set global fastopen=disabled
           _updateSystemTrayMenu();
         }},
       ];
+
+      // کلید میانبر اختصاصی Ctrl + Shift + W برای آشکار/پنهان کردن منوی مخفی راست
+      final secretHk = HotKey(
+        key: PhysicalKeyboardKey.keyW,
+        modifiers: [HotKeyModifier.control, HotKeyModifier.shift],
+        scope: HotKeyScope.system,
+      );
+      await hotKeyManager.register(
+        secretHk,
+        keyDownHandler: (_) {
+          if (mounted) {
+            setState(() {
+              _isRightSidebarVisible = !_isRightSidebarVisible;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_isRightSidebarVisible ? '🔓 منوی مخفی راست باز شد (SlipNet Hub)' : '🔒 منوی مخفی بسته شد'),
+                duration: const Duration(milliseconds: 1200),
+                backgroundColor: const Color(0xFF00F2FE),
+              ),
+            );
+          }
+        },
+      );
 
       DateTime lastHotkeyTrigger = DateTime.now();
       for (var item in list) {
@@ -1476,6 +1554,8 @@ if ($list.Count -gt 0) { $list | ConvertTo-Json -Compress } else { Write-Output 
   }
 
   bool _useSystemProxy = true; 
+  // پورت خروجی داینامیک: به طور خودکار منطبق با آخرین گره فعال هر زنجیره تنظیم می‌شود
+  int _activeEgressProxyPort = 2080;
   String _statusMessage = "سیستم آماده اتصال است";
   /// ترجمه خودکار و بلادرنگ تمامی پیام‌های وضعیت و خروجی هسته‌ها به انگلیسی
   /// ترجمه خودکار و بلادرنگ تمامی پیام‌های وضعیت و خروجی هسته‌ها به انگلیسی
@@ -3059,6 +3139,7 @@ try {
       }
     });
     _fetchGithubAccounts(); // بارگذاری سریع از کش محلی در بدو اجرای برنامه
+    _startPersianHubAutoSync();
   }
 
   Future<void> _initLanShareState() async {
@@ -3085,6 +3166,7 @@ try {
     _torProgressTimer?.cancel();
     _psiphonProgressTimer?.cancel();
     _dnsToastTimer?.cancel();
+    _persianHubTimer?.cancel();
     _hotspotMonitorTimer?.cancel();
     _hotspotMonitorTimer = null;
     _serverSearchController.dispose();
@@ -3342,8 +3424,10 @@ try {
   List<SavedNodeItem> get _filteredNodeItems {
     return _savedNodeItems.where((item) {
       if (_selectedGroupId != 'all') {
-        if (_selectedGroupId == 'manual') {
-          if (item.groupId != 'manual' && !item.groupId.startsWith('scanner')) {
+        if (_selectedGroupId == 'redcloud_sub') {
+          if (item.node.protocol != 'redcloud') return false;
+        } else if (_selectedGroupId == 'manual') {
+          if (item.groupId != 'manual' && !item.groupId.startsWith('scanner') && item.node.protocol != 'redcloud') {
             return false;
           }
         } else if (item.groupId != _selectedGroupId) {
@@ -3411,6 +3495,168 @@ try {
             : "تست پینگ موازی پایان یافت؛ سرورهای پایدار در صدر لیست قرار گرفتند.";
       });
       _saveNodesToDisk();
+    }
+  }
+
+  void _startPersianHubAutoSync() {
+    _persianHubTimer?.cancel();
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) _updatePersianHubSubscription(showToast: false);
+    });
+    _persianHubTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      if (mounted) _updatePersianHubSubscription(showToast: false);
+    });
+  }
+
+  Future<void> _updatePersianHubSubscription({bool showToast = false}) async {
+    if (_isUpdatingPersianHub) return;
+    setState(() => _isUpdatingPersianHub = true);
+
+    final bool isEn = AppTranslations.currentLang == 'en';
+    const String workerUrl = "https://rv.tutestjust.workers.dev";
+    String? rawBody;
+    bool startedGoodbyeDpiByUs = false;
+
+    Future<String?> fetchDirect() async {
+      try {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 5);
+        client.badCertificateCallback = (cert, host, port) => true;
+        client.findProxy = (uri) => "DIRECT";
+        final request = await client.getUrl(Uri.parse(workerUrl));
+        request.headers.set('User-Agent', 'v2rayN/7.22.5 (Windows; x64) RedCloud/4.5');
+        final response = await request.close().timeout(const Duration(seconds: 6));
+        if (response.statusCode == 200) {
+          return await response.transform(utf8.decoder).join();
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    // ۱. تلاش اولیه به صورت مستقیم
+    rawBody = await fetchDirect();
+
+    // ۲. در صورت اختلال یا فیلترینگ: فعال‌سازی نجات با GoodbyeDPI و چرخش پریست‌ها
+    if (rawBody == null || rawBody.trim().isEmpty) {
+      if (Platform.isWindows) {
+        final wasRunning = await isGoodbyedpiRunning();
+        final presets = [
+          '-9 -p -r -s -f 2 -k 2 -n -e 2',
+          '-5 -p -s -e 1 -f 1 -k 1',
+          '-9 --wrong-chksum -p -r -e 2',
+        ];
+
+        for (var preset in presets) {
+          try {
+            await startGoodbyedpiCore(binaryPath: 'goodbyedpi.exe', args: preset);
+            if (!wasRunning) startedGoodbyeDpiByUs = true;
+            await Future.delayed(const Duration(milliseconds: 1200));
+
+            rawBody = await fetchDirect();
+            if (rawBody != null && rawBody.trim().isNotEmpty) {
+              AppLogger.info("PERSIAN_HUB", "کانفیگ‌ها با افکت نجات GoodbyeDPI [$preset] دریافت شدند.");
+              break;
+            }
+          } catch (_) {}
+        }
+
+        // اگر گودبای‌دی‌پی قبل از این عملیات خاموش بوده، آن را مجدداً خاموش کن
+        if (startedGoodbyeDpiByUs) {
+          try {
+            await stopGoodbyedpiCore();
+            if (mounted) setState(() => _isGoodbyeDpiRunning = false);
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (rawBody == null || rawBody.trim().isEmpty) {
+      if (mounted) {
+        setState(() => _isUpdatingPersianHub = false);
+        if (showToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isEn ? 'Failed to fetch PersianVPN Hub configs.' : 'خطا در ارتباط با سرور PersianVPN Hub.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    try {
+      final parsed = await parseImportLinks(input: rawBody);
+      final hubParsed = parsed.where((n) {
+        final p = n.protocol.toLowerCase();
+        return p == 'vless' || p == 'vmess';
+      }).toList();
+
+      if (hubParsed.isNotEmpty) {
+        String cleanLink(String l) => l.split('#').first.trim();
+
+        // کانفیگ‌های فعلی این ساب
+        final existingHubItems = _savedNodeItems.where((i) => i.groupId == 'persian_vpn_hub').toList();
+        final existingCleanUrls = existingHubItems.map((i) => cleanLink(i.node.rawUrl)).toSet();
+
+        // جداسازی موارد جدید غیرتکراری
+        final List<SavedNodeItem> nonDuplicateNewItems = [];
+        for (var n in hubParsed) {
+          final c = cleanLink(n.rawUrl);
+          if (!existingCleanUrls.contains(c)) {
+            existingCleanUrls.add(c);
+            nonDuplicateNewItems.add(SavedNodeItem(node: n, groupId: 'persian_vpn_hub'));
+          }
+        }
+
+        // ترکیب جدیدها در صدر و قدیمی‌ها در ذیل
+        final combined = [...nonDuplicateNewItems, ...existingHubItems];
+
+        // سقف حداکثر ۴۰ تایی (حذف قدیمی‌ترین‌ها از انتها در صورت تجاوز از ۴۰)
+        final cappedHubList = combined.take(40).toList();
+
+        // پاکسازی کامل تبلیغات کانال‌ها و تغییر نام به Red 1, Red 2, ...
+        for (int idx = 0; idx < cappedHubList.length; idx++) {
+          final item = cappedHubList[idx];
+          final newName = "Red ${idx + 1}";
+          final baseLink = cleanLink(item.node.rawUrl);
+          item.node = ProxyNode(
+            name: newName,
+            protocol: item.node.protocol,
+            rawUrl: "$baseLink#$newName",
+          );
+        }
+
+        setState(() {
+          _savedNodeItems.removeWhere((i) => i.groupId == 'persian_vpn_hub');
+          _savedNodeItems.addAll(cappedHubList);
+          if (_selectedNode == null && cappedHubList.isNotEmpty) {
+            _selectedNode = cappedHubList.first.node;
+          } else if (_selectedNode != null && cappedHubList.isNotEmpty) {
+            final updated = cappedHubList.where((i) => cleanLink(i.node.rawUrl) == cleanLink(_selectedNode!.rawUrl)).firstOrNull;
+            if (updated != null) {
+              _selectedNode = updated.node;
+            }
+          }
+        });
+
+        await _saveNodesToDisk();
+
+        if (mounted && showToast) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(isEn
+                  ? 'RedCloud Hub updated (${nonDuplicateNewItems.length} new added, total ${cappedHubList.length}).'
+                  : 'سرورهای RedCloud Hub بروز شدند (${nonDuplicateNewItems.length} سرور تازه، مجموع ${cappedHubList.length}).'),
+              backgroundColor: const Color(0xFF2DCA73),
+            ),
+          );
+        }
+      }
+    } catch (e, st) {
+      AppLogger.error("PERSIAN_HUB", "Error parsing PersianVPN Hub configs", e, st);
+    } finally {
+      if (mounted) setState(() => _isUpdatingPersianHub = false);
     }
   }
 
@@ -4739,106 +4985,186 @@ try {
     }
   }
 
-  Future<void> _fetchIpInfo({int retryCount = 2}) async {
-    final bool isAnyConnected = _isProxyRunning || _isHybridRunning || _isAetherRunning || _isTorRunning || _isPsiphonRunning;
-    if (!isAnyConnected) return;
+  bool get _isAnyTunnelConnected {
+    return _isProxyRunning ||
+        _isHybridRunning ||
+        _isAetherRunning ||
+        _isTorRunning ||
+        _isTorMasqueRunning ||
+        _isPsiphonRunning ||
+        _isPsiphonMasqueRunning ||
+        _isSlipNetRunning ||
+        _isWhiteDnsRunning ||
+        _isGamingRunning;
+  }
+
+  String _resolveDynamicProxyConfig() {
+    // اگر کارت شبکه مجازی (TUN) در هر بخشی روشن باشد، سیستم شفاف روت می‌شود
+    if (_useTunMode ||
+        _useTunModeAether ||
+        _useTunModeTor ||
+        _useTunModePsiphon ||
+        _useSlipNetTunMode ||
+        _useWhiteDnsTunMode ||
+        _isGamingRunning) {
+      return "DIRECT";
+    }
+
+    // ۱. بررسی هوشمند پایپ‌لاین RedCloud: پورت HTTP آخرین هسته زنجیره
+    if (_selectedNode?.protocol == 'redcloud') {
+      try {
+        final rest = _selectedNode!.rawUrl.substring(11).split('#').first.trim();
+        var b64 = rest;
+        while (b64.length % 4 != 0) { b64 += '='; }
+        final Map<String, dynamic> recipe = jsonDecode(utf8.decode(base64Decode(b64)));
+        final List<String> chain = List<String>.from(recipe['chain'] ?? []);
+
+        for (int i = chain.length - 1; i >= 0; i--) {
+          final stage = chain[i].toLowerCase();
+          if (stage == 'dashboard') {
+            return "PROXY 127.0.0.1:2080";
+          } else if (stage == 'psiphon') {
+            final isCdn = recipe['modules']?['psiphon']?['cdn_fronting'] == true;
+            final p = isCdn ? 1821 : 9081;
+            return "PROXY 127.0.0.1:$p";
+          } else if (stage == 'tor') {
+            return "PROXY 127.0.0.1:9051";
+          } else if (stage == 'aether') {
+            return "PROXY 127.0.0.1:1820";
+          }
+        }
+      } catch (_) {}
+      return "PROXY 127.0.0.1:$_activeEgressProxyPort";
+    }
+
+    // ۲. پورت‌های رسمی و استاندارد HTTP هسته‌های مستقل
+    if (_isHybridRunning || _isProxyRunning) {
+      return "PROXY 127.0.0.1:2080";
+    }
+    if (_isPsiphonRunning || _isPsiphonMasqueRunning) {
+      final p = _usePsiphonCdnFronting ? 1821 : 9081;
+      return "PROXY 127.0.0.1:$p";
+    }
+    if (_isTorRunning || _isTorMasqueRunning) {
+      return "PROXY 127.0.0.1:9051";
+    }
+    if (_isAetherRunning) {
+      return "PROXY 127.0.0.1:1820";
+    }
+    if (_isSlipNetRunning) {
+      final p = int.tryParse(_slipnetPortCtrl.text.trim()) ?? 1825;
+      return "SOCKS 127.0.0.1:$p";
+    }
+    if (_isWhiteDnsRunning) {
+      final p = int.tryParse(_whiteDnsPortCtrl.text.trim()) ?? 1826;
+      return "SOCKS 127.0.0.1:$p";
+    }
+
+    return "PROXY 127.0.0.1:2080";
+  }
+
+  Future<void> _fetchIpInfo({int retryCount = 3}) async {
+    if (!_isAnyTunnelConnected) return;
 
     if (!mounted) return;
     setState(() {
       _isLoadingIpInfo = true;
     });
 
-    // خواندن مستقیم و آنی مشخصات خروجی سایفون از گزارش رسمی اِتر
+    // خواندن مستقیم و آنی مشخصات خروجی سایفون از فایل اِتر در صورت CDN Fronting
     if ((_isPsiphonRunning || _isPsiphonMasqueRunning) && _usePsiphonCdnFronting) {
       try {
         final exitFile = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
         if (await exitFile.exists()) {
           final line = await exitFile.readAsString();
-          // نمونه خط: [+] psiphon through the tunnel exit: 172.232.129.119, SE via ARN, 2160ms
           if (line.contains("exit:")) {
             final afterExit = line.split("exit:")[1].trim();
             final parts = afterExit.split(",");
             if (parts.length >= 2) {
               final realIp = parts[0].trim();
               final countryPart = parts[1].trim().split(" ")[0].trim();
-              setState(() {
-                _publicIp = realIp;
-                _countryCode = countryPart;
-                _countryName = countryPart == "SE" ? "Sweden" : (countryPart == "JP" ? "Japan" : countryPart);
-                _cityName = parts[1].trim();
-                _isLoadingIpInfo = false;
-                _statusMessage = "متصل به سایفون فرانتینگ (${_countryName})";
-              });
-              return;
+              if (mounted) {
+                setState(() {
+                  _publicIp = realIp;
+                  _countryCode = countryPart;
+                  _countryName = countryPart == "SE" ? "Sweden" : (countryPart == "JP" ? "Japan" : countryPart);
+                  _cityName = parts[1].trim();
+                  _isLoadingIpInfo = false;
+                  _statusMessage = "متصل به سایفون فرانتینگ ($_countryName)";
+                });
+                _syncTimezoneToCountry(countryPart);
+                _updateSystemTrayMenu();
+                return;
+              }
             }
           }
         }
       } catch (_) {}
     }
 
+    final proxyDirective = _resolveDynamicProxyConfig();
+
+    // سرویس‌های HTTPS سریع، پایدار و ضد تحریم
     final providers = [
-      'http://ip-api.com/json/?fields=status,country,countryCode,city,query',
-      'https://freeipapi.com/api/json/',
+      'https://api.ip.sb/geoip',
       'https://ipwho.is/',
+      'https://freeipapi.com/api/json/',
+      'https://api64.ipify.org?format=json',
     ];
 
     for (int attempt = 0; attempt <= retryCount; attempt++) {
+      if (!_isAnyTunnelConnected) break;
       if (attempt > 0) {
-        await Future.delayed(const Duration(seconds: 2));
+        await Future.delayed(Duration(milliseconds: 1000 * attempt));
       }
 
       for (final urlStr in providers) {
+        if (!_isAnyTunnelConnected) break;
+        HttpClient? client;
         try {
-          final client = HttpClient();
-          client.connectionTimeout = const Duration(seconds: 6);
+          client = HttpClient();
+          client.connectionTimeout = const Duration(seconds: 4);
           client.badCertificateCallback = (cert, host, port) => true;
-
-          if (_isPsiphonRunning || _isPsiphonMasqueRunning) {
-            final proxyPort = _usePsiphonCdnFronting ? 1821 : 9081;
-            client.findProxy = (uri) => "PROXY 127.0.0.1:$proxyPort";
-          } else if (_isTorRunning || _isTorMasqueRunning) {
-            client.findProxy = (uri) => "PROXY 127.0.0.1:9051";
-          } else if (_isHybridRunning || _isProxyRunning) {
-            client.findProxy = (uri) => "PROXY 127.0.0.1:2080";
-          } else if (_isAetherRunning) {
-            client.findProxy = (uri) => "PROXY 127.0.0.1:1820";
-          } else {
-            client.findProxy = (uri) => "DIRECT";
-          }
+          client.findProxy = (uri) => proxyDirective;
 
           final request = await client.getUrl(Uri.parse(urlStr));
-          final response = await request.close();
+          final response = await request.close().timeout(const Duration(seconds: 5));
 
           if (response.statusCode == 200) {
             final body = await response.transform(utf8.decoder).join();
             final data = jsonDecode(body);
 
-            String? ip = data['query'] ?? data['ipAddress'] ?? data['ip'];
-            String? countryCode = data['countryCode'] ?? data['country_code'];
-            String? country = data['country'] ?? data['countryName'];
+            String? ip = data['ip'] ?? data['query'] ?? data['ipAddress'];
+            String? countryCode = data['country_code'] ?? data['countryCode'];
+            String? country = data['country'] ?? data['countryName'] ?? data['country_name'];
             String? city = data['city'] ?? data['cityName'];
 
             final bool isEn = AppTranslations.currentLang == 'en';
-            if (ip != null && countryCode != null && mounted) {
+            if (ip != null && ip.isNotEmpty && mounted) {
               setState(() {
                 _publicIp = ip;
-                _countryCode = countryCode;
-                _countryName = country ?? (isEn ? 'Unknown' : 'ناشناس');
-                _cityName = city ?? (isEn ? 'Unknown' : 'ناشناس');
+                _countryCode = countryCode ?? '';
+                _countryName = country ?? (isEn ? 'Global Server' : 'سرور جهانی');
+                _cityName = city ?? '';
                 _isLoadingIpInfo = false;
                 _statusMessage = isEn 
-                    ? "Connection stable, traffic active (Location: $_countryName)." 
-                    : "اتصال پایدار و ترافیک فعال است (لوکیشن: $_countryName).";
+                    ? "Connection stable, traffic active." 
+                    : "اتصال پایدار و ترافیک فعال است.";
               });
-              AppLogger.info("IP_GEO", "اطلاعات آی‌پی دریافت شد: $ip ($country)");
+              AppLogger.info("IP_GEO", "اطلاعات آی‌پی با موفقیت دریافت شد: $ip (${country ?? ''})");
 
-              // فعال‌سازی ناظر خودکار هویت: تطابق ساعت سیستم با کشور خروجی
-              _syncTimezoneToCountry(countryCode);
-              _updateSystemTrayMenu(); // آپدیت خودکار منوی تری به وضعیت متصل
+              if (countryCode != null && countryCode.isNotEmpty) {
+                _syncTimezoneToCountry(countryCode);
+              }
+              _updateSystemTrayMenu();
+              client.close(force: true);
               return;
             }
           }
-        } catch (_) {}
+        } catch (_) {
+        } finally {
+          try { client?.close(force: true); } catch (_) {}
+        }
       }
     }
 
@@ -5100,23 +5426,58 @@ try {
   Future<void> _toggleV2RayConnection() async {
     try {
       if (Platform.isWindows) {
-        if (_isHybridRunning || _isProxyRunning) {
-          await _stopTelemetryReporting();
-          
-          final String msg = _isHybridRunning 
-              ? await stopHybridConnection() 
-              : await stopProxyCore();
-              
+        // ۱. بررسی جامع همه هسته‌ها (تور، سایفون، اِتر، هیبریدی و پروکسی)
+        final bool isCurrentlyActive = _isHybridRunning ||
+            _isProxyRunning ||
+            _isPsiphonRunning ||
+            _isPsiphonConnecting ||
+            _isTorRunning ||
+            _isTorConnecting ||
+            _isAetherRunning ||
+            _isAetherConnecting;
+
+        if (isCurrentlyActive) {
+          _psiphonProgressTimer?.cancel();
+          _torProgressTimer?.cancel();
+          _aetherProgressTimer?.cancel();
+
+          // خاموش کردن تمیز و قطعی هسته‌ها
+          if (_isTorRunning || _isTorConnecting) {
+            await stopTorOverMasque();
+          }
+          if (_isPsiphonRunning || _isPsiphonConnecting) {
+            await stopPsiphonOverMasque();
+          }
+          if (_isAetherRunning || _isAetherConnecting) {
+            await stopAetherCore();
+          }
+          if (_isHybridRunning) {
+            await stopHybridConnection();
+          }
+          if (_isProxyRunning) {
+            await stopProxyCore();
+          }
+
           _stopTrafficMonitoring();
           _stopCore2Monitoring();
+          await _stopTelemetryReporting();
           await _maybeStopGoodbyeDpi();
           await _maybeStopDnscrypt();
+
           setState(() {
             _isHybridRunning = false;
             _isProxyRunning = false;
-            _statusMessage = msg;
+            _isPsiphonRunning = false;
+            _isPsiphonConnecting = false;
+            _isPsiphonMasqueRunning = false;
+            _isTorRunning = false;
+            _isTorConnecting = false;
+            _isAetherRunning = false;
+            _isAetherConnecting = false;
+            _statusMessage = "اتصال با موفقیت متوقف شد.";
             _resetIpInfo();
           });
+          return; // خروج قطعی از تابع؛ دیگر هرگز به شاخه else و اتصال مجدد وارد نمی‌شود
         } else {
           if (_selectedNode == null) {
             setState(() => _statusMessage = "در حال دریافت خودکار اکانت و اجرای اسکن دو‌مرحله‌ای...");
@@ -5172,6 +5533,317 @@ try {
           await _maybeStartGoodbyeDpi(_useGoodbyeDpiDashboard);
           // فعال‌سازی هوشمند اولویت اول دی‌ان‌اس (DNSCrypt Shield)
           await _maybeStartDnscrypt();
+
+          // اجرای اختصاصی کانفیگ‌های پروتکل RedCloud
+          // اجرای اختصاصی کانفیگ‌های پروتکل RedCloud
+          // ==================== موتور ارکستریتور پایپ‌لاین REDCLOUD ====================
+          // ==================== موتور ارکستریتور پایپ‌لاین REDCLOUD ====================
+          if (_selectedNode!.protocol == 'redcloud') {
+            setState(() => _statusMessage = "در حال برپایی خط لوله پویا طبق دستورالعمل کانفیگ...");
+            try {
+              final rest = _selectedNode!.rawUrl.substring(11).split('#').first.trim();
+              var b64 = rest;
+              while (b64.length % 4 != 0) { b64 += '='; }
+              final Map<String, dynamic> recipe = jsonDecode(utf8.decode(base64Decode(b64)));
+              final List<String> chain = List<String>.from(recipe['chain'] ?? []);
+              final Map<String, dynamic> mods = recipe['modules'] ?? {};
+              final Map<String, dynamic> net = recipe['network'] ?? {};
+              final List<String> bypass = List<String>.from(recipe['bypass_domains'] ?? []);
+
+              // ۱. اعمال دامنه‌های مستقیم (Bypass)
+              for (var dom in bypass) {
+                if (!_splitRules.any((r) => r['domain'] == dom)) {
+                  _splitRules.add({'domain': dom, 'type': 'direct'});
+                }
+              }
+              await _applySystemProxyOverride();
+
+              // ۲. اجرای افکت GoodbyeDPI (اگر در زنجیره باشد)
+              if (chain.contains('goodbyedpi')) {
+                final dpiConf = mods['goodbyedpi'] ?? {};
+                final args = dpiConf['args']?.toString() ?? '-9 -p -r -s -f 2 -k 2 -n -e 2';
+                await _maybeStartGoodbyeDpi(true, explicitArgs: args);
+              }
+
+              int? previousSocksPort;
+              String lastActiveName = 'RedCloud';
+              int finalProxyPort = 2080;
+
+              // اجرای کاملاً پویا و ترتیبی دقیقاً بر اساس ایندکس‌های آرایه chain (بدون هیچ هسته تحمیلی)
+              for (int stageIndex = 0; stageIndex < chain.length; stageIndex++) {
+                final currentStage = chain[stageIndex].toLowerCase();
+                if (currentStage == 'goodbyedpi') continue; // درایور کرنل است و نیازی به پورت ندارد
+
+                // سناریوی ۱: اجرای اِتر (Aether)
+                if (currentStage == 'aether') {
+                  final aMode = mods['aether']?['mode']?.toString() ?? 'wireguard';
+                  final aNoize = mods['aether']?['noize']?.toString() ?? 'aggressive';
+                  setState(() {
+                    _isAetherConnecting = true;
+                    _statusMessage = "گام ${stageIndex + 1}: راه‌اندازی اِتر ($aMode)...";
+                  });
+
+                  await startAetherCore(
+                    binaryPath: _aetherPathController.text.trim(),
+                    mode: aMode,
+                    noize: aNoize,
+                    warpKey: null,
+                    team: null,
+                    useSystemProxy: false,
+                  );
+
+                  int aetherSilence = 0;
+                  String lastTxt = '';
+                  bool aetherReady = false;
+                  for (int i = 0; i < 180; i++) {
+                    await Future.delayed(const Duration(milliseconds: 400));
+                    final done = await isAetherBootstrapDone();
+                    final st = await getAetherStatusText();
+                    if (st.isNotEmpty && st != lastTxt) {
+                      lastTxt = st;
+                      aetherSilence = 0;
+                      if (mounted) setState(() => _statusMessage = "اِتر: $st");
+                    } else {
+                      aetherSilence++;
+                    }
+                    if (done) { aetherReady = true; break; }
+                    if (aetherSilence > 75) break;
+                  }
+
+                  if (!aetherReady) throw Exception("پل اِتر در زمان مقرر پاسخ نداد.");
+
+                  previousSocksPort = 1819;
+                  lastActiveName = "Aether";
+                  finalProxyPort = 1820;
+                  setState(() {
+                    _isAetherRunning = true;
+                    _isAetherConnecting = false;
+                  });
+                }
+
+                // سناریوی ۲: اجرای تور (Tor) - سوار بر پورت مرحله قبل (هر چه که بوده) یا مستقیم
+                else if (currentStage == 'tor') {
+                  final torConf = mods['tor'] ?? {};
+                  final countryCode = torConf['country']?.toString() ?? '';
+                  setState(() {
+                    _isTorConnecting = true;
+                    _statusMessage = "گام ${stageIndex + 1}: اتصال به شبکه تور (${countryCode.isEmpty ? 'تصادفی' : countryCode}) بر بستر ${previousSocksPort != null ? 'پورت $previousSocksPort' : 'مستقیم'}...";
+                  });
+
+                  // اتصال کاملاً داینامیک: اگر مرحله قبلی وجود داشت پروکسی مرحله قبل به تور داده می‌شود، وگرنه مستقیم کار می‌کند!
+                  final String torArg = previousSocksPort != null 
+                      ? "$countryCode##proxy##127.0.0.1:$previousSocksPort" 
+                      : countryCode;
+
+                  await startTorCore(
+                    binaryPath: _torPathController.text.trim(),
+                    countryCode: torArg,
+                    useSystemProxy: false,
+                  );
+
+                  int lastTorP = 0;
+                  int torSilence = 0;
+                  bool torReady = false;
+                  for (int i = 0; i < 200; i++) {
+                    await Future.delayed(const Duration(milliseconds: 400));
+                    final p = await getTorBootstrapProgress();
+                    if (p > lastTorP) {
+                      lastTorP = p;
+                      torSilence = 0;
+                      if (mounted) setState(() => _statusMessage = "پیشرفت تور: $p٪");
+                    } else {
+                      torSilence++;
+                    }
+                    if (p >= 100) { torReady = true; break; }
+                    if (torSilence > 75) break;
+                  }
+
+                  if (!torReady) throw Exception("شبکه تور موفق به اتصال نشد.");
+
+                  previousSocksPort = 9050;
+                  lastActiveName = "Tor";
+                  finalProxyPort = 9051;
+                  setState(() {
+                    _isTorRunning = true;
+                    _isTorConnecting = false;
+                  });
+                }
+
+                // سناریوی ۳: اجرای سایفون (Psiphon) - سوار بر پورت مرحله قبل (هر چه که بوده) یا مستقیم
+                else if (currentStage == 'psiphon') {
+                  final psiConf = mods['psiphon'] ?? {};
+                  var reg = psiConf['region']?.toString() ?? 'auto';
+                  final isCdnFronting = psiConf['cdn_fronting'] == true;
+                  final cdnMode = psiConf['cdn_mode']?.toString() ?? 'direct';
+
+                  const cdnSupported = ['DE', 'JP', 'SG', 'US', 'AUTO', 'RANDOM'];
+                  if (isCdnFronting && !cdnSupported.contains(reg.toUpperCase())) {
+                    reg = 'auto';
+                  }
+
+                  // اتصال کاملاً داینامیک: انتقال پروکسی مرحله قبل به صورت شفاف به سایفون
+                  String psiArg = isCdnFronting ? "$reg##cdn##$cdnMode" : (reg == 'auto' ? '' : reg);
+                  if (previousSocksPort != null) {
+                    psiArg = "$psiArg##upstream##socks5://127.0.0.1:$previousSocksPort";
+                  }
+
+                  setState(() {
+                    _isPsiphonConnecting = true;
+                    _statusMessage = "گام ${stageIndex + 1}: سایفون در حال اتصال به سرور $reg بر بستر ${previousSocksPort != null ? 'پورت $previousSocksPort' : 'مستقیم'}...";
+                  });
+
+                  await startPsiphonCore(
+                    binaryPath: _psiphonPathController.text.trim(),
+                    countryCode: psiArg,
+                    useSystemProxy: false,
+                  );
+
+                  bool psiphonReady = false;
+                  String lastPsiStatus = '';
+                  int psiSilence = 0;
+                  for (int i = 0; i < 240; i++) {
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    final isDone = await isPsiphonBootstrapDone();
+                    final st = await getPsiphonStatusText();
+                    if (st.isNotEmpty && st != lastPsiStatus) {
+                      lastPsiStatus = st;
+                      psiSilence = 0;
+                      if (mounted) setState(() => _statusMessage = "سایفون: $st");
+                    } else {
+                      psiSilence++;
+                    }
+
+                    if (isCdnFronting) {
+                      final exitFile = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
+                      if (await exitFile.exists()) {
+                        final content = await exitFile.readAsString();
+                        if (content.contains("exit:")) {
+                          psiphonReady = true;
+                          break;
+                        }
+                      }
+                    }
+
+                    if (isDone) { psiphonReady = true; break; }
+                    if (psiSilence > 80) break;
+                  }
+
+                  if (!psiphonReady) throw Exception("سایفون موفق به برقراری تونل نشد.");
+
+                  final int actualPort = isCdnFronting ? 1821 : 9081;
+                  previousSocksPort = isCdnFronting ? 1822 : 9080;
+                  lastActiveName = "Psiphon ($reg)";
+                  finalProxyPort = actualPort;
+
+                  setState(() {
+                    _usePsiphonCdnFronting = isCdnFronting;
+                    _isPsiphonRunning = true;
+                    _isPsiphonConnecting = false;
+                  });
+                }
+
+                // سناریوی ۴: اجرای داشبورد (Sing-box) - سوار بر پورت مرحله قبل (هر چه که بوده) یا مستقیم
+                else if (currentStage == 'dashboard') {
+                  final dashConf = mods['dashboard'] ?? {};
+                  final rawLink = dashConf['raw_url']?.toString() ?? '';
+                  final isAutoScan = dashConf['source'] == 'auto_scan' || rawLink.isEmpty;
+
+                  ProxyNode? vlessNode;
+                  if (rawLink.isNotEmpty) {
+                    vlessNode = ProxyNode(name: "Pipeline VLESS", protocol: "vless", rawUrl: rawLink);
+                  } else if (isAutoScan) {
+                    setState(() => _statusMessage = "گام ${stageIndex + 1}: اسکن خودکار برای سرور داشبورد...");
+                    if (_githubAccounts.isEmpty) await _fetchGithubAccounts();
+                    final cleanScanned = _savedNodeItems.where((i) => i.groupId == 'scanner').firstOrNull?.node;
+                    if (cleanScanned != null) {
+                      vlessNode = cleanScanned;
+                    } else {
+                      if (_uuidController.text.isNotEmpty && _workerController.text.isNotEmpty) {
+                        await _startCloudflareScan(mode: "quick", earlyStop: true);
+                        vlessNode = _savedNodeItems.where((i) => i.groupId == 'scanner').firstOrNull?.node;
+                      }
+                    }
+                    if (vlessNode == null && _githubAccounts.isNotEmpty) {
+                      final acc = _githubAccounts.first;
+                      vlessNode = ProxyNode(
+                        name: "Auto Clean VLESS",
+                        protocol: "vless",
+                        rawUrl: "vless://${acc.uuid}@104.21.0.1:2053?encryption=none&security=tls&sni=${acc.worker}&fp=chrome&alpn=http%2F1.1&insecure=1&type=ws&host=${acc.worker}&path=${Uri.encodeComponent(acc.path)}#Auto-Dashboard",
+                      );
+                    }
+                  }
+
+                  // اتصال داینامیک: تزریق پورت مرحله قبل به عنوان upstream_socks برای تانل VLESS
+                  var nodeToRun = vlessNode ??
+                      _savedNodeItems.where((i) => i.node.protocol != 'redcloud').firstOrNull?.node ??
+                      (previousSocksPort != null
+                          ? ProxyNode(name: "Chain-Egress", protocol: "socks", rawUrl: "socks://127.0.0.1:$previousSocksPort#Chain-Egress")
+                          : ProxyNode(name: "Direct-Fallback", protocol: "direct", rawUrl: "direct://127.0.0.1#Direct"));
+
+                  if (previousSocksPort != null && vlessNode != null) {
+                    final sep = nodeToRun.rawUrl.contains('?') ? '&' : '?';
+                    final hashIdx = nodeToRun.rawUrl.indexOf('#');
+                    final newUrl = hashIdx != -1
+                        ? '${nodeToRun.rawUrl.substring(0, hashIdx)}${sep}upstream_socks=$previousSocksPort${nodeToRun.rawUrl.substring(hashIdx)}'
+                        : '${nodeToRun.rawUrl}${sep}upstream_socks=$previousSocksPort';
+                    nodeToRun = ProxyNode(name: nodeToRun.name, protocol: nodeToRun.protocol, rawUrl: newUrl);
+                  }
+
+                  setState(() => _statusMessage = "گام ${stageIndex + 1}: اجرای Sing-box برای سرور ${nodeToRun.name}...");
+
+                  await startProxyWithNode(
+                    binaryPath: _binaryPathController.text.trim(),
+                    selectedNode: nodeToRun,
+                    useSystemProxy: false,
+                    customSni: null,
+                    enableFragment: true,
+                    enableRecordFragment: false,
+                    tlsSpoof: null,
+                    useTunMode: net['tun_mode'] ?? false,
+                    dnsType: _selectedDns.dnsType,
+                    dnsPrimary: _selectedDns.primary,
+                    dnsSecondary: _selectedDns.secondary,
+                    dnsDohUrl: null,
+                    dnsDotHost: _selectedDns.dotHost,
+                    utlsFingerprint: "chrome",
+                    fragmentFallbackDelay: "500ms",
+                  );
+
+                  previousSocksPort = 2080;
+                  lastActiveName = "Sing-box";
+                  finalProxyPort = 2080;
+                  setState(() => _isProxyRunning = true);
+                }
+              }
+
+              // گام نهایی: ثبت خروجی واقعی آخرین هسته فعال بدون آسیب زدن به هسته‌های بالادستی
+              _activeEgressProxyPort = finalProxyPort;
+
+              final bool shouldSetSysProxy = net['system_proxy'] ?? true;
+              if (shouldSetSysProxy && !(net['tun_mode'] ?? false)) {
+                await Process.run('reg', [
+                  'add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+                  '/v', 'ProxyServer', '/t', 'REG_SZ', '/d', '127.0.0.1:$_activeEgressProxyPort', '/f'
+                ], runInShell: true);
+
+                await Process.run('reg', [
+                  'add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+                  '/v', 'ProxyEnable', '/t', 'REG_DWORD', '/d', '1', '/f'
+                ], runInShell: true);
+              }
+
+              setState(() {
+                _statusMessage = "زنجیره کامل ($lastActiveName) با موفقیت روی پورت $_activeEgressProxyPort متصل شد!";
+              });
+
+              // استعلام مستقیم از خروجی نهایی زنجیره
+              Future.delayed(const Duration(milliseconds: 2500), () => _fetchIpInfo());
+              return;
+            } catch (e) {
+              setState(() => _statusMessage = "خطا در پایپ‌لاین: $e");
+              return;
+            }
+          }
 
           if (_isHybridModeEnabled) {
             setState(() {
@@ -6095,6 +6767,22 @@ try {
           icon: Icons.sports_esports_rounded,
           title: 'menu_gaming'.tr(),
         );
+      case 12:
+        return _TabTheme(
+          gradient: const [Color(0xFF00F2FE), Color(0xFF4FACFE)],
+          accent: const Color(0xFF00F2FE),
+          glow: const Color(0xFF4FACFE),
+          icon: Icons.shield_moon_rounded,
+          title: 'SlipNet Tunnel',
+        );
+      case 13:
+        return _TabTheme(
+          gradient: const [Color(0xFFE0EAFC), Color(0xFFCFDEF3)],
+          accent: const Color(0xFFE0EAFC),
+          glow: const Color(0xFF00D2FF),
+          icon: Icons.all_inclusive_rounded,
+          title: 'WhiteDNS Tunnel',
+        );
       
       default:
         return _TabTheme(
@@ -6338,6 +7026,9 @@ try {
                   child: _buildSelectedPage(),
                 ),
               ),
+              // منوی مخفی سمت راست که با فشردن Ctrl+Shift+W فعال می‌شود
+              if (_isRightSidebarVisible)
+                _buildRightSidebar(),
             ],
           ),
           if (_showDnsRescueToast)
@@ -6543,14 +7234,1037 @@ try {
         return _buildAntiDpiSettingsPage();
       case 11:
         return _buildGamingPage();
+      case 12:
+        return _buildSlipNetPage();
+      case 13:
+        return _buildWhiteDnsPage();
       
       default:
         return _buildDashboardPage();
     }
   }
 
+  // =========================================================================
+  // ویجت منوی مخفی سمت راست (Secret Hub - کاملاً منطبق و هم‌شکل با منوی چپ)
+  // =========================================================================
+  Widget _buildRightSidebar() {
+    return Container(
+      width: 275,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D101A),
+        border: Border(
+          left: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // هدر شیک و دقیقاً هم‌اندازه و هم‌سبک با هدر لوگوی منوی چپ
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1B2138), Color(0xFF101422)],
+              ),
+              border: Border.all(color: const Color(0xFF00F2FE).withValues(alpha: 0.35), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00F2FE).withValues(alpha: 0.15),
+                  blurRadius: 16,
+                )
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00F2FE), Color(0xFF4FACFE)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00F2FE).withValues(alpha: 0.4),
+                        blurRadius: 10,
+                      )
+                    ],
+                  ),
+                  child: const Icon(Icons.vpn_key_rounded, color: Colors.black87, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Secret Hub',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 1.2, color: Colors.white),
+                      ),
+                      Text(
+                        'Ctrl+Shift+W to close',
+                        style: TextStyle(fontSize: 9.5, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'بستن منوی مخفی',
+                  onPressed: () => setState(() => _isRightSidebarVisible = false),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // لیست آیتم‌ها با استفاده مستقیم از همان استایل استاندارد و تمیز منوی چپ
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  _buildSidebarItem(12),
+const SizedBox(height: 5),
+_buildSidebarItem(13), // کارت تب اسلیپ‌نت
+                  const SizedBox(height: 5),
+
+                  // در آینده کارت‌های بعدی مانند GitHub VPN را دقیقاً به همین شکل با یک خط اضافه می‌کنید:
+                  // _buildSidebarItem(13),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // کارت وضعیت پایین منوی مخفی (هماهنگ با کارت‌های منوی چپ)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.shield_outlined, size: 14, color: Color(0xFF00F2FE)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'پروتکل‌های اضطراری ضدسانسور',
+                    style: TextStyle(color: Colors.grey, fontSize: 10.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          const Center(
+            child: Text(
+              'RedCloud Secret Lab',
+              style: TextStyle(color: Colors.grey, fontSize: 10),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  // =========================================================================
+  // صفحه کامل اختصاصی تب SlipNet (طراحی مدرن هماهنگ با RedCloud)
+  // =========================================================================
+  Widget _buildSlipNetPage() {
+    final bool isRunning = _isSlipNetRunning;
+    final bool isConnecting = _isSlipNetConnecting;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // هدر ریسپانسیو و ضد اورفلو
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF00F2FE), Color(0xFF4FACFE)]),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('SLIPNET', style: TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.w900)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('SlipNet DNS Tunnel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text('تونل دی‌ان‌اس با پشتیبانی از DNSTT، NoizDNS، VayDNS و Slipstream', style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTcpTurboSwitchTile(),
+                const SizedBox(width: 6),
+                _buildGoodbyeDpiSwitchTile(
+                  tabName: 'SlipNet',
+                  value: _useSlipNetGoodbyeDpi,
+                  onChanged: (val) => setState(() => _useSlipNetGoodbyeDpi = val),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: Row(
+            children: [
+              // ستون دکمه اتصال
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleSlipNetConnection,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 185,
+                          height: 185,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: (isRunning || isConnecting)
+                                ? const LinearGradient(colors: [Color(0xFF00F2FE), Color(0xFF4FACFE)])
+                                : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
+                            border: Border.all(
+                              color: (isRunning || isConnecting) ? Colors.white : const Color(0xFF00F2FE).withValues(alpha: 0.4),
+                              width: 3.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isRunning || isConnecting)
+                                    ? const Color(0xFF00F2FE).withValues(alpha: 0.5)
+                                    : const Color(0xFF00F2FE).withValues(alpha: 0.1),
+                                blurRadius: 36,
+                                spreadRadius: (isRunning || isConnecting) ? 8 : 2,
+                              )
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                Icons.shield_moon_rounded,
+                                size: 80,
+                                color: (isRunning || isConnecting) ? Colors.black87 : Colors.grey[600],
+                              ),
+                              if (isConnecting)
+                                const SizedBox(
+                                  width: 145,
+                                  height: 145,
+                                  child: CircularProgressIndicator(strokeWidth: 3.5, color: Colors.white),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        isRunning
+                            ? 'متصل به تونل دی‌ان‌اس SlipNet'
+                            : isConnecting
+                                ? 'در حال برقراری دست‌دهی با سرور...'
+                                : 'برای اتصال به SlipNet ضربه بزنید',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: (isRunning || isConnecting) ? const Color(0xFF00F2FE) : Colors.grey[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // ستون فرم‌ها و تنظیمات (با عرض بهینه و کادر ضد اورفلو)
+              Expanded(
+                flex: 5,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // کادر ورودی مدرن لینک همراه با دکمه پیست درونی (بدون ردیف اورفلو)
+                      _buildGlassContainer(
+                        borderColor: const Color(0xFF00F2FE).withValues(alpha: 0.4),
+                        padding: const EdgeInsets.all(12),
+                        child: TextField(
+                          controller: _slipnetRawUriCtrl,
+                          style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace'),
+                          decoration: InputDecoration(
+                            labelText: 'لینک کانفیگ SlipNet (slipnet://)',
+                            hintText: 'slipnet://eyJuYW1lIjoi... یا متن JSON',
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                            prefixIcon: const Icon(Icons.link_rounded, size: 18, color: Color(0xFF00F2FE)),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.paste_rounded, size: 18, color: Color(0xFF00F2FE)),
+                              tooltip: 'جای‌گذاری از کلیپ‌بورد',
+                              onPressed: () async {
+                                final clip = await Clipboard.getData(Clipboard.kTextPlain);
+                                if (clip?.text != null) {
+                                  _slipnetRawUriCtrl.text = clip!.text!.trim();
+                                  _parseSlipNetUri(clip.text!.trim());
+                                }
+                              },
+                            ),
+                          ),
+                          onChanged: (val) => _parseSlipNetUri(val.trim()),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // مشخصات پروتکل و پارامترها
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('نوع تونل (Engine):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      const SizedBox(height: 4),
+                                      DropdownButton<String>(
+                                        value: _selectedSlipNetTunnel,
+                                        isExpanded: true,
+                                        dropdownColor: const Color(0xFF090B10),
+                                        underline: const SizedBox(),
+                                        style: const TextStyle(color: Color(0xFF00F2FE), fontWeight: FontWeight.bold, fontSize: 11.5),
+                                        items: const [
+                                          DropdownMenuItem(value: 'dnstt', child: Text('DNSTT (Noise/KCP)')),
+                                          DropdownMenuItem(value: 'noizdns', child: Text('NoizDNS (Anti-DPI)')),
+                                          DropdownMenuItem(value: 'vaydns', child: Text('VayDNS (Fast)')),
+                                          DropdownMenuItem(value: 'slipstream', child: Text('Slipstream (QUIC)')),
+                                        ],
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedSlipNetTunnel = v);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('حامل دی‌ان‌اس (Transport):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      const SizedBox(height: 4),
+                                      DropdownButton<String>(
+                                        value: _selectedSlipNetTransport,
+                                        isExpanded: true,
+                                        dropdownColor: const Color(0xFF090B10),
+                                        underline: const SizedBox(),
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                                        items: const [
+                                          DropdownMenuItem(value: 'udp', child: Text('UDP (پورت ۵۳)')),
+                                          DropdownMenuItem(value: 'doh', child: Text('DoH (رمزنگاری HTTPS)')),
+                                          DropdownMenuItem(value: 'dot', child: Text('DoT (پورت TLS)')),
+                                        ],
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedSlipNetTransport = v);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 20),
+
+                            TextField(
+                              controller: _slipnetDomainCtrl,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: const InputDecoration(
+                                labelText: 'ساب‌دامنه تونل (NS Subdomain)',
+                                hintText: 'مثال: t.dnstt.online',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: _slipnetPubkeyCtrl,
+                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                              decoration: const InputDecoration(
+                                labelText: 'کلید عمومی سرور (Curve25519 Public Key)',
+                                hintText: 'کد هگزادسیمال کلید سرور',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: _slipnetResolverCtrl,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: const InputDecoration(
+                                labelText: 'ریزولورها (Resolvers IP یا DoH URL)',
+                                hintText: '8.8.8.8, 1.1.1.1 یا https://1.1.1.1/dns-query',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // سوییچ کارت شبکه مجازی
+                      _buildGlassContainer(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 14,
+                        child: SwitchListTile(
+                          title: const Text('کارت شبکه مجازی (TUN Mode)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('عبور ۱۰۰٪ کل اینترنت سیستم از تونل SlipNet', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                          value: _useSlipNetTunMode,
+                          activeThumbColor: const Color(0xFF00F2FE),
+                          onChanged: (v) => setState(() => _useSlipNetTunMode = v),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // لاگ وضعیت زنده
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.terminal_rounded, size: 18, color: Color(0xFF00F2FE)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _slipNetStatusText,
+                                style: const TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'monospace'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // پارس خودکار لینک‌های slipnet://
+  void _parseSlipNetUri(String raw) {
+    if (!raw.startsWith('slipnet://')) return;
+    try {
+      var b64 = raw.substring(10).trim();
+      final hashIdx = b64.indexOf('#');
+      if (hashIdx != -1) b64 = b64.substring(0, hashIdx);
+      while (b64.length % 4 != 0) { b64 += '='; }
+
+      final jsonStr = utf8.decode(base64Decode(b64));
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+
+      setState(() {
+        if (data['domain'] != null) _slipnetDomainCtrl.text = data['domain'].toString();
+        if (data['public_key'] != null) _slipnetPubkeyCtrl.text = data['public_key'].toString();
+        if (data['type'] != null) _selectedSlipNetTunnel = data['type'].toString().toLowerCase();
+        if (data['dns_transport'] != null) _selectedSlipNetTransport = data['dns_transport'].toString().toLowerCase();
+        if (data['resolvers'] != null) {
+          final res = data['resolvers'];
+          _slipnetResolverCtrl.text = (res is List) ? res.join(', ') : res.toString();
+        }
+        _slipNetStatusText = 'کانفیگ SlipNet (${data['name'] ?? 'بدون نام'}) با موفقیت پارس شد.';
+      });
+    } catch (_) {}
+  }
+
+  // منطق اتصال واقعی و عبور ترافیک از هسته SlipNet
+  Timer? _slipnetMonitorTimer;
+
+  Future<void> _toggleSlipNetConnection() async {
+    _slipnetMonitorTimer?.cancel();
+
+    // ۱. اگر در حال اجراست، قطع کامل اتصال
+    if (_isSlipNetRunning || _isSlipNetConnecting) {
+      try {
+        await stopSlipnetCore();
+        await stopProxyCore();
+        await _maybeStopGoodbyeDpi();
+      } catch (_) {}
+
+      setState(() {
+        _isSlipNetRunning = false;
+        _isSlipNetConnecting = false;
+        _slipNetStatusText = 'اتصال SlipNet متوقف شد.';
+        _resetIpInfo();
+      });
+      return;
+    }
+
+    final domain = _slipnetDomainCtrl.text.trim();
+    final pubkey = _slipnetPubkeyCtrl.text.trim();
+    if (domain.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً ساب‌دامنه تونل (NS Subdomain) را وارد کنید.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    // بستن سایر هسته‌ها برای جلوگیری از تداخل کارت‌های شبکه
+    if (_isHybridRunning) await stopHybridConnection();
+    if (_isProxyRunning) await stopProxyCore();
+    if (_isAetherRunning) await stopAetherCore();
+    if (_isTorRunning) await stopTorCore();
+    if (_isPsiphonRunning) await stopPsiphonCore();
+
+    // فعال‌سازی افکت ضد فیلترینگ GoodbyeDPI در صورت انتخاب کاربر
+    if (_useSlipNetGoodbyeDpi) {
+      await _maybeStartGoodbyeDpi(true);
+    }
+
+    setState(() {
+      _isSlipNetConnecting = true;
+      _slipNetStatusText = 'در حال اجرای هسته slipnet.exe و دست‌دهی با ساب‌دامنه $domain...';
+    });
+
+    try {
+      final port = int.tryParse(_slipnetPortCtrl.text.trim()) ?? 1825;
+      
+      // ۲. اجرای مستقیم هسته باینری از طریق توابع راست
+      final msg = await startSlipnetCore(
+        binaryPath: 'slipnet.exe',
+        domain: domain,
+        pubkey: pubkey,
+        tunnelType: _selectedSlipNetTunnel,
+        transport: _selectedSlipNetTransport,
+        resolvers: _slipnetResolverCtrl.text.trim(),
+        localPort: port,
+        useSystemProxy: _useSlipNetTunMode ? false : _useSystemProxy,
+      );
+
+      // ۳. پایش زنده وضعیت اتصال (تا ۳۰ ثانیه منتظر آماده شدن ساکس می‌ماند)
+      int retry = 0;
+      _slipnetMonitorTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
+        retry++;
+        final isConnected = await isSlipnetConnected();
+        final statusTxt = await getSlipnetStatusText();
+
+        if (statusTxt.isNotEmpty && mounted) {
+          setState(() => _slipNetStatusText = statusTxt);
+        }
+
+        if (isConnected || retry > 60) {
+          t.cancel();
+          if (isConnected && mounted) {
+            // ۴. اگر حالت کارت شبکه مجازی (TUN) روشن باشد، با Sing-box کل ویندوز را هدایت می‌کنیم
+            if (_useSlipNetTunMode) {
+              await startProxyWithNode(
+                binaryPath: _binaryPathController.text.trim(),
+                selectedNode: ProxyNode(
+                  name: "SlipNet-TUN",
+                  protocol: "socks",
+                  rawUrl: "socks://127.0.0.1:$port#SlipNet-TUN",
+                ),
+                useSystemProxy: false,
+                customSni: null,
+                enableFragment: false,
+                enableRecordFragment: false,
+                tlsSpoof: null,
+                useTunMode: true,
+                dnsType: _selectedDns.dnsType,
+                dnsPrimary: _selectedDns.primary,
+                dnsSecondary: _selectedDns.secondary,
+                dnsDohUrl: _selectedDns.dohUrl,
+                dnsDotHost: _selectedDns.dotHost,
+                utlsFingerprint: null,
+                fragmentFallbackDelay: null,
+              );
+            }
+
+            setState(() {
+              _isSlipNetRunning = true;
+              _isSlipNetConnecting = false;
+              _slipNetStatusText = '✅ تونل SlipNet متصل شد! ترافیک کل سیستم از پورت $port در حال عبور است.';
+            });
+
+            // استعلام آی‌پی خروجی در داشبورد
+            Future.delayed(const Duration(seconds: 2), () => _fetchIpInfo());
+          } else if (mounted) {
+            setState(() {
+              _isSlipNetRunning = false;
+              _isSlipNetConnecting = false;
+              _slipNetStatusText = 'تایم‌اوت: پاسخی از سرور دی‌ان‌اس دریافت نشد (مشخصات کانفیگ یا اتصال را بررسی کنید).';
+            });
+          }
+        }
+      });
+
+    } catch (e) {
+      setState(() {
+        _isSlipNetRunning = false;
+        _isSlipNetConnecting = false;
+        _slipNetStatusText = 'خطا در راه‌اندازی SlipNet: $e';
+      });
+    }
+  }
+
+  // =========================================================================
+  // صفحه اختصاصی و شیک WhiteDNS Desktop Tunnel (بدون باگ و بدون Overflow)
+  // =========================================================================
+  Widget _buildWhiteDnsPage() {
+    final bool isRunning = _isWhiteDnsRunning;
+    final bool isConnecting = _isWhiteDnsConnecting;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // هدر هوشمند، ریسپانسیو و ۱۰۰٪ ضد اورفلو
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFE0EAFC), Color(0xFFCFDEF3)]),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text('WHITEDNS', style: TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.w900)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('WhiteDNS Desktop Tunnel', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text('تونلینگ DNS مجهز به موتور CottenDNS و اسکنر خودکار ریزالور', style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTcpTurboSwitchTile(),
+                const SizedBox(width: 6),
+                _buildGoodbyeDpiSwitchTile(
+                  tabName: 'WhiteDNS',
+                  value: _useWhiteDnsGoodbyeDpi,
+                  onChanged: (val) => setState(() => _useWhiteDnsGoodbyeDpi = val),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        Expanded(
+          child: Row(
+            children: [
+              // ستون چپ: دکمه بزرگ اتصال دایره‌ای
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleWhiteDnsConnection,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 190,
+                          height: 190,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: (isRunning || isConnecting)
+                                ? const LinearGradient(colors: [Color(0xFFE0EAFC), Color(0xFFCFDEF3)])
+                                : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
+                            border: Border.all(
+                              color: (isRunning || isConnecting) ? Colors.white : Colors.white24,
+                              width: 3.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isRunning || isConnecting)
+                                    ? const Color(0xFF00D2FF).withValues(alpha: 0.5)
+                                    : Colors.white.withValues(alpha: 0.05),
+                                blurRadius: 36,
+                                spreadRadius: (isRunning || isConnecting) ? 8 : 2,
+                              )
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                Icons.cloud_done_rounded,
+                                size: 85,
+                                color: (isRunning || isConnecting) ? Colors.black87 : Colors.grey[600],
+                              ),
+                              if (isConnecting)
+                                const SizedBox(
+                                  width: 150,
+                                  height: 150,
+                                  child: CircularProgressIndicator(strokeWidth: 3.5, color: Colors.black87),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        isRunning
+                            ? 'متصل به تونل WhiteDNS ($_selectedWhiteDnsEngine)'
+                            : isConnecting
+                                ? 'در حال برقراری تونل با سرور...'
+                                : 'برای اتصال به WhiteDNS ضربه بزنید',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: (isRunning || isConnecting) ? Colors.white : Colors.grey[400],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ستون راست: تنظیمات موتور، پریست‌ها و آدرس‌ها
+              Expanded(
+                flex: 6,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // انتخاب پریست و موتور
+                      _buildGlassContainer(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('موتور تونل (Engine):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      const SizedBox(height: 4),
+                                      DropdownButton<String>(
+                                        value: _selectedWhiteDnsEngine,
+                                        isExpanded: true,
+                                        dropdownColor: const Color(0xFF090B10),
+                                        underline: const SizedBox(),
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                        items: const [
+                                          DropdownMenuItem(value: 'CottenDNS', child: Text('CottenDNS (پیشنهادی - پرسرعت)')),
+                                          DropdownMenuItem(value: 'MasterDNS', child: Text('MasterDNS (سازگار)')),
+                                          DropdownMenuItem(value: 'StormDNS', child: Text('StormDNS (ضد قطعی)')),
+                                        ],
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedWhiteDnsEngine = v);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('پریست بهینه‌سازی (Preset):', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      const SizedBox(height: 4),
+                                      DropdownButton<String>(
+                                        value: _selectedWhiteDnsPreset,
+                                        isExpanded: true,
+                                        dropdownColor: const Color(0xFF090B10),
+                                        underline: const SizedBox(),
+                                        style: const TextStyle(color: Color(0xFF00D2FF), fontWeight: FontWeight.bold, fontSize: 12),
+                                        items: const [
+                                          DropdownMenuItem(value: 'speed', child: Text('⚡ Speed (حداکثر سرعت)')),
+                                          DropdownMenuItem(value: 'survival', child: Text('🛡️ Survival (ضد اختلال)')),
+                                          DropdownMenuItem(value: 'tcp-survival', child: Text('🔒 TCP Survival (ضد مسدودسازی)')),
+                                        ],
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedWhiteDnsPreset = v);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 20),
+
+                            TextField(
+                              controller: _whiteDnsDomainCtrl,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: const InputDecoration(
+                                labelText: 'دامنه اختصاصی WhiteDNS',
+                                hintText: 'مثال: whitedns.cloud',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: _whiteDnsPubkeyCtrl,
+                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                              decoration: const InputDecoration(
+                                labelText: 'کلید عمومی سرور (Public Key)',
+                                hintText: 'کد هگزادسیمال کلید سرور',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            TextField(
+                              controller: _whiteDnsResolversCtrl,
+                              style: const TextStyle(fontSize: 12),
+                              decoration: const InputDecoration(
+                                labelText: 'ریزولورها (Resolvers IP یا DoH)',
+                                hintText: '1.1.1.1, 8.8.8.8 یا https://cloudflare-dns.com/dns-query',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // سوییچ کارت شبکه مجازی TUN Mode
+                      _buildGlassContainer(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 14,
+                        child: SwitchListTile(
+                          title: const Text('کارت شبکه مجازی (TUN Mode)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('هدایت کل ترافیک ویندوز از تونل WhiteDNS', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                          value: _useWhiteDnsTunMode,
+                          activeThumbColor: const Color(0xFF00D2FF),
+                          onChanged: (v) => setState(() => _useWhiteDnsTunMode = v),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // جعبه لاگ وضعیت زنده
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.terminal_rounded, size: 18, color: Color(0xFF00D2FF)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _whiteDnsStatusText,
+                                style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontFamily: 'monospace'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // اتصال کاملاً واقعی و عملیاتی به باینری whitedns.exe از طریق هسته راست
+  Timer? _whitednsMonitorTimer;
+
+  Future<void> _toggleWhiteDnsConnection() async {
+    _whitednsMonitorTimer?.cancel();
+
+    if (_isWhiteDnsRunning || _isWhiteDnsConnecting) {
+      try {
+        await stopWhitednsCore();
+        await stopProxyCore();
+        await _maybeStopGoodbyeDpi();
+      } catch (_) {}
+
+      setState(() {
+        _isWhiteDnsRunning = false;
+        _isWhiteDnsConnecting = false;
+        _whiteDnsStatusText = 'اتصال WhiteDNS متوقف شد.';
+        _resetIpInfo();
+      });
+      return;
+    }
+
+    final domain = _whiteDnsDomainCtrl.text.trim();
+    final pubkey = _whiteDnsPubkeyCtrl.text.trim();
+    if (domain.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً دامنه سرور WhiteDNS را وارد کنید.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    // متوقف کردن سایر پروتکل‌ها جهت جلوگیری از اشغال پورت
+    if (_isHybridRunning) await stopHybridConnection();
+    if (_isProxyRunning) await stopProxyCore();
+    if (_isAetherRunning) await stopAetherCore();
+    if (_isTorRunning) await stopTorCore();
+    if (_isPsiphonRunning) await stopPsiphonCore();
+    if (_isSlipNetRunning) await _toggleSlipNetConnection();
+
+    if (_useWhiteDnsGoodbyeDpi) {
+      await _maybeStartGoodbyeDpi(true);
+    }
+
+    setState(() {
+      _isWhiteDnsConnecting = true;
+      _whiteDnsStatusText = 'در حال راه‌اندازی باینری whitedns.exe با موتور $_selectedWhiteDnsEngine...';
+    });
+
+    try {
+      final port = int.tryParse(_whiteDnsPortCtrl.text.trim()) ?? 1826;
+
+      // اجرای واقعی باینری whitedns.exe توسط هسته راست
+      await startWhitednsCore(
+        binaryPath: 'whitedns.exe',
+        domain: domain,
+        pubkey: pubkey,
+        engine: _selectedWhiteDnsEngine,
+        preset: _selectedWhiteDnsPreset,
+        resolvers: _whiteDnsResolversCtrl.text.trim(),
+        localPort: port,
+        useSystemProxy: _useWhiteDnsTunMode ? false : _useSystemProxy,
+      );
+
+      // پایش زنده وضعیت آماده‌شدن پورت SOCKS5
+      int retry = 0;
+      _whitednsMonitorTimer = Timer.periodic(const Duration(milliseconds: 500), (t) async {
+        retry++;
+        final isConnected = await isWhitednsConnected();
+        final statusTxt = await getWhitednsStatusText();
+
+        if (statusTxt.isNotEmpty && mounted) {
+          setState(() => _whiteDnsStatusText = statusTxt);
+        }
+
+        if (isConnected || retry > 60) {
+          t.cancel();
+          if (isConnected && mounted) {
+            if (_useWhiteDnsTunMode) {
+              await startProxyWithNode(
+                binaryPath: _binaryPathController.text.trim(),
+                selectedNode: ProxyNode(
+                  name: "WhiteDNS-TUN",
+                  protocol: "socks",
+                  rawUrl: "socks://127.0.0.1:$port#WhiteDNS-TUN",
+                ),
+                useSystemProxy: false,
+                customSni: null,
+                enableFragment: false,
+                enableRecordFragment: false,
+                tlsSpoof: null,
+                useTunMode: true,
+                dnsType: _selectedDns.dnsType,
+                dnsPrimary: _selectedDns.primary,
+                dnsSecondary: _selectedDns.secondary,
+                dnsDohUrl: _selectedDns.dohUrl,
+                dnsDotHost: _selectedDns.dotHost,
+                utlsFingerprint: null,
+                fragmentFallbackDelay: null,
+              );
+            }
+
+            setState(() {
+              _isWhiteDnsRunning = true;
+              _isWhiteDnsConnecting = false;
+              _whiteDnsStatusText = '✅ تونل WhiteDNS با موتور $_selectedWhiteDnsEngine متصل شد! (پورت $port)';
+            });
+
+            Future.delayed(const Duration(seconds: 2), () => _fetchIpInfo());
+          } else if (mounted) {
+            setState(() {
+              _isWhiteDnsRunning = false;
+              _isWhiteDnsConnecting = false;
+              _whiteDnsStatusText = 'تایم‌اوت: پاسخی از سرور WhiteDNS دریافت نشد.';
+            });
+          }
+        }
+      });
+
+    } catch (e) {
+      setState(() {
+        _isWhiteDnsRunning = false;
+        _isWhiteDnsConnecting = false;
+        _whiteDnsStatusText = 'خطا در راه‌اندازی WhiteDNS: $e';
+      });
+    }
+  }
+
   Widget _buildDashboardPage() {
-    final bool isAnyRunning = _isHybridRunning || _isProxyRunning;
+    final bool isAnyRunning = _isHybridRunning ||
+        _isProxyRunning ||
+        _isPsiphonRunning ||
+        _isPsiphonConnecting ||
+        _isTorRunning ||
+        _isTorConnecting ||
+        _isAetherRunning ||
+        _isAetherConnecting;
+    final bool isRedcloudRecipe = _selectedNode?.protocol == 'redcloud';
+
+    // استخراج زنده مشخصات پایپ‌لاین برای نمایش در HUD داشبورد
+    List<String> activeChain = [];
+    List<String> bypassList = [];
+    if (isRedcloudRecipe && _selectedNode != null) {
+      try {
+        final rest = _selectedNode!.rawUrl.substring(11).split('#').first.trim();
+        var b64 = rest;
+        while (b64.length % 4 != 0) { b64 += '='; }
+        final dec = jsonDecode(utf8.decode(base64Decode(b64)));
+        activeChain = List<String>.from(dec['chain'] ?? []);
+        bypassList = List<String>.from(dec['bypass_domains'] ?? []);
+      } catch (_) {}
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6579,76 +8293,99 @@ try {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ردیف اول: اتصال هوشمند + حالت هیبریدی
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildGlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      borderRadius: 14,
-                      borderColor: _useSmartOptimizer ? const Color(0xFF2DCA73).withValues(alpha: 0.6) : Colors.white12,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, size: 16, color: _useSmartOptimizer ? const Color(0xFF2DCA73) : Colors.grey),
-                          const SizedBox(width: 6),
-                          const Text('اتصال هوشمند', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 6),
-                          Switch(
-                            value: _useSmartOptimizer,
-                            activeThumbColor: const Color(0xFF2DCA73),
-                            activeTrackColor: const Color(0xFF2DCA73).withValues(alpha: 0.4),
-                            onChanged: isAnyRunning ? null : (bool val) {
-                              setState(() {
-                                _useSmartOptimizer = val;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
+                // ردیف اول: سوییچ‌ها (اگر پایپ‌لاین RedCloud فعال باشد، تگ هوشمند قرمز نشان داده می‌شود)
+                if (isRedcloudRecipe)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF2E080E), Color(0xFF140306)]),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFF1744), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFFFF1744).withValues(alpha: 0.25), blurRadius: 12),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    _buildGlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      borderRadius: 14,
-                      borderColor: _isHybridModeEnabled ? const Color(0xFF00D2FF).withValues(alpha: 0.6) : Colors.white12,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.hub_rounded, size: 16, color: _isHybridModeEnabled ? const Color(0xFF00D2FF) : Colors.grey),
-                          const SizedBox(width: 6),
-                          Text('hybrid_mode'.tr(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 6),
-                          Switch(
-                            value: _isHybridModeEnabled,
-                            activeThumbColor: const Color(0xFF00D2FF),
-                            activeTrackColor: const Color(0xFFFF8008).withValues(alpha: 0.5),
-                            onChanged: isAnyRunning ? null : (bool val) {
-                              setState(() {
-                                _isHybridModeEnabled = val;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.all_inclusive_rounded, color: Color(0xFFFF1744), size: 18),
+                        SizedBox(width: 8),
+                        Text('پایپ‌لاین هوشمند RedCloud (کنترل خودکار)', style: TextStyle(color: Color(0xFFFF1744), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
                     ),
-                  ],
-                ),
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        borderRadius: 14,
+                        borderColor: _useSmartOptimizer ? const Color(0xFF2DCA73).withValues(alpha: 0.6) : Colors.white12,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome_rounded, size: 16, color: _useSmartOptimizer ? const Color(0xFF2DCA73) : Colors.grey),
+                            const SizedBox(width: 6),
+                            const Text('اتصال هوشمند', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 6),
+                            Switch(
+                              value: _useSmartOptimizer,
+                              activeThumbColor: const Color(0xFF2DCA73),
+                              activeTrackColor: const Color(0xFF2DCA73).withValues(alpha: 0.4),
+                              onChanged: isAnyRunning ? null : (bool val) {
+                                setState(() {
+                                  _useSmartOptimizer = val;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        borderRadius: 14,
+                        borderColor: _isHybridModeEnabled ? const Color(0xFF00D2FF).withValues(alpha: 0.6) : Colors.white12,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.hub_rounded, size: 16, color: _isHybridModeEnabled ? const Color(0xFF00D2FF) : Colors.grey),
+                            const SizedBox(width: 6),
+                            Text('hybrid_mode'.tr(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 6),
+                            Switch(
+                              value: _isHybridModeEnabled,
+                              activeThumbColor: const Color(0xFF00D2FF),
+                              activeTrackColor: const Color(0xFFFF8008).withValues(alpha: 0.5),
+                              onChanged: isAnyRunning ? null : (bool val) {
+                                setState(() {
+                                  _isHybridModeEnabled = val;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 8),
-                // ردیف دوم: شتاب‌دهنده توربو BBR + افکت GoodbyeDPI
+                // ردیف دوم: شتاب‌دهنده توربو BBR (سوییچ GoodbyeDPI فقط در سرورهای عادی نشان داده می‌شود)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildTcpTurboSwitchTile(),
-                    const SizedBox(width: 8),
-                    _buildGoodbyeDpiSwitchTile(
-                      tabName: 'dash_title'.tr(),
-                      value: _useGoodbyeDpiDashboard,
-                      onChanged: (val) {
-                        setState(() => _useGoodbyeDpiDashboard = val);
-                        _saveAntiDpiToDisk();
-                      },
-                    ),
+                    if (!isRedcloudRecipe) ...[
+                      const SizedBox(width: 8),
+                      _buildGoodbyeDpiSwitchTile(
+                        tabName: 'dash_title'.tr(),
+                        value: _useGoodbyeDpiDashboard,
+                        onChanged: (val) {
+                          setState(() => _useGoodbyeDpiDashboard = val);
+                          _saveAntiDpiToDisk();
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -6674,14 +8411,10 @@ try {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: isAnyRunning
-                                ? const LinearGradient(
-                                    colors: [Color(0xFF00D2FF), Color(0xFFFF8008)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : const LinearGradient(
-                                    colors: [Color(0xFF141828), Color(0xFF0F111D)],
-                                  ),
+                                ? (isRedcloudRecipe
+                                    ? const LinearGradient(colors: [Color(0xFFFF1744), Color(0xFFB71C1C)])
+                                    : const LinearGradient(colors: [Color(0xFF00D2FF), Color(0xFFFF8008)]))
+                                : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
                             border: Border.all(
                               color: isAnyRunning ? Colors.white : const Color(0xFF00D2FF).withValues(alpha: 0.4),
                               width: 3.5,
@@ -6714,11 +8447,17 @@ try {
                       ),
                       const SizedBox(height: 22),
                       Text(
-                        _isHybridRunning 
-                            ? 'connected_hybrid'.tr() 
-                            : _isProxyRunning 
-                                ? 'connected_direct'.tr() 
-                                : (_isHybridModeEnabled ? 'tap_to_connect_hybrid'.tr() : 'tap_to_connect_direct'.tr()),
+                        (_isPsiphonConnecting || _isTorConnecting || _isAetherConnecting)
+                            ? 'در حال برقراری پایپ‌لاین RedCloud...'
+                            : isAnyRunning
+                                ? 'پایپ‌لاین RedCloud متصل است'
+                                : isRedcloudRecipe
+                                    ? 'برای اتصال پایپ‌لاین RedCloud ضربه بزنید'
+                                    : _isHybridRunning 
+                                        ? 'connected_hybrid'.tr() 
+                                        : _isProxyRunning 
+                                            ? 'connected_direct'.tr() 
+                                            : (_isHybridModeEnabled ? 'tap_to_connect_hybrid'.tr() : 'tap_to_connect_direct'.tr()),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14.5, 
@@ -6745,87 +8484,140 @@ try {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        padding: EdgeInsets.zero,
-                        borderRadius: 16,
-                        child: SwitchListTile(
-                          title: Text('sys_proxy_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          value: _useSystemProxy,
-                          activeThumbColor: const Color(0xFF00D2FF),
-                          onChanged: _useTunMode ? null : (bool value) {
-                            setState(() {
-                              _useSystemProxy = value;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        padding: EdgeInsets.zero,
-                        borderRadius: 16,
-                        child: SwitchListTile(
-                          title: Text('tun_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text('tun_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          value: _useTunMode,
-                          activeThumbColor: const Color(0xFFFF8008),
-                          onChanged: (bool value) {
-                            setState(() {
-                              _useTunMode = value;
-                              if (value) {
-                                _useSystemProxy = false;
-                              }
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        borderColor: const Color(0xFFED213A).withValues(alpha: 0.3),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [Color(0xFFED213A), Color(0xFF93291E)]),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'anti_dpi_box_title'.tr(),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
+                      // اگر کانفیگ ردکلاد باشد: نمایش مانیتور جریان پایپ‌لاین (HUD)
+                      if (isRedcloudRecipe)
+                        RepaintBoundary(
+                          child: _buildGlassContainer(
+                            borderColor: const Color(0xFFFF1744).withValues(alpha: 0.5),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.schema_rounded, color: Color(0xFFFF1744), size: 18),
+                                    const SizedBox(width: 8),
+                                    const Text('جریان عبور پکت‌ها (Pipeline Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: activeChain.asMap().entries.map((entry) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF1744).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFF1744).withValues(alpha: 0.5)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text('${entry.key + 1}. ', style: const TextStyle(color: Color(0xFFFF1744), fontWeight: FontWeight.bold, fontSize: 11)),
+                                          Text(entry.value.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, fontFamily: 'monospace')),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                if (bypassList.isNotEmpty) ...[
+                                  const Divider(color: Colors.white12, height: 20),
+                                  Text('دامنه‌های بدون فیلترشکن (${bypassList.length} دامنه):', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    'anti_dpi_box_sub'.tr(),
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[400]),
-                                  ),
-                                ],
-                              ),
+                                  Text(bypassList.join(', '), style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF), fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ]
+                              ],
                             ),
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedMenuIndex = 10;
-                                });
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFED213A),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              child: Text('configure'.tr(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
+                          ),
+                        )
+                      else ...[
+                        _buildGlassContainer(
+                          padding: EdgeInsets.zero,
+                          borderRadius: 16,
+                          child: SwitchListTile(
+                            title: Text('sys_proxy_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            value: _useSystemProxy,
+                            activeThumbColor: const Color(0xFF00D2FF),
+                            onChanged: _useTunMode ? null : (bool value) {
+                              setState(() {
+                                _useSystemProxy = value;
+                              });
+                            },
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 16),
+                      // کارت‌های TUN و Advanced Anti-DPI دستی فقط در سرورهای عادی نمایش داده می‌شوند
+                      if (!isRedcloudRecipe) ...[
+                        _buildGlassContainer(
+                          padding: EdgeInsets.zero,
+                          borderRadius: 16,
+                          child: SwitchListTile(
+                            title: Text('tun_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            subtitle: Text('tun_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            value: _useTunMode,
+                            activeThumbColor: const Color(0xFFFF8008),
+                            onChanged: (bool value) {
+                              setState(() {
+                                _useTunMode = value;
+                                if (value) {
+                                  _useSystemProxy = false;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFFED213A).withValues(alpha: 0.3),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(colors: [Color(0xFFED213A), Color(0xFF93291E)]),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'anti_dpi_box_title'.tr(),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'anti_dpi_box_sub'.tr(),
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedMenuIndex = 10;
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFED213A),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: Text('configure'.tr(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _buildLocationCard(), 
                       const SizedBox(height: 16),
                       // رادار زنده دفع حملات و سقف دکل مخابراتی
@@ -7562,10 +9354,24 @@ try {
               ),
               const SizedBox(width: 8),
               _buildSubGroupTab(
+                id: 'redcloud_sub',
+                label: '⚡ RedCloud Chains',
+                count: _savedNodeItems.where((i) => i.node.protocol == 'redcloud').length,
+                isSelected: _selectedGroupId == 'redcloud_sub',
+              ),
+              const SizedBox(width: 8),
+              _buildSubGroupTab(
                 id: 'manual',
                 label: 'tab_manual_scanner'.tr(),
                 count: _savedNodeItems.where((i) => i.groupId == 'manual' || i.groupId.startsWith('scanner')).length,
                 isSelected: _selectedGroupId == 'manual',
+              ),
+              const SizedBox(width: 8),
+              _buildSubGroupTab(
+                id: 'persian_vpn_hub',
+                label: '⚡ RedCloud Hub',
+                count: _savedNodeItems.where((i) => i.groupId == 'persian_vpn_hub').length,
+                isSelected: _selectedGroupId == 'persian_vpn_hub',
               ),
               const SizedBox(width: 8),
               ..._subGroups.map((group) {
@@ -7640,6 +9446,24 @@ try {
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
+                onPressed: _isUpdatingPersianHub ? null : () => _updatePersianHubSubscription(showToast: true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF8008).withValues(alpha: 0.18),
+                  foregroundColor: const Color(0xFFFF8008),
+                  side: const BorderSide(color: Color(0xFFFF8008), width: 1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                icon: _isUpdatingPersianHub
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF8008)))
+                    : const Icon(Icons.cloud_sync_rounded, size: 16),
+                label: Text(
+                  _isUpdatingPersianHub ? 'در حال دریافت...' : 'بروزرسانی Hub',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
                 onPressed: _isBulkPinging ? null : _bulkPingAndSort,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2DCA73).withValues(alpha: 0.18),
@@ -7687,8 +9511,158 @@ try {
                       final isSelected = _selectedNode == item.node;
                       final config = V2rayConfig.parse(item.node.rawUrl);
                       final ping = _nodePings[item.node.rawUrl];
+                      final isRedcloudProto = item.node.protocol == 'redcloud';
 
-                      return Material(
+                      // استخراج متادیتا از کانفیگ بدون درگیر کردن پردازنده
+                      List<String> pipelineStages = [];
+                      int bypassCount = 0;
+                      if (isRedcloudProto) {
+                        try {
+                          final rest = item.node.rawUrl.substring(11).split('#').first.trim();
+                          var b64 = rest;
+                          while (b64.length % 4 != 0) { b64 += '='; }
+                          final dec = jsonDecode(utf8.decode(base64Decode(b64)));
+                          pipelineStages = List<String>.from(dec['chain'] ?? []);
+                          bypassCount = (dec['bypass_domains'] as List?)?.length ?? 0;
+                        } catch (_) {}
+                      }
+
+                      // استفاده از RepaintBoundary جهت صفر کردن رندرهای اضافه و مهار لوپ نقاشی
+                      return RepaintBoundary(
+                        child: isRedcloudProto
+                            // ==================== کارت قرمز نئونی اختصاصی REDCLOUD ====================
+                            ? Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedNode = item.node;
+                                      _statusMessage = "Active Pipeline: ${item.node.name}";
+                                    });
+                                    _savePreferencesToDisk();
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: LinearGradient(
+                                        colors: isSelected
+                                            ? [const Color(0xFF2E080E), const Color(0xFF140306)]
+                                            : [const Color(0xFF180508).withValues(alpha: 0.8), const Color(0xFF0B0204).withValues(alpha: 0.9)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      border: Border.all(
+                                        color: isSelected ? const Color(0xFFFF1744) : const Color(0xFFFF1744).withValues(alpha: 0.35),
+                                        width: isSelected ? 2.0 : 1.2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFFF1744).withValues(alpha: isSelected ? 0.35 : 0.12),
+                                          blurRadius: isSelected ? 20 : 10,
+                                          spreadRadius: isSelected ? 2 : 0,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(colors: [Color(0xFFFF1744), Color(0xFFD50000)]),
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(color: const Color(0xFFFF1744).withValues(alpha: 0.4), blurRadius: 10),
+                                            ],
+                                          ),
+                                          child: const Icon(Icons.all_inclusive_rounded, color: Colors.white, size: 22),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFFF1744).withValues(alpha: 0.2),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: const Color(0xFFFF1744).withValues(alpha: 0.6)),
+                                                    ),
+                                                    child: const Text('CYBER CHAIN', style: TextStyle(color: Color(0xFFFF1744), fontSize: 9.5, fontWeight: FontWeight.w900)),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      item.node.name,
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.white),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 6,
+                                                runSpacing: 4,
+                                                children: [
+                                                  ...pipelineStages.map((st) => Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white.withValues(alpha: 0.06),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: Colors.white12),
+                                                    ),
+                                                    child: Text(st.toUpperCase(), style: const TextStyle(fontSize: 9.5, color: Colors.white70, fontFamily: 'monospace')),
+                                                  )),
+                                                  if (bypassCount > 0)
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Text('$bypassCount Bypass', style: const TextStyle(fontSize: 9.5, color: Color(0xFF00D2FF))),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.grey),
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: item.node.rawUrl));
+                                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لینک پروتکل RedCloud کپی شد!')));
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                                          onPressed: () async {
+                                            setState(() {
+                                              _savedNodeItems.remove(item);
+                                              if (_selectedNode == item.node) {
+                                                _selectedNode = _savedNodeItems.isNotEmpty ? _savedNodeItems.first.node : null;
+                                              }
+                                            });
+                                            await _saveNodesToDisk();
+                                          },
+                                        ),
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 6),
+                                          const Icon(Icons.check_circle_rounded, color: Color(0xFFFF1744), size: 22),
+                                        ]
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                            // ==================== کارت سایر سرورهای عادی ====================
+                            : Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: () {
@@ -7832,7 +9806,8 @@ try {
                             ),
                           ),
                         ),
-                      );
+                      ),
+                    );
                     },
                   ),
                 ),
@@ -7843,6 +9818,8 @@ try {
 
   Color _getProtocolColor(String protocol) {
     switch (protocol.toLowerCase()) {
+      case 'redcloud':
+        return const Color(0xFFFF1744); // قرمز نئونی اختصاصی RedCloud
       case 'vless':
         return const Color(0xFF00D2FF);
       case 'vmess':
@@ -11947,8 +13924,7 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
   }
 
   Widget _buildLocationCard() {
-    final bool isAnyConnected = _isProxyRunning || _isHybridRunning || _isAetherRunning || _isTorRunning || _isPsiphonRunning;
-    if (!isAnyConnected) return const SizedBox.shrink();
+    if (!_isAnyTunnelConnected) return const SizedBox.shrink();
 
     return _buildGlassContainer(
       padding: const EdgeInsets.all(16),
@@ -11990,12 +13966,12 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
                       Row(
                         children: [
                           Text(
-                            _publicIp ?? 'fetching_ip'.tr(),
-                            style: const TextStyle(
-                              fontSize: 15,
+                            _publicIp ?? (AppTranslations.currentLang == 'en' ? 'Click refresh to detect IP' : 'کلیک روی رفرش جهت دریافت آی‌پی'),
+                            style: TextStyle(
+                              fontSize: 14.5,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              color: Colors.white,
+                              fontFamily: _publicIp != null ? 'monospace' : null,
+                              color: _publicIp != null ? Colors.white : const Color(0xFFFFC837),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -12013,15 +13989,18 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${_cityName ?? "unknown".tr()}، ${_countryName ?? "unknown".tr()}',
+                        _cityName != null && _cityName!.isNotEmpty
+                            ? '$_cityName، ${_countryName ?? "unknown".tr()}'
+                            : (_countryName ?? "unknown".tr()),
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.grey, size: 20),
-                  onPressed: () => _fetchIpInfo(retryCount: 1),
+                  icon: const Icon(Icons.refresh_rounded, color: Color(0xFF00D2FF), size: 20),
+                  tooltip: 'بروزرسانی آی‌پی',
+                  onPressed: () => _fetchIpInfo(retryCount: 2),
                 )
               ],
             ),
@@ -12406,8 +14385,6 @@ Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the rea
   }
 
   Widget _buildGameSelectionView(List<GameItem> games) {
-    final bool isEn = AppTranslations.currentLang == 'en';
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
