@@ -125,10 +125,8 @@ jobs:
             Copy-Item "geoip6" -Destination "build\windows\x64\runner\Release\geoip6-plus-asn" -Force -ErrorAction SilentlyContinue
         }
 
-        # ۶. دانلود نسخه رسمی سایفون از Psiphon-Labs
-        Write-Host "Downloading official Psiphon Core from Psiphon-Labs..."
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
-        Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
+        Copy-Item "psiphon-tunnel-core.exe" -Destination "shirokhorshid.exe" -Force
+        Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\shirokhorshid.exe" -Force
 
         # ۷. دانلود نسخه رسمی GoodbyeDPI و درایورهای WinDivert از ValdikSS
         Write-Host "Downloading official GoodbyeDPI & WinDivert from ValdikSS..."
@@ -191,25 +189,25 @@ jobs:
         choco install innosetup --no-progress
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-    # ۱۰. انتشار خودکار نسخه ۴.۵ در تب Releases گیت‌هاب
+    # ۱۰. انتشار خودکار نسخه ۴.۶ در تب Releases گیت‌هاب
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v4.5
-        name: "RedCloud VPN v4.5 - Next-Gen Anti-Censorship Client"
+        tag_name: v4.6
+        name: "RedCloud VPN v4.6 - Next-Gen Anti-Censorship Client"
         body: |
-          🚀 **انتشار رسمی نسخه ۴.۵ نرم‌افزار RedCloud VPN**
+          🚀 **انتشار رسمی نسخه ۴.۶ نرم‌افزار RedCloud VPN**
           
-          ### ✨ قابلیت‌ها و بهینه‌سازی‌های نسخه جدید (v4.5 Changelog):
-          - ⚡ **افزودن ساب اختصاصی RedCloud Hub:** بروزرسانی خودکار هر ۳۰ دقیقه، فیلتر هوشمند ضد تکراری و سقف ۴۰ سرور برتر (حذف خودکار قدیمی‌ها)
-          - 🛡️ **سیستم نجات هوشمند با GoodbyeDPI:** دور زدن اختلالات فیلترینگ با تست خودکار پریست‌های کرنل
-          - 🌐 **حل‌کننده پویا و داینامیک پروکسی خروجی:** شناسایی دقیق آخرین هسته زنجیره و نمایش بی‌درنگ پرچم و مشخصات آی‌پی
-          - 🚀 **پشتیبانی کامل از VLESS Reality با جریان xtls-rprx-vision**
-          - 📦 **حذف کامل فایل‌های سنگین دیباگ (.pdb) جهت سبک‌سازی و افزایش سرعت برنامه**
+          ### ✨ تغییرات و بهینه‌سازی‌های نسخه جدید (v4.6 Changelog):
+          - 🔍 **اسکنر هوشمند لایه ۷ ضدجعل:** راستی‌آزمایی پاسخ واقعی سرورها و حذف ۱۰۰٪ پاسخ‌های فیک DPI فیلترینگ
+          - 📊 **افزودن حالت اسکن کامل (Full Scan):** پایش تمام رنج‌های فایل‌های آی‌پی بدون جا انداختن
+          - 🦁☀️ **پشتیبانی کامل از ۳ حالت شیروخورشید:** مستقیم (Direct)، فرانتینگ ابری (CDN Fronting) و پل اختصاصی (Conduit)
+          - 🛡️ **راستی‌آزمایی واقعی داده (E2E Traffic Verification):** تایید عبور دیتای واقعی با پاسخ 204 از اینترنت جهانی قبل از برقراری وضعیت
+          - ⚡ **همگام‌سازی خودکار پروکسی سیستم و رفع نشت ترافیک مرورگرها**
         draft: false
         prerelease: false
         files: |
-          RedCloud_VPN_Setup_v4.5.exe
+          RedCloud_VPN_Setup_v4.6.exe
           RedCloud_VPN_Setup_*.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

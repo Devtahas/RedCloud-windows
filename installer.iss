@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define AppName "RedCloud VPN"
-#define AppVersion "4.5"
+#define AppVersion "4.6"
 #define AppPublisher "RedCloud Technologies"
 #define AppExeName "client.exe"
 #define AppURL "https://github.com/Devtahas/RedCloud-windows"
@@ -26,12 +26,12 @@ OutputBaseFilename=RedCloud_VPN_Setup_v{#AppVersion}
 SetupIconFile=assets\app_icon.ico
 
 ; تنظیمات متادیتای ویندوز جهت جلوگیری از شناسایی به عنوان بدافزار ناشناس توسط آنتی‌ویروس‌ها
-VersionInfoVersion=4.5.0.0
+VersionInfoVersion=4.6.0.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=RedCloud VPN Next-Gen Anti-Censorship Client for Windows
 VersionInfoCopyright=Copyright (C) 2026 {#AppPublisher}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion=4.5.0.0
+VersionInfoProductVersion=4.6.0.0
 
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -63,6 +63,7 @@ Source: "aether.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesnte
 Source: "sing-box.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "tor.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "psiphon-tunnel-core.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "shirokhorshid.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "udp2raw.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "slipnet.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "whitedns.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -87,7 +88,7 @@ Source: "WinDivert.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoes
 Source: "WinDivert64.sys"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; فایل‌های دیتابیس کلودفلر، تور، ژئولوکیشن و مخزن DNS
-Source: "cloudflare_IPs.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "*_IPs.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "geoip"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "geoip6"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "geoip-plus-asn"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -105,7 +106,7 @@ Root: "HKCU"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFla
 
 [Run]
 ; ۱. بستن پروسه‌های معلق
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden; StatusMsg: "آماده‌سازی محیط..."
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM shirokhorshid.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden; StatusMsg: "آماده‌سازی محیط..."
 
 ; ۲. ثبت تسک زمان‌بندی‌شده جهت اجرای خودکار با دسترسی ادمین در استارتاپ (بدون مسدود شدن توسط UAC ویندوز)
 Filename: "schtasks.exe"; Parameters: "/Create /TN ""{#AppName}"" /TR """"{app}\{#AppExeName}"""" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: autostart
@@ -115,7 +116,7 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(
 
 [UninstallRun]
 ; بستن تمام فرآیندها و هسته‌های فعال هنگام حذف نرم‌افزار
-Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden
+Filename: "taskkill.exe"; Parameters: "/F /IM {#AppExeName} /IM aether.exe /IM sing-box.exe /IM tor.exe /IM shirokhorshid.exe /IM psiphon-tunnel-core.exe /IM goodbyedpi.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe"; Flags: runhidden
 
 ; حذف تسک استارتاپ از Task Scheduler
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ""{#AppName}"" /F"; Flags: runhidden
@@ -168,7 +169,7 @@ begin
     ssInstall:
     begin
       // بستن درایورها و پروسه‌ها قبل از استخراج فایل‌ها برای جلوگیری از خطای Access is denied
-      Exec('taskkill.exe', '/F /IM {#AppExeName} /IM goodbyedpi.exe /IM aether.exe /IM sing-box.exe /IM tor.exe /IM psiphon-tunnel-core.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec('taskkill.exe', '/F /IM {#AppExeName} /IM goodbyedpi.exe /IM aether.exe /IM sing-box.exe /IM tor.exe /IM shirokhorshid.exe /IM psiphon-tunnel-core.exe /IM dnscrypt-proxy.exe /IM udp2raw.exe /IM slipnet.exe /IM whitedns.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('net.exe', 'stop WinDivert', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       Exec('net.exe', 'stop WinDivert14', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       WriteSetupLog('INFO', 'SETUP', 'شروع فرآیند استخراج باینری‌ها، ترنسپورت‌های CDN، درایورها و هسته‌ها...');

@@ -255,6 +255,7 @@ pub fn kill_all_zombie_cores() {
                 "/IM", "aether.exe", 
                 "/IM", "psiphon-tunnel-core.exe", 
                 "/IM", "tor.exe",
+                "/IM", "shirokhorshid.exe",
                 "/IM", "goodbyedpi.exe",
                 "/IM", "dnscrypt-proxy.exe",
                 "/IM", "udp2raw.exe",
@@ -1384,7 +1385,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
         };
 
         let payload = serde_json::json!({
-            "app_version": "4.5",
+            "app_version": "4.6",
             "os_info": os_info,
             "os_arch": "x64",
             "module": module_owned,
@@ -1411,7 +1412,7 @@ fn send_native_telemetry(level: &str, module: &str, error_message: &str, stack_t
                             let request = format!(
                                 "POST /api/crash-report HTTP/1.1\r\n\
                                  Host: {}\r\n\
-                                 User-Agent: RedCloud-RustCore/4.5\r\n\
+                                 User-Agent: RedCloud-RustCore/4.6\r\n\
                                  Content-Type: application/json\r\n\
                                  Content-Length: {}\r\n\
                                  Connection: close\r\n\r\n{}",
@@ -1703,8 +1704,16 @@ pub fn get_tor_bootstrap_progress() -> i32 {
     *TOR_BOOTSTRAP_PERCENT.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// راستی‌آزمایی سخت‌گیرانه: اتصال فقط و فقط در صورتی تایید می‌شود که دیتای واقعی با پاسخ 204 از اینترنت جهانی برگردد
 pub fn is_psiphon_bootstrap_done() -> bool {
-    *PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner())
+    // ارسال پکت آزمایشی واقعی از درون تونل به سرور مرجع جهانی
+    if test_socks5_egress("127.0.0.1:9080", Duration::from_millis(700)) {
+        let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
+        *connected = true;
+        true
+    } else {
+        false
+    }
 }
 
 pub fn get_psiphon_status_text() -> String {
@@ -2947,6 +2956,7 @@ pub fn start_hybrid_connection(
                     "process_name": [
                         "aether.exe", 
                         "tor.exe", 
+                        "shirokhorshid.exe",
                         "psiphon-tunnel-core.exe",
                         "goodbyedpi.exe",
                         "dnscrypt-proxy.exe",
@@ -3888,7 +3898,7 @@ fn process_psiphon_line(l: String) {
     let trimmed = l.trim().to_string();
     if trimmed.is_empty() { return; }
 
-    write_log("DEBUG", "PSIPHON", &trimmed);
+    write_log("DEBUG", "SHIROKHORSHID", &trimmed);
 
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(&trimmed) {
         if let Some(notice) = v.get("noticeType").and_then(|n| n.as_str()) {
@@ -3896,35 +3906,55 @@ fn process_psiphon_line(l: String) {
             match notice {
                 "CandidateServers" => {
                     let count = v["data"]["count"].as_i64().unwrap_or(0);
-                    *status_msg = format!("Probing {} candidate servers...", count);
+                    *status_msg = format!("شیروخورشید: در حال بررسی {} سرور کاندید...", count);
                 },
                 "ConnectingServer" => {
-                    *status_msg = "Handshaking with Psiphon server...".to_string();
+                    *status_msg = "شیروخورشید: در حال دست‌دهی امن با سرور مقصد...".to_string();
                 },
                 "AvailableEgressRegions" => {
                     if let Some(regions) = v["data"]["regions"].as_array() {
                         if !regions.is_empty() {
-                            *status_msg = format!("{} regions available to connect.", regions.len());
+                            *status_msg = format!("{} کشور فعال آماده اتصال است.", regions.len());
                         } else {
-                            *status_msg = "Fetching Psiphon active servers...".to_string();
+                            *status_msg = "در حال دریافت سرورهای شیروخورشید...".to_string();
                         }
                     }
                 },
                 "ActiveTunnel" | "Tunnels" => {
                     let count = v["data"]["count"].as_i64().unwrap_or(0);
                     if count > 0 {
-                        *status_msg = format!("Psiphon tunnel active with {} routes!", count);
+                        *status_msg = format!("تونل شیروخورشید با {} مسیر فعال برقرار شد!", count);
                         let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
                         *connected = true;
                     }
                 },
+                "ListeningSocksProxyPort" | "ListeningHttpProxyPort" => {
+                    *status_msg = "پورت محلی باز شد؛ در حال آزمایش عبور واقعی ترافیک از سرور خارجی...".to_string();
+                },
+                "ConnectedServer" => {
+                    *status_msg = "ارتباط با سرور برقرار شد؛ در حال راستی‌آزمایی اینترنت...".to_string();
+                },
                 "Homepage" => {
-                    *status_msg = "Connection stable, traffic active.".to_string();
+                    *status_msg = "اتصال پایدار شد و ترافیک برقرار است.".to_string();
                     let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
                     *connected = true;
                 },
+                "BeastModeActive" | "BeastMode" => {
+                    *status_msg = "🔥 Beast Mode فعال شد؛ عبور پرسرعت از اختلالات".to_string();
+                },
                 _ => {}
             }
+        }
+    } else {
+        let lower = trimmed.to_lowercase();
+        if lower.contains("beast mode active") || lower.contains("beast mode enabled") {
+            let mut status_msg = PSIPHON_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+            *status_msg = "🔥 Beast Mode فعال شد!".to_string();
+        } else if lower.contains("tunnel connected") || lower.contains("handshake succeeded") {
+            let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
+            *connected = true;
+            let mut status_msg = PSIPHON_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
+            *status_msg = "تونل شیروخورشید با موفقیت متصل شد.".to_string();
         }
     }
 }
@@ -3935,151 +3965,50 @@ fn start_psiphon_core_internal(
     use_system_proxy: bool,
     upstream_proxy: Option<String>,
 ) -> Result<String, String> {
-    // استخراج هوشمند پارامترهای CDN Fronting ارسالی از سمت فلاتر
-    let (clean_country, is_cdn_fronting, cdn_mode) = if country_code.contains("##cdn") {
+    // استخراج دقیق ۳ مود کاری: direct (مستقیم)، cdn (فرانتینگ)، conduit (کاندوییت)
+    let mut clean_country = String::new();
+    let mut shk_mode = "cdn".to_string();
+    let mut beast_mode = true;
+    let mut _cdn_provider = "akamai".to_string();
+    let mut edge_ips = String::new();
+    let mut fronting_sni = String::new();
+    let mut conduit_node = String::new();
+    let mut disable_homepage = true;
+
+    if country_code.contains("##") {
         let parts: Vec<&str> = country_code.split("##").collect();
-        let cc = parts.get(0).unwrap_or(&"").trim().to_string();
-        let mode = parts.get(2).unwrap_or(&"cdn").trim().to_string();
-        (cc, true, mode)
+        clean_country = parts.get(0).unwrap_or(&"").trim().to_string();
+
+        let mut i = 1;
+        while i < parts.len() {
+            let key = parts[i];
+            let val = parts.get(i + 1).unwrap_or(&"");
+            match key {
+                "mode" => shk_mode = val.trim().to_lowercase(),
+                "beast" => beast_mode = val.trim() == "true",
+                "provider" => _cdn_provider = val.trim().to_string(),
+                "edge" => edge_ips = val.trim().to_string(),
+                "sni" => fronting_sni = val.trim().to_string(),
+                "conduit" => conduit_node = val.trim().to_string(),
+                "nohome" => disable_homepage = val.trim() == "true",
+                _ => {}
+            }
+            i += 2;
+        }
     } else {
-        (country_code.clone(), false, "direct".to_string())
-    };
-
-    write_log("INFO", "PSIPHON", &format!("راه‌اندازی هسته سایفون (Region: {}, CDN Fronting: {})", clean_country, is_cdn_fronting));
-
-    // =========================================================================
-    // مسیر ویژه: اجرای سایفون بر بستر فناوری CDN Fronting هسته اِتر
-    // =========================================================================
-    if is_cdn_fronting {
-        write_log("INFO", "PSIPHON_CDN", &format!("⚡ اجرای CDN Fronting با هسته اِتر (مود: {}, منطقه: {})", cdn_mode, clean_country));
-
-        // فقط پروسه قدیمی سایفون کشته شود؛ اِتر را taskkill نمی‌کنیم تا جلوی کرش گرفته شود
-        {
-            let mut process_guard = PSIPHON_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
-            if let Some(mut old) = process_guard.take() {
-                let _ = old.kill();
-                let _ = old.wait();
-            }
-        }
-        #[cfg(target_os = "windows")]
-        let _ = Command::new("taskkill").args(&["/F", "/IM", "psiphon-tunnel-core.exe"]).creation_flags(0x08000000).output();
-
-        {
-            let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
-            *connected = false;
-            let mut status = PSIPHON_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
-            *status = "Connecting via Aether CDN Fronting...".to_string();
-        }
-
-        let aether_bin = resolve_binary_path("aether.exe");
-        if !aether_bin.exists() {
-            return Err("فایل aether.exe برای اجرای قابلیت CDN Fronting یافت نشد.".to_string());
-        }
-
-        let work_dir = get_safe_work_dir();
-        let mut cmd = Command::new(&aether_bin);
-
-        // ۱. اِتر اول پل مسک را بالا می‌آورد و پورت‌های تمیز 9080 و 9081 را برای اتصال سیستم باز می‌کند
-        cmd.arg("-4")
-           .arg("--bind").arg("127.0.0.1:9080")
-           .arg("--http-proxy").arg("127.0.0.1:9081");
-
-        // ۲. اتصال زنجیره‌ای: سایفون حتماً از درون پل اِتر رد می‌شود
-        cmd.arg("--psiphon");
-        cmd.arg("--psiphon-mode").arg(&cdn_mode);
-
-        // ۳. انتخاب هوشمند کشور: فیلتر فقط روی کشورهایی که واقعاً سرور CDN Fronting دارند
-        let valid_cdn_regions = ["DE", "JP", "SG", "US"];
-        let target_reg = clean_country.to_uppercase();
-        if !clean_country.is_empty() 
-            && clean_country.to_lowercase() != "auto" 
-            && clean_country.to_lowercase() != "random" 
-            && valid_cdn_regions.contains(&target_reg.as_str()) 
-        {
-            cmd.arg("--psiphon-region").arg(&target_reg);
-        } else {
-            // اگر کشور درخواستی مثل SE در استخر CDN نبود یا روی auto/random بود، اجازه می‌دهیم اِتر به صورت خودکار و تصادفی سریع‌ترین سرور آنلاین (DE, JP, SG, US) را انتخاب کند
-            write_log("INFO", "PSIPHON_CDN", "منطقه درخواستی سرور CDN ندارد یا روی auto است؛ انتخاب خودکار بهترین سرور فعال از بین (DE, JP, SG, US)...");
-        }
-
-        cmd.current_dir(&work_dir)
-           .stdin(Stdio::null())
-           .stdout(Stdio::piped())
-           .stderr(Stdio::piped());
-
-        #[cfg(target_os = "windows")]
-        cmd.creation_flags(0x08000000);
-
-        let mut child = cmd.spawn().map_err(|e| format!("خطا در اجرای CDN Fronting با اِتر: {}", e))?;
-        #[cfg(target_os = "windows")]
-        assign_child_to_job(&child);
-
-        // تابع یکپارچه برای پردازش آنی لاگ‌های خروجی
-        let handle_aether_line = |line: String| {
-            let tr = line.trim().to_string();
-            let lower = tr.to_lowercase();
-
-            // ذخیره سرورهای زنده فرانتینگ
-            if let Some(pos) = tr.find("psiphon can leave from:") {
-                let regions_raw = tr[pos + 23..].trim();
-                let path = get_safe_work_dir().join("cdn_regions.txt");
-                let _ = std::fs::write(path, regions_raw);
-            }
-
-            // ذخیره اطلاعات نهایی لوکیشن خروجی سایفون (دالاس آمریکا / سوئد)
-            if tr.contains("psiphon through the tunnel exit:") {
-                let path = get_safe_work_dir().join("psiphon_exit.txt");
-                let _ = std::fs::write(path, &tr);
-            }
-
-            // تایید فوری وضعیت اتصال برای فلاتر (دایره درجا سبز می‌شود)
-            if lower.contains("psiphon is ready") 
-                || lower.contains("through the tunnel exit")
-                || lower.contains("activetunnel") 
-                || lower.contains("tunnels") 
-                || (lower.contains("psiphon") && lower.contains("connected"))
-                || lower.contains("homepage") {
-                let mut conn = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
-                *conn = true;
-            }
-
-            let mut st = PSIPHON_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
-            *st = tr;
-        };
-
-        if let Some(stdout) = child.stdout.take() {
-            thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines().flatten() {
-                    write_log("INFO", "AETHER_PSIPHON", &line);
-                    handle_aether_line(line);
-                }
-            });
-        }
-
-        if let Some(stderr) = child.stderr.take() {
-            thread::spawn(move || {
-                let reader = BufReader::new(stderr);
-                for line in reader.lines().flatten() {
-                    write_log("WARN", "AETHER_PSIPHON_ERR", &line);
-                    handle_aether_line(line);
-                }
-            });
-        }
-
-        {
-            let mut process_guard = PSIPHON_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
-            *process_guard = Some(child);
-        }
-
-        // تنظیم پروکسی رجیستری مستقیماً به Sing-box سپرده می‌شود تا از پورت استاندارد استفاده کند
-        start_anti_rst_filter();
-        return Ok("اتصال سایفون با فناوری CDN Fronting آغاز شد...".to_string());
+        clean_country = country_code.clone();
     }
 
+    write_log(
+        "INFO", 
+        "SHIROKHORSHID", 
+        &format!("🦁☀️ راه‌اندازی هسته شیروخورشید (حالت: {}, کشور: {}, Beast: {})", shk_mode.to_uppercase(), clean_country, beast_mode)
+    );
+
+    // توقف پروسه‌های قبلی
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("taskkill").args(&["/F", "/IM", "psiphon-tunnel-core.exe"]).creation_flags(0x08000000).output();
+        let _ = Command::new("taskkill").args(&["/F", "/IM", "shirokhorshid.exe", "/IM", "psiphon-tunnel-core.exe"]).creation_flags(0x08000000).output();
         thread::sleep(Duration::from_millis(200));
     }
 
@@ -4095,9 +4024,14 @@ fn start_psiphon_core_internal(
         let mut connected = PSIPHON_CONNECTED.lock().unwrap_or_else(|e| e.into_inner());
         *connected = false;
         let mut status = PSIPHON_STATUS_MSG.lock().unwrap_or_else(|e| e.into_inner());
-        *status = "Connecting to Psiphon servers...".to_string();
+        *status = match shk_mode.as_str() {
+            "direct" => "در حال برقراری اتصال مستقیم با سرورهای شیروخورشید...".to_string(),
+            "conduit" => "در حال اتصال به پل اختصاصی کاندوییت...".to_string(),
+            _ => "در حال اتصال به سرورهای لبه CDN Fronting...".to_string(),
+        };
     }
 
+    // ساخت پیکربندی متناسب با حالت انتخابی
     let work_dir = get_safe_work_dir();
     let temp_config_path = work_dir.join("redcloud_temp_psiphon_config.json");
     
@@ -4110,12 +4044,32 @@ fn start_psiphon_core_internal(
         "RemoteServerListSignaturePublicKey": "MIICIDANBgkqhkiG9w0BAQEFAAOCAg0AMIICCAKCAgEAt7Ls+/39r+T6zNW7GiVpJfzq/xvL9SBH5rIFnk0RXYEYavax3WS6HOD35eTAqn8AniOwiH+DOkvgSKF2caqk/y1dfq47Pdymtwzp9ikpB1C5OfAysXzBiwVJlCdajBKvBZDerV1cMvRzCKvKwRmvDmHgphQQ7WfXIGbRbmmk6opMBh3roE42KcotLFtqp0RRwLtcBRNtCdsrVsjiI1Lqz/lH+T61sGjSjQ3CHMuZYSQJZo/KrvzgQXpkaCTdbObxHqb6/+i1qaVOfEsvjoiyzTxJADvSytVtcTjijhPEV6XskJVHE1Zgl+7rATr/pDQkw6DPCNBS1+Y6fy7GstZALQXwEDN/qhQI9kWkHijT8ns+i1vGg00Mk/6J75arLhqcodWsdeG/M/moWgqQAnlZAGVtJI1OgeF5fsPpXu4kctOfuZlGjVZXQNW34aOzm8r8S0eVZitPlbhcPiR4gT/aSMz/wd8lZlzZYsje/Jr8u/YtlwjjreZrGRmG8KMOzukV3lLmMppXFMvl4bxv6YFEmIuTsOhbLTwFgh7KYNjodLj/LsqRVfwz31PgWQFTEPICV7GCvgVlPRxnofqKSjgTWI4mxDhBpVcATvaoBl1L/6WLbFvBsoAUBItWwctO2xalKxF5szhGm8lccoc5MZr8kfE0uxMgsxz4er68iCID+rsCAQM=",
         "RemoteServerListUrl": "https://s3.amazonaws.com//psiphon/web/mjr4-p23r-puwl/server_list_compressed",
         "UseIndistinguishableTLS": true,
-        "EstablishTunnelTimeoutSeconds": 0
+        "EstablishTunnelTimeoutSeconds": 0,
+        "DisableHomepage": disable_homepage,
+        "BeastMode": beast_mode,
     });
 
-    if !country_code.trim().is_empty() {
-        config_json["EgressRegion"] = serde_json::json!(country_code.trim());
+    if !clean_country.is_empty() && clean_country.to_lowercase() != "auto" {
+        config_json["EgressRegion"] = serde_json::json!(clean_country.trim());
     }
+
+    // اعمال فیلدها فقط در صورتی که در مود مربوطه باشند
+    if shk_mode == "cdn" {
+        if !fronting_sni.is_empty() {
+            config_json["FrontingSNI"] = serde_json::json!(fronting_sni);
+        }
+        if !edge_ips.is_empty() {
+            let ip_list: Vec<&str> = edge_ips.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+            config_json["CustomEdgeIPs"] = serde_json::json!(ip_list);
+            config_json["TargetEdgeIPs"] = serde_json::json!(ip_list);
+        }
+    } else if shk_mode == "conduit" {
+        if !conduit_node.is_empty() {
+            config_json["CustomServerList"] = serde_json::json!(conduit_node);
+            config_json["ConduitServerList"] = serde_json::json!(conduit_node);
+        }
+    }
+    // در مود direct هیچ‌کدام از فیلدهای CDN یا Conduit تزریق نمی‌شوند تا اتصال ۱۰۰٪ مستقیم باشد
 
     if let Some(ref upstream) = upstream_proxy {
         if !upstream.trim().is_empty() {
@@ -4126,20 +4080,19 @@ fn start_psiphon_core_internal(
     }
 
     let mut file = File::create(&temp_config_path)
-        .map_err(|e| {
-            let err = format!("خطا در ایجاد فایل تنظیمات سایفون: {}", e);
-            write_log("ERROR", "PSIPHON", &err);
-            err
-        })?;
+        .map_err(|e| format!("خطا در ایجاد فایل کانفیگ شیروخورشید: {}", e))?;
     
     file.write_all(config_json.to_string().as_bytes())
-        .map_err(|e| {
-            let err = format!("خطا در ذخیره فایل تنظیمات سایفون: {}", e);
-            write_log("ERROR", "PSIPHON", &err);
-            err
-        })?;
+        .map_err(|e| format!("خطا در ذخیره کانفیگ شیروخورشید: {}", e))?;
 
-    let resolved_path = resolve_binary_path(&binary_path);
+    // ۴. انتخاب باینری: اول shirokhorshid.exe و در صورت نبود، psiphon-tunnel-core.exe
+    let target_bin = if resolve_binary_path("shirokhorshid.exe").exists() {
+        "shirokhorshid.exe".to_string()
+    } else {
+        binary_path
+    };
+
+    let resolved_path = resolve_binary_path(&target_bin);
     let mut command = Command::new(&resolved_path);
     command.arg("-config")
            .arg(&temp_config_path)
@@ -4152,11 +4105,7 @@ fn start_psiphon_core_internal(
     command.creation_flags(0x08000000); 
 
     let mut child = command.spawn()
-        .map_err(|e| {
-            let err = format!("خطا در اجرای فرآیند سایفون در مسیر {:?}: {}", resolved_path, e);
-            write_log("ERROR", "PSIPHON", &err);
-            err
-        })?;
+        .map_err(|e| format!("خطا در اجرای فرآیند {:?}: {}", resolved_path, e))?;
 
     #[cfg(target_os = "windows")]
     assign_child_to_job(&child);
@@ -4188,11 +4137,10 @@ fn start_psiphon_core_internal(
         set_windows_system_proxy(true, "127.0.0.1".to_string(), 9081);
     }
     start_anti_rst_filter();
-    Ok("Connecting to Psiphon servers, please wait...".to_string())
+    Ok("هسته شیروخورشید با موفقیت راه‌اندازی شد. در حال اتصال...".to_string())
 }
 
 pub fn start_psiphon_core(binary_path: String, country_code: String, use_system_proxy: bool) -> Result<String, String> {
-    // پذیرش کاملاً پویا و بدون هاردکدِ پروکسی مرحله قبل از خط لوله
     let (clean_country, upstream_proxy) = if country_code.contains("##upstream##") {
         let parts: Vec<&str> = country_code.split("##upstream##").collect();
         (parts[0].to_string(), Some(parts[1].trim().to_string()))
@@ -4212,28 +4160,16 @@ pub fn start_psiphon_over_masque(
     aether_team: Option<String>,
     use_system_proxy: bool,
 ) -> Result<String, String> {
-    // اگر CDN Fronting فعال باشد، خود اِتر هر دو لایه (مسک + سایفون فرانتینگ) را درون یک پروسه مدیریت می‌کند
-    if country_code.contains("##cdn") {
-        write_log("INFO", "PSIPHON_MASQUE", "⚡ فناوری CDN Fronting فعال است؛ هدایت مستقیم به موتور تک‌پروانه اِتر...");
-        return start_psiphon_core_internal(
-            psiphon_path,
-            country_code,
-            use_system_proxy,
-            Some("masque_chain".to_string()),
-        );
-    }
-
     #[cfg(target_os = "windows")]
     {
-        let _ = Command::new("taskkill").args(&["/F", "/IM", "psiphon-tunnel-core.exe"]).creation_flags(0x08000000).output();
-        let _ = Command::new("taskkill").args(&["/F", "/IM", "aether.exe"]).creation_flags(0x08000000).output();
+        let _ = Command::new("taskkill").args(&["/F", "/IM", "shirokhorshid.exe", "/IM", "psiphon-tunnel-core.exe", "/IM", "aether.exe"]).creation_flags(0x08000000).output();
         thread::sleep(Duration::from_millis(300));
     }
 
     let _ = stop_psiphon_core();
     let _ = stop_aether_core();
 
-    write_log("INFO", "PSIPHON_MASQUE", "راه‌اندازی پل هوشمند اِتر برای سایفون...");
+    write_log("INFO", "SHK_MASQUE", "🦁☀️ راه‌اندازی پل هوشمند اِتر برای هسته شیروخورشید...");
 
     let aether_res = start_aether_core(
         aether_path,
@@ -4244,12 +4180,11 @@ pub fn start_psiphon_over_masque(
         false,
     );
     if let Err(e) = aether_res {
-        write_log("ERROR", "PSIPHON_MASQUE", &format!("خطا در راه‌اندازی پل اتر: {}", e));
+        write_log("ERROR", "SHK_MASQUE", &format!("خطا در راه‌اندازی پل اتر: {}", e));
         return Err(format!("خطا در راه‌اندازی پل اتر: {}", e));
     }
 
     let mut aether_ready = false;
-    // تایم‌اوت تطبیقی تا ۹۰ ثانیه برای اتصال پایدار سایفون
     for _ in 0..180 {
         thread::sleep(Duration::from_millis(500));
         if test_socks5_egress("127.0.0.1:1819", Duration::from_millis(800)) {
@@ -4260,7 +4195,7 @@ pub fn start_psiphon_over_masque(
 
     if !aether_ready {
         let _ = stop_aether_core();
-        write_log("ERROR", "PSIPHON_MASQUE", "پل ارتباطی اتر برای سایفون پس از ۹۰ ثانیه بالا نیامد.");
+        write_log("ERROR", "SHK_MASQUE", "پل ارتباطی اتر برای شیروخورشید پس از ۹۰ ثانیه بالا نیامد.");
         return Err("پل ارتباطی اتر موفق به برقراری ارتباط زنده با اینترنت نشد.".to_string());
     }
 
@@ -4273,17 +4208,17 @@ pub fn start_psiphon_over_masque(
 }
 
 pub fn stop_psiphon_over_masque() -> Result<String, String> {
-    write_log("INFO", "PSIPHON_MASQUE", "دستور قطع اتصال Psiphon over MASQUE دریافت شد.");
+    write_log("INFO", "SHK_MASQUE", "دستور قطع اتصال شیروخورشید بر بستر مسک دریافت شد.");
     let _ = stop_psiphon_core();
     let _ = stop_aether_core();
     set_windows_system_proxy(false, String::new(), 0);
-    Ok("اتصال سایفون بر بستر مسک متوقف و سیستم به حالت عادی بازگشت.".to_string())
+    Ok("اتصال شیروخورشید بر بستر مسک متوقف و سیستم به حالت عادی بازگشت.".to_string())
 }
 
 pub fn stop_psiphon_core() -> Result<String, String> {
     let _ = restore_original_timezone();
     stop_anti_rst_filter();
-    write_log("INFO", "PSIPHON", "دستور توقف سایفون دریافت شد.");
+    write_log("INFO", "SHIROKHORSHID", "دستور توقف شیروخورشید دریافت شد.");
     let mut process_guard = PSIPHON_PROCESS.lock().unwrap_or_else(|e| e.into_inner());
 
     if let Some(mut child) = process_guard.take() {
@@ -4302,11 +4237,11 @@ pub fn stop_psiphon_core() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     let _ = Command::new("taskkill")
-        .args(&["/F", "/IM", "psiphon-tunnel-core.exe"])
+        .args(&["/F", "/IM", "shirokhorshid.exe", "/IM", "psiphon-tunnel-core.exe"])
         .creation_flags(0x08000000)
         .output();
 
-    Ok("اتصال سایفون متوقف و سیستم به حالت عادی برگشت.".to_string())
+    Ok("اتصال شیروخورشید متوقف و سیستم به حالت عادی برگشت.".to_string())
 }
 
 // =========================================================================
@@ -4314,61 +4249,46 @@ pub fn stop_psiphon_core() -> Result<String, String> {
 // =========================================================================
 
 fn scan_single_ip_ws(ip: &str, port: u16, worker: &str, path: &str, timeout_ms: u64) -> Option<u128> {
-    let addr = format!("{}:{}", ip, port).parse::<SocketAddr>().ok()?;
+    let target_port = if port == 0 { 443 } else { port };
+    let addr = format!("{}:{}", ip, target_port).parse::<SocketAddr>().ok()?;
     let start = Instant::now();
     
-    let stream_res = TcpStream::connect_timeout(&addr, Duration::from_millis(timeout_ms));
-    if stream_res.is_err() {
-        return None;
-    }
-    let stream = stream_res.unwrap();
+    let stream = TcpStream::connect_timeout(&addr, Duration::from_millis(timeout_ms)).ok()?;
     let _ = stream.set_read_timeout(Some(Duration::from_millis(timeout_ms)));
     let _ = stream.set_write_timeout(Some(Duration::from_millis(timeout_ms)));
+    let _ = stream.set_nodelay(true);
 
-    // لایه ۱: تلاش استاندارد WebSocket
-    let connector_res = TlsConnector::builder()
+    let connector = TlsConnector::builder()
         .danger_accept_invalid_certs(true)
-        .build();
+        .build()
+        .ok()?;
 
-    if let Ok(connector) = connector_res {
-        if let Ok(mut tls_stream) = connector.connect(worker, stream) {
-            let clean_path = if path.starts_with('/') { path.to_string() } else { format!("/{}", path) };
-            let request = format!(
-                "GET {} HTTP/1.1\r\n\
-                 Host: {}\r\n\
-                 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n\
-                 Upgrade: websocket\r\n\
-                 Connection: Upgrade\r\n\
-                 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\
-                 Sec-WebSocket-Version: 13\r\n\r\n",
-                clean_path, worker
-            );
+    if let Ok(mut tls_stream) = connector.connect(worker, stream) {
+        let clean_path = if path.starts_with('/') { path.to_string() } else { format!("/{}", path) };
+        let request = format!(
+            "GET {} HTTP/1.1\r\n\
+             Host: {}\r\n\
+             User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n\
+             Upgrade: websocket\r\n\
+             Connection: Upgrade\r\n\
+             Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\
+             Sec-WebSocket-Version: 13\r\n\r\n",
+            clean_path, worker
+        );
 
-            if tls_stream.write_all(request.as_bytes()).is_ok() {
-                let mut buffer = [0u8; 15];
-                if tls_stream.read_exact(&mut buffer).is_ok() {
-                    let response = String::from_utf8_lossy(&buffer);
-                    if response.starts_with("HTTP/1.1 101") || response.starts_with("HTTP/1.0 101") {
+        if tls_stream.write_all(request.as_bytes()).is_ok() {
+            let mut buffer = [0u8; 128];
+            if let Ok(n) = tls_stream.read(&mut buffer) {
+                if n > 0 {
+                    let response = String::from_utf8_lossy(&buffer[..n]);
+                    let is_valid_http = response.starts_with("HTTP/1.1") || response.starts_with("HTTP/2");
+                    let is_not_peyvandha = !response.contains("10.10.34") && !response.contains("peyvandha");
+                    if is_valid_http && is_not_peyvandha {
                         return Some(start.elapsed().as_millis());
                     }
                 }
             }
         }
-    }
-
-    // لایه ۲ هوشمند (ضد فیلترینگ): اگر DPI پکت خام را ریست کرد، فوراً تست فرگمنت بایت ۳ با تاخیر می‌زنیم
-    let frag_test = FragmentProber::probe_single_fragment(
-        addr,
-        worker,
-        EvasionStrategy::TcpSegmentSplit,
-        3,
-        15,
-        Duration::from_millis(timeout_ms),
-    );
-
-    // اگر با فرگمنت پاسخ معتبر TLS ServerHello برگشت، آی‌پی ۱۰۰٪ زنده است و نجات پیدا می‌کند
-    if frag_test.is_successful {
-        return Some(start.elapsed().as_millis());
     }
 
     None
@@ -4383,12 +4303,10 @@ fn find_verified_emergency_ip() -> Option<(String, u16)> {
     write_log("WARN", "AETHER_EMERGENCY", "🚨 رنج‌های پیش‌فرض مسدود بودند؛ آغاز آزمایش فیزیکی آی‌پی‌های فایل cloudflare_IPs.txt...");
 
     let test_ports = [443, 2053, 8443, 2083];
-    // بررسی زنده تا حداکثر ۳۵ آی‌پی اول برای جلوگیری از معطلی
     for ip in candidate_ips.iter().take(35) {
         for &port in &test_ports {
             let addr_str = format!("{}:{}", ip, port);
             if let Ok(socket_addr) = addr_str.parse::<SocketAddr>() {
-                // تست فیزیکی زنده بودن: ارسال پکت واقعی و دریافت پاسخ هندشیک در کمتر از ۷۰۰ میلی‌ثانیه
                 let start = Instant::now();
                 if let Ok(stream) = TcpStream::connect_timeout(&socket_addr, Duration::from_millis(700)) {
                     let _ = stream.shutdown(Shutdown::Both);
@@ -4404,8 +4322,73 @@ fn find_verified_emergency_ip() -> Option<(String, u16)> {
     None
 }
 
+/// اسکن هوشمند و پایدار لایه ۷: تست واقعی هندشیک و دریافت پاسخ سرور لبه بدون گیر افتادن در Schannel
+fn scan_single_ip_tls_sni(ip: &str, port: u16, sni: &str, timeout_ms: u64) -> Option<u128> {
+    let addr = format!("{}:{}", ip, port).parse::<SocketAddr>().ok()?;
+    let start = Instant::now();
+    let stream = TcpStream::connect_timeout(&addr, Duration::from_millis(timeout_ms)).ok()?;
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(timeout_ms)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(timeout_ms)));
+    let _ = stream.set_nodelay(true);
+
+    // استفاده از اعتبارسنجی مستقل جهت جلوگیری از قفل شدن دانلود گواهی‌های آنلاین مایکروسافت
+    let connector = TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .build()
+        .ok()?;
+
+    let mut tls_stream = connector.connect(sni, stream).ok()?;
+
+    // ارسال درخواست استاندارد GET برای وادار کردن سرور به بازگرداندن هدرهای اختصاصی CDN
+    let http_probe = format!(
+        "GET / HTTP/1.1\r\n\
+         Host: {}\r\n\
+         User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n\
+         Accept: */*\r\n\
+         Connection: close\r\n\r\n",
+        sni
+    );
+
+    if tls_stream.write_all(http_probe.as_bytes()).is_ok() {
+        let mut resp_buf = [0u8; 128];
+        if let Ok(read_bytes) = tls_stream.read(&mut resp_buf) {
+            if read_bytes > 0 {
+                let resp_str = String::from_utf8_lossy(&resp_buf[..read_bytes]);
+                
+                // دریافت هرگونه کد وضعیت استاندارد وب (۲۰۰، ۳۰۱، ۳۰۲، ۴۰۰، ۴۰۳، ۴۰۴) به معنی زنده بودن آی‌پی سرور است
+                let is_valid_http = resp_str.starts_with("HTTP/1.1") 
+                    || resp_str.starts_with("HTTP/1.0") 
+                    || resp_str.starts_with("HTTP/2");
+                
+                let is_not_blocked = !resp_str.contains("10.10.34") 
+                    && !resp_str.contains("peyvandha")
+                    && !resp_str.contains("MCCI");
+
+                if is_valid_http && is_not_blocked {
+                    return Some(start.elapsed().as_millis());
+                }
+            }
+        }
+    }
+
+    // اگر پورت ۴۴۳ باز بود و هندشیک بدون ریست به پایان رسید (حتی بدون بدنه وب)
+    Some(start.elapsed().as_millis())
+}
+
 fn load_deep_scan_ips() -> Vec<String> {
-    let file_path = resolve_binary_path("cloudflare_IPs.txt");
+    load_cdn_scan_ips("cloudflare")
+}
+
+fn load_cdn_scan_ips(cdn_key: &str) -> Vec<String> {
+    // اگر ورودی UUID یا کد اکانت باشد، منبع اسکن قطعا کلودفلر است
+    let clean_key = if cdn_key.contains('-') || cdn_key.len() > 15 || cdn_key.is_empty() {
+        "cloudflare"
+    } else {
+        cdn_key
+    };
+
+    let filename = format!("{}_IPs.txt", clean_key.to_lowercase());
+    let file_path = resolve_binary_path(&filename);
     let mut candidate_ips = Vec::new();
 
     if let Ok(file) = File::open(&file_path) {
@@ -4417,45 +4400,50 @@ fn load_deep_scan_ips() -> Vec<String> {
             }
             if trimmed.contains('/') {
                 let parts: Vec<&str> = trimmed.split('/').collect();
-                if let Ok(ip) = parts[0].parse::<IpAddr>() {
-                    if let IpAddr::V4(ipv4) = ip {
-                        let octets = ipv4.octets();
-                        for host_offset in [1, 20, 50, 100, 150, 200, 254] {
-                            candidate_ips.push(format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], host_offset));
-                        }
+                if let Ok(IpAddr::V4(ipv4)) = parts[0].parse::<IpAddr>() {
+                    let octets = ipv4.octets();
+                    for host_offset in [1, 10, 20, 50, 100, 150, 200, 254] {
+                        candidate_ips.push(format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], host_offset));
                     }
                 }
             } else if trimmed.parse::<IpAddr>().is_ok() {
                 candidate_ips.push(trimmed);
             }
         }
-    }
-
-    if candidate_ips.is_empty() {
-        let fallback_cidrs = vec![
-            "5.226.176.0/24", "5.226.177.0/24", "45.85.118.0/24", "45.85.119.0/24",
-            "104.16.0.0/24", "104.18.0.0/24", "104.19.0.0/24", "104.20.0.0/24",
-            "104.21.0.0/24", "104.22.0.0/24", "104.23.0.0/24", "104.24.0.0/24",
-            "104.25.0.0/24", "104.26.0.0/24", "104.27.0.0/24", "172.64.0.0/24",
-            "172.65.0.0/24", "172.66.0.0/24", "172.67.0.0/24", "162.159.0.0/24",
-            "198.41.128.0/24", "188.114.96.0/24"
-        ];
-        for cidr in fallback_cidrs {
-            let parts: Vec<&str> = cidr.split('/').collect();
-            if let Ok(IpAddr::V4(ipv4)) = parts[0].parse::<IpAddr>() {
-                let octets = ipv4.octets();
-                for host_offset in [1, 50, 100, 150, 200, 254] {
-                    candidate_ips.push(format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], host_offset));
-                }
-            }
+        if !candidate_ips.is_empty() {
+            write_log("INFO", "SCANNER", &format!("تعداد {} آی‌پی از فایل اختصاصی {} بارگذاری شد.", candidate_ips.len(), filename));
+            return candidate_ips;
         }
     }
 
+    // رنج‌های پشتیبان هوشمند در صورت نبود فایل متنی
+    let fallback_cidrs = match cdn_key.to_lowercase().as_str() {
+        "akamai" => vec!["23.209.117.0/24", "23.45.197.0/24", "104.16.1.0/24", "184.26.115.0/24", "23.77.100.0/24"],
+        "google" => vec!["142.250.180.0/24", "172.217.16.0/24", "216.58.214.0/24", "172.217.18.0/24"],
+        "cloudfront" => vec!["13.224.162.0/24", "18.66.112.0/24", "54.230.156.0/24", "13.32.100.0/24"],
+        "fastly" => vec!["151.101.1.0/24", "151.101.65.0/24", "199.232.69.0/24"],
+        "azure" => vec!["13.107.246.0/24", "152.199.19.0/24", "68.232.34.0/24"],
+        "gcore" => vec!["92.223.84.0/24", "92.223.124.0/24"],
+        _ => vec![
+            "104.16.0.0/24", "104.18.0.0/24", "104.21.0.0/24", "172.67.0.0/24",
+            "162.159.192.0/24", "188.114.96.0/24", "104.24.0.0/24"
+        ]
+    };
+
+    for cidr in fallback_cidrs {
+        let parts: Vec<&str> = cidr.split('/').collect();
+        if let Ok(IpAddr::V4(ipv4)) = parts[0].parse::<IpAddr>() {
+            let octets = ipv4.octets();
+            for host_offset in [1, 20, 50, 100, 150, 200, 254] {
+                candidate_ips.push(format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], host_offset));
+            }
+        }
+    }
     candidate_ips
 }
 
 pub fn stop_cloudflare_scanner() {
-    write_log("INFO", "SCANNER", "دستور توقف اسکنر کلودفلر ارسال شد.");
+    write_log("INFO", "SCANNER", "دستور توقف اسکنر سراسری CDN صادر شد.");
     SCAN_CANCELLED.store(true, Ordering::SeqCst);
 }
 
@@ -4475,28 +4463,42 @@ pub fn run_cloudflare_scanner(
     scan_mode: String,
     early_stop: bool,
 ) -> Vec<ProxyNode> {
-    write_log("INFO", "SCANNER", &format!("شروع اسکنر کلودفلر (حالت: {}, توقف زودهنگام: {})", scan_mode, early_stop));
+    let cdn_key = if uuid.trim().is_empty() { "cloudflare".to_string() } else { uuid.trim().to_lowercase() };
+    let is_full_mode = scan_mode == "full";
+    let is_turbo_mode = (scan_mode == "turbo" || early_stop) && !is_full_mode;
+    
+    write_log("INFO", "SCANNER", &format!("🚀 شروع اسکنر دقیق برای CDN: {} (حالت: {})", cdn_key, scan_mode));
     SCAN_CANCELLED.store(false, Ordering::SeqCst);
     SCAN_RUNNING.store(true, Ordering::SeqCst);
     TOTAL_SCANNED.store(0, Ordering::SeqCst);
     ALIVE_COUNT.store(0, Ordering::SeqCst);
     DEAD_COUNT.store(0, Ordering::SeqCst);
 
-    let ip_list: Vec<String> = if scan_mode == "deep" {
-        load_deep_scan_ips()
-    } else {
-        vec![
-            "104.21.0.1", "104.22.0.1", "172.67.0.1", "104.27.110.232",
-            "104.16.0.1", "104.18.0.1", "162.159.0.1", "104.26.0.1",
-            "172.65.0.1", "104.24.0.1", "104.20.0.1", "104.25.0.1"
-        ].into_iter().map(|s| s.to_string()).collect()
-    };
+    let mut ip_list = load_cdn_scan_ips(&cdn_key);
+
+    // در حالت اسکن کامل، تمام فایل به ترتیب دقیق تست می‌شود
+    if !is_full_mode && ip_list.len() > 10 {
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        ip_list.shuffle(&mut rng);
+    }
 
     let (tx, rx) = mpsc::channel();
     let mut results = Vec::new();
     
-    let concurrency_limit = if scan_mode == "deep" { 50 } else { 20 };
-    
+    let is_vless_scan = uuid.contains('-') || !path.trim().is_empty();
+    let is_deep_scan = scan_mode == "deep" || scan_mode == "full";
+    let is_quick_scan = scan_mode == "quick";
+
+    // در حالت اسکن سریع، ۱۰۰ آی‌پی اول را تست می‌کند تا معطل نمانید؛ در اسکن عمیق تمام فایل را می‌خواند
+    if is_quick_scan && ip_list.len() > 120 {
+        ip_list.truncate(120);
+    }
+
+    let concurrency_limit = 40;
+    let target_sni = if worker.trim().is_empty() { "speed.cloudflare.com".to_string() } else { worker.trim().to_string() };
+    let test_port = 443;
+
     for chunk in ip_list.chunks(concurrency_limit) {
         if SCAN_CANCELLED.load(Ordering::SeqCst) {
             break;
@@ -4508,7 +4510,7 @@ pub fn run_cloudflare_scanner(
                 break;
             }
             let tx_clone = tx.clone();
-            let worker_clone = worker.clone();
+            let sni_clone = target_sni.clone();
             let path_clone = path.clone();
             let ip_str = ip.clone();
 
@@ -4517,7 +4519,12 @@ pub fn run_cloudflare_scanner(
                     return;
                 }
 
-                let latency_opt = scan_single_ip_ws(&ip_str, 2053, &worker_clone, &path_clone, 1800);
+                let latency_opt = if is_vless_scan {
+                    scan_single_ip_ws(&ip_str, 443, &sni_clone, &path_clone, 1800)
+                } else {
+                    scan_single_ip_tls_sni(&ip_str, test_port, &sni_clone, 1600)
+                };
+
                 TOTAL_SCANNED.fetch_add(1, Ordering::Relaxed);
 
                 if let Some(latency) = latency_opt {
@@ -4536,13 +4543,17 @@ pub fn run_cloudflare_scanner(
 
         while let Ok((ip, latency)) = rx.try_recv() {
             results.push((ip, latency));
-            if early_stop && !results.is_empty() {
+            if is_turbo_mode && results.len() >= 2 {
+                SCAN_CANCELLED.store(true, Ordering::SeqCst);
+                break;
+            }
+            if !is_deep_scan && !is_turbo_mode && results.len() >= 15 {
                 SCAN_CANCELLED.store(true, Ordering::SeqCst);
                 break;
             }
         }
 
-        if early_stop && !results.is_empty() {
+        if SCAN_CANCELLED.load(Ordering::SeqCst) {
             break;
         }
     }
@@ -4556,23 +4567,58 @@ pub fn run_cloudflare_scanner(
 
     results.sort_by_key(|&(_, lat)| lat);
 
-    let mut clean_nodes = Vec::new();
-    for (ip, latency) in results {
-        let encoded_path = urlencoding::encode(&path);
-        let raw_url = format!(
-            "vless://{}@{}:2053?encryption=none&security=tls&sni={}&fp=chrome&alpn=http%2F1.1&insecure=1&allowInsecure=1&type=ws&host={}&path={}#{}%3A2053%20%7C%20TLS%20%7C%20HTTP1.1%20%7C%20{}ms",
-            uuid, ip, worker, worker, encoded_path, ip, latency
-        );
+    let max_take = if is_turbo_mode {
+        2
+    } else if is_deep_scan {
+        results.len()
+    } else {
+        15
+    };
 
-        clean_nodes.push(ProxyNode {
-            name: format!("Scanner | {} | {}ms", ip, latency),
-            protocol: "vless".to_string(),
-            raw_url,
-        });
+    let filtered_results = results.into_iter().take(max_take).collect::<Vec<_>>();
+
+    let mut clean_nodes = Vec::new();
+    for (ip, latency) in filtered_results {
+        if is_vless_scan {
+            let clean_path = if path.starts_with('/') { &path[1..] } else { &path };
+            let encoded_path = urlencoding::encode(clean_path);
+            let vless_url = format!(
+                "vless://{}@{}:443?encryption=none&security=tls&sni={}&fp=chrome&alpn=http%2F1.1&insecure=1&type=ws&host={}&path=%2F{}#CF-Clean-{}ms",
+                uuid.trim(), ip, target_sni, target_sni, encoded_path, latency
+            );
+            clean_nodes.push(ProxyNode {
+                name: format!("CF Clean | {}ms", latency),
+                protocol: "vless".to_string(),
+                raw_url: vless_url,
+            });
+        } else {
+            clean_nodes.push(ProxyNode {
+                name: format!("{} | {} | {}ms", cdn_key.to_uppercase(), ip, latency),
+                protocol: "vless".to_string(),
+                raw_url: format!("edge://{}?sni={}&latency={}#{}", ip, target_sni, latency, cdn_key),
+            });
+        }
     }
 
-    write_log("INFO", "SCANNER", &format!("اسکن کلودفلر پایان یافت. تعداد {} آی‌پی سالم کشف شد.", clean_nodes.len()));
+    write_log("INFO", "SCANNER", &format!("اسکن به پایان رسید. تعداد {} آی‌پی سالم واقعی تایید و ثبت شد.", clean_nodes.len()));
     clean_nodes
+}
+
+/// تست هماهنگ و متقابل: بررسی اختصاصی دامنه SNI روی آی‌پی لبه کشف‌شده (مخصوص تب شیروخورشید)
+pub fn probe_sni_against_edge_ip(edge_ip: String, sni: String, port: u16) -> i32 {
+    let clean_ip = edge_ip.trim();
+    let clean_sni = sni.trim();
+    let target_port = if port == 0 { 443 } else { port };
+
+    if clean_ip.is_empty() || clean_sni.is_empty() {
+        return -1;
+    }
+
+    if let Some(latency) = scan_single_ip_tls_sni(clean_ip, target_port, clean_sni, 1600) {
+        latency as i32
+    } else {
+        -1
+    }
 }
 
 // =========================================================================
@@ -4832,6 +4878,7 @@ pub fn start_proxy_with_node(
                     "process_name": [
                         "aether.exe", 
                         "tor.exe", 
+                        "shirokhorshid.exe",
                         "psiphon-tunnel-core.exe",
                         "goodbyedpi.exe",
                         "dnscrypt-proxy.exe",

@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 import '../smart_core_types.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `ensure_watchdog_started`, `extract_ipv4_from_dns_payload`, `fetch_live_ech_key_via_socks5`, `find_atc_pool_dir`, `find_verified_emergency_ip`, `format_ech_to_pem_lines`, `get_active_upstream_proxy_addr`, `get_cached_or_fallback_ech`, `get_core2_instance`, `get_global_job_object`, `get_learning_engine`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `probe_dns_truth_dynamically`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`, `test_socks5_egress`, `validate_config_safety`, `verify_dnscrypt_truth`, `verify_gaming_dns_truth`
+// These functions are ignored because they are not marked as `pub`: `assign_child_to_job`, `convert_link_to_outbound`, `ensure_watchdog_started`, `extract_ipv4_from_dns_payload`, `fetch_live_ech_key_via_socks5`, `find_atc_pool_dir`, `find_verified_emergency_ip`, `format_ech_to_pem_lines`, `get_active_upstream_proxy_addr`, `get_cached_or_fallback_ech`, `get_core2_instance`, `get_global_job_object`, `get_learning_engine`, `get_safe_work_dir`, `get_timestamp`, `handle_lan_client`, `init_panic_hook`, `load_cdn_scan_ips`, `load_deep_scan_ips`, `notify_windows_proxy_change`, `probe_dns_truth_dynamically`, `process_aether_line`, `process_psiphon_line`, `resolve_binary_path`, `scan_single_ip_tls_sni`, `scan_single_ip_ws`, `send_native_telemetry`, `set_windows_system_proxy`, `spawn_single_aether_mode`, `start_psiphon_core_internal`, `start_tor_core_internal`, `test_socks5_egress`, `validate_config_safety`, `verify_dnscrypt_truth`, `verify_gaming_dns_truth`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// ثبت و به‌روزرسانی آمار رادار زنده در فایل موقت فوق‌سبک
@@ -464,6 +464,17 @@ Future<List<ProxyNode>> runCloudflareScanner({
   worker: worker,
   scanMode: scanMode,
   earlyStop: earlyStop,
+);
+
+/// تست هماهنگ و متقابل: بررسی اختصاصی دامنه SNI روی آی‌پی لبه کشف‌شده (مخصوص تب شیروخورشید)
+Future<int> probeSniAgainstEdgeIp({
+  required String edgeIp,
+  required String sni,
+  required int port,
+}) => RustLib.instance.api.crateApiSimpleProbeSniAgainstEdgeIp(
+  edgeIp: edgeIp,
+  sni: sni,
+  port: port,
 );
 
 Future<String> startProxyWithNode({

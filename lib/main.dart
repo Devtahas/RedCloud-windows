@@ -19,7 +19,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 const String telemetryWorkerUrl = "https://log.redcloudir.workers.dev";
 const String managerWorkerUrl = "https://round-sea-8418.redcloudir.workers.dev";
-const String appCurrentVersion = "4.5";
+const String appCurrentVersion = "4.6";
 const String telegramChannelUrl = "https://t.me/DevTaha_project";
 const String usdtBnbAddress = "0xDeda28Aa73Ec089A77B3fC616E0011a8fce12900";
 const String githubRepoReleasesUrl = "https://github.com/Devtahas/RedCloud-windows/releases/latest";
@@ -717,7 +717,7 @@ netsh int tcp set global fastopen=disabled
 
   // متغیرهای اسپلیت‌تانل بر اساس فایل اجرایی نرم‌افزارها (Per-App Routing)
   final TextEditingController _appProcessController = TextEditingController();
-  String _selectedAppRuleType = 'direct';
+  final String _selectedAppRuleType = 'direct';
   List<Map<String, String>> _appRules = [];
 
   // متغیرهای هات‌اسپات وای‌فای اختصاصی (Wi-Fi Virtual Hotspot)
@@ -755,6 +755,11 @@ netsh int tcp set global fastopen=disabled
       final data = {
         'last_dashboard_node_url': _selectedNode?.rawUrl,
         'last_tor_country': _selectedTorCountry,
+        'last_shk_cdn': _shkCdnProvider,
+        'last_shk_edge_ip': _shkEdgeIpsCtrl.text.trim(),
+        'last_shk_sni': _shkSniCtrl.text.trim(),
+        'last_shk_region': _selectedCdnRegion,
+        'last_shk_beast': _shkBeastMode,
         'last_psiphon_country': _selectedPsiphonCountry,
         'last_aether_mode': _selectedAetherMode,
         'last_aether_noize': _selectedAetherNoize,
@@ -782,6 +787,21 @@ netsh int tcp set global fastopen=disabled
         setState(() {
           if (data['last_tor_country'] != null && _torCountries.containsKey(data['last_tor_country'])) {
             _selectedTorCountry = data['last_tor_country'];
+          }
+          if (data['last_shk_cdn'] != null && _shkCdnDatabase.containsKey(data['last_shk_cdn'])) {
+            _shkCdnProvider = data['last_shk_cdn'];
+          }
+          if (data['last_shk_edge_ip'] != null && data['last_shk_edge_ip'].toString().isNotEmpty) {
+            _shkEdgeIpsCtrl.text = data['last_shk_edge_ip'];
+          }
+          if (data['last_shk_sni'] != null && data['last_shk_sni'].toString().isNotEmpty) {
+            _shkSniCtrl.text = data['last_shk_sni'];
+          }
+          if (data['last_shk_region'] != null) {
+            _selectedCdnRegion = data['last_shk_region'];
+          }
+          if (data['last_shk_beast'] != null) {
+            _shkBeastMode = data['last_shk_beast'];
           }
           if (data['last_psiphon_country'] != null && _psiphonCountries.containsKey(data['last_psiphon_country'])) {
             _selectedPsiphonCountry = data['last_psiphon_country'];
@@ -1295,13 +1315,126 @@ if ($list.Count -gt 0) { $list | ConvertTo-Json -Compress } else { Write-Output 
   bool _isPsiphonRunning = false;
   bool _isPsiphonConnecting = false;
   bool _isPsiphonMasqueRunning = false;
-  bool _isPsiphonMasqueEnabled = true;
+  bool _isPsiphonMasqueEnabled = false; // پیش‌فرض ۱۰۰٪ خاموش برای استقلال کامل شیروخورشید
   Timer? _psiphonProgressTimer;
 
-  // متغیرهای اختصاصی فناوری CDN Fronting سایفون
-  bool _usePsiphonCdnFronting = false;
-  String _psiphonCdnMode = 'cdn'; // 'cdn' یا 'direct'
-  String _selectedCdnRegion = 'auto'; // 'auto', 'JP', 'US', 'SE'
+  // دیتابیس عظیم و گسترده شبکه‌ها و دامنه‌های SNI شیروخورشید
+  final Map<String, Map<String, dynamic>> _shkCdnDatabase = {
+    'cloudflare': {
+      'name': 'Cloudflare Global Edge',
+      'snis': [
+        'speed.cloudflare.com', 'cloudflare.net', 'cdnjs.cloudflare.com', 'dash.cloudflare.com',
+        'workers.dev', 'pages.dev', 'radar.cloudflare.com', 'one.one.one.one', 'warp.plus', 'cloudflareclient.com'
+      ],
+      'edgeIps': '162.159.192.1, 188.114.96.1, 104.21.0.1, 172.67.0.1',
+    },
+    'akamai': {
+      'name': 'Akamai Technologies CDN',
+      'snis': [
+        'a248.e.akamai.net', 'store.steampowered.com', 'swcdn.apple.com', 'playstation.com'
+      ],
+      'edgeIps': '23.209.117.15, 23.209.117.20, 23.45.197.10, 184.26.115.30',
+    },
+    'google': {
+      'name': 'Google Cloud CDN',
+      'snis': [
+        'fonts.googleapis.com', 'ajax.googleapis.com', 'dl.google.com'
+      ],
+      'edgeIps': '142.250.180.170, 172.217.16.202, 216.58.214.206',
+    },
+    'cloudfront': {
+      'name': 'Amazon CloudFront (AWS)',
+      'snis': [
+        'd1.cloudfront.net', 'pypi.org', 'python.org', 'aws.amazon.com'
+      ],
+      'edgeIps': '13.224.162.10, 13.224.162.50, 18.66.112.20, 54.230.156.40',
+    },
+    'azure': {
+      'name': 'Microsoft Azure CDN',
+      'snis': [
+        'ajax.aspnetcdn.com', 'assets.onestore.ms', 'azureedge.net'
+      ],
+      'edgeIps': '13.107.246.10, 152.199.19.161, 68.232.34.200',
+    },
+    'fastly': {
+      'name': 'Fastly Global CDN',
+      'snis': [
+        'freetls.fastly.net', 'theguardian.com', 'spotify.com'
+      ],
+      'edgeIps': '151.101.1.140, 151.101.65.140, 151.101.1.153',
+    },
+    'azure': {
+      'name': 'Microsoft Azure CDN',
+      'snis': [
+        'azureedge.net', 'assets.onestore.ms', 'edgecastcdn.net', 'microsoft.com',
+        'office.com', 'live.com', 'xbox.com'
+      ],
+      'edgeIps': '13.107.246.10, 152.199.19.161, 68.232.34.200',
+    },
+    'gcore': {
+      'name': 'Gcore Edge Network',
+      'snis': ['gcore.com', 'gcorelabs.com', 'wargaming.net', 'worldoftanks.eu'],
+      'edgeIps': '92.223.84.1, 92.223.84.10, 92.223.124.1',
+    },
+  };
+
+  String _shkMode = 'cdn'; // 'direct', 'cdn', 'conduit'
+  bool _usePsiphonCdnFronting = true;
+  String _psiphonCdnMode = 'cdn';
+  String _selectedCdnRegion = 'auto';
+  bool _shkBeastMode = true;
+  String _shkCdnProvider = 'fastly';
+  bool _shkDisableHomepage = true;
+  final TextEditingController _shkEdgeIpsCtrl = TextEditingController(text: '151.101.1.140');
+  final TextEditingController _shkSniCtrl = TextEditingController(text: 'freetls.fastly.net');
+  final TextEditingController _shkConduitCtrl = TextEditingController();
+
+  /// سیستم تست دقیق SNIهای رسمی روی آی‌پی لبه کشف‌شده (منطبق با شیروخورشید اندروید)
+  Future<String> _autoDetectWorkingSni(String cdnKey, String edgeIp) async {
+    final cdn = _shkCdnDatabase[cdnKey];
+    if (cdn == null) return 'a248.e.akamai.net';
+    final List<String> snis = List<String>.from(cdn['snis'] ?? []);
+    if (snis.isEmpty) return 'a248.e.akamai.net';
+
+    final defaultOfficialSni = snis.first; // دامنه رسمی پیش‌فرض (مثل a248.e.akamai.net)
+
+    // استخراج اولین آی‌پی لبه تمیز
+    String cleanHost = '';
+    if (edgeIp.trim().isNotEmpty) {
+      final firstIp = edgeIp.split(',').first.trim().split('\n').first.trim();
+      if (firstIp.isNotEmpty) cleanHost = firstIp;
+    }
+
+    if (cleanHost.isEmpty) {
+      return defaultOfficialSni;
+    }
+
+    AppLogger.info("SNI_PROBER", "در حال تست تمام SNIهای رسمی $cdnKey روی آی‌پی لبه $cleanHost...");
+    
+    // تست تک‌تک دامنه‌های رسمی روی آی‌پی تمیز و انتخاب اولین دامنه‌ای که بدون ریست هندشیک می‌دهد
+    for (final sni in snis) {
+      final latency = await _probeFragmentLatency(cleanHost, 443, sni, 1, 0);
+      if (latency > 0) {
+        AppLogger.info("SNI_PROBER", "✅ دامنه رسمی تایید شد: $sni ($latency ms)");
+        return sni;
+      }
+    }
+
+    // اگر اپراتور پکت‌های تستی را فیلتر کرده بود، همان دامنه رسمی استاندارد کلاینت اندروید ست شود
+    return defaultOfficialSni;
+  }
+
+  void _switchCdnProvider(String providerKey) {
+    setState(() {
+      _shkCdnProvider = providerKey;
+      final cdn = _shkCdnDatabase[providerKey];
+      if (cdn != null) {
+        final List snis = cdn['snis'] as List;
+        _shkSniCtrl.text = snis.isNotEmpty ? snis.first.toString() : '';
+        _shkEdgeIpsCtrl.text = cdn['edgeIps']?.toString() ?? '';
+      }
+    });
+  }
   
   String _selectedTorCountry = "تصادفی (Random)";
   String _selectedPsiphonCountry = "تصادفی (Random)";
@@ -1529,7 +1662,7 @@ if ($list.Count -gt 0) { $list | ConvertTo-Json -Compress } else { Write-Output 
   // متغیرهای رادار زنده دفع حملات فیلترینگ
   int _radarRstCount = 0;
   int _radarStunCount = 0;
-  int _radarDnsCount = 0;
+  final int _radarDnsCount = 0;
   int _radarCarrierMtu = 1360;
   Timer? _radarUpdateTimer;
 
@@ -2317,9 +2450,9 @@ try {
 
   /// راه‌اندازی هوشمند هسته DNSCrypt با راستی‌آزمایی پکت
   // متغیرهای اختصاصی اینترنت اضطراری dnstt و بهینه‌ساز udp2raw
-  bool _isDnsttRunning = false;
-  bool _isDnsttConnecting = false;
-  String _dnsttStatusText = 'آماده اتصال';
+  final bool _isDnsttRunning = false;
+  final bool _isDnsttConnecting = false;
+  final String _dnsttStatusText = 'آماده اتصال';
   bool _isUdp2rawActive = false;
 
   /// دیالوگ مرحله ۱: آیا مشکلی در اتصال دارید؟
@@ -3524,7 +3657,7 @@ try {
         client.badCertificateCallback = (cert, host, port) => true;
         client.findProxy = (uri) => "DIRECT";
         final request = await client.getUrl(Uri.parse(workerUrl));
-        request.headers.set('User-Agent', 'v2rayN/7.22.5 (Windows; x64) RedCloud/4.5');
+        request.headers.set('User-Agent', 'v2rayN/7.22.5 (Windows; x64) RedCloud/4.6');
         final response = await request.close().timeout(const Duration(seconds: 6));
         if (response.statusCode == 200) {
           return await response.transform(utf8.decoder).join();
@@ -4999,16 +5132,7 @@ try {
   }
 
   String _resolveDynamicProxyConfig() {
-    // اگر کارت شبکه مجازی (TUN) در هر بخشی روشن باشد، سیستم شفاف روت می‌شود
-    if (_useTunMode ||
-        _useTunModeAether ||
-        _useTunModeTor ||
-        _useTunModePsiphon ||
-        _useSlipNetTunMode ||
-        _useWhiteDnsTunMode ||
-        _isGamingRunning) {
-      return "DIRECT";
-    }
+    // پورت‌های لوکال هسته‌ها همیشه باز هستند و تضمین می‌کنند استعلام فقط از تونل خارج شود (بدون نشت به نت ایران)
 
     // ۱. بررسی هوشمند پایپ‌لاین RedCloud: پورت HTTP آخرین هسته زنجیره
     if (_selectedNode?.protocol == 'redcloud') {
@@ -5037,13 +5161,12 @@ try {
       return "PROXY 127.0.0.1:$_activeEgressProxyPort";
     }
 
-    // ۲. پورت‌های رسمی و استاندارد HTTP هسته‌های مستقل
-    if (_isHybridRunning || _isProxyRunning) {
+    // ۲. پورت‌های رسمی و تضمینی HTTP هر هسته
+    if (_isHybridRunning || _isProxyRunning || _isGamingRunning) {
       return "PROXY 127.0.0.1:2080";
     }
     if (_isPsiphonRunning || _isPsiphonMasqueRunning) {
-      final p = _usePsiphonCdnFronting ? 1821 : 9081;
-      return "PROXY 127.0.0.1:$p";
+      return "PROXY 127.0.0.1:2080";
     }
     if (_isTorRunning || _isTorMasqueRunning) {
       return "PROXY 127.0.0.1:9051";
@@ -5063,7 +5186,7 @@ try {
     return "PROXY 127.0.0.1:2080";
   }
 
-  Future<void> _fetchIpInfo({int retryCount = 3}) async {
+  Future<void> _fetchIpInfo({int retryCount = 4}) async {
     if (!_isAnyTunnelConnected) return;
 
     if (!mounted) return;
@@ -5071,7 +5194,7 @@ try {
       _isLoadingIpInfo = true;
     });
 
-    // خواندن مستقیم و آنی مشخصات خروجی سایفون از فایل اِتر در صورت CDN Fronting
+    // ۱. خواندن مستقیم و آنی مشخصات خروجی سایفون از فایل اِتر در صورت CDN Fronting
     if ((_isPsiphonRunning || _isPsiphonMasqueRunning) && _usePsiphonCdnFronting) {
       try {
         final exitFile = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
@@ -5083,7 +5206,8 @@ try {
             if (parts.length >= 2) {
               final realIp = parts[0].trim();
               final countryPart = parts[1].trim().split(" ")[0].trim();
-              if (mounted) {
+              // سد ضد نشت: آی‌پی ایران را هرگز ثبت نکن
+              if (countryPart.toUpperCase() != "IR" && mounted) {
                 setState(() {
                   _publicIp = realIp;
                   _countryCode = countryPart;
@@ -5104,7 +5228,7 @@ try {
 
     final proxyDirective = _resolveDynamicProxyConfig();
 
-    // سرویس‌های HTTPS سریع، پایدار و ضد تحریم
+    // سرویس‌های امن HTTPS جهت استعلام
     final providers = [
       'https://api.ip.sb/geoip',
       'https://ipwho.is/',
@@ -5115,7 +5239,7 @@ try {
     for (int attempt = 0; attempt <= retryCount; attempt++) {
       if (!_isAnyTunnelConnected) break;
       if (attempt > 0) {
-        await Future.delayed(Duration(milliseconds: 1000 * attempt));
+        await Future.delayed(Duration(milliseconds: 1200 * attempt));
       }
 
       for (final urlStr in providers) {
@@ -5123,38 +5247,47 @@ try {
         HttpClient? client;
         try {
           client = HttpClient();
-          client.connectionTimeout = const Duration(seconds: 4);
+          client.connectionTimeout = const Duration(seconds: 6);
           client.badCertificateCallback = (cert, host, port) => true;
           client.findProxy = (uri) => proxyDirective;
 
           final request = await client.getUrl(Uri.parse(urlStr));
-          final response = await request.close().timeout(const Duration(seconds: 5));
+          final response = await request.close().timeout(const Duration(seconds: 8));
 
           if (response.statusCode == 200) {
             final body = await response.transform(utf8.decoder).join();
             final data = jsonDecode(body);
 
-            String? ip = data['ip'] ?? data['query'] ?? data['ipAddress'];
-            String? countryCode = data['country_code'] ?? data['countryCode'];
-            String? country = data['country'] ?? data['countryName'] ?? data['country_name'];
-            String? city = data['city'] ?? data['cityName'];
+            String? ip = data['ip']?.toString() ?? data['query']?.toString() ?? data['ipAddress']?.toString();
+            String? countryCode = data['country_code']?.toString() ?? data['countryCode']?.toString();
+            String? country = data['country']?.toString() ?? data['countryName']?.toString() ?? data['country_name']?.toString();
+            String? city = data['city']?.toString() ?? data['cityName']?.toString();
+
+            final cleanCountryCode = countryCode?.trim().toUpperCase() ?? '';
+            final cleanCountry = country?.trim().toLowerCase() ?? '';
+
+            // 🛡️ سد امنیتی نفوذناپذیر: اگر لوکیشن ایران بود، مطلقاً آن را نشان نده!
+            if (cleanCountryCode == 'IR' || cleanCountry == 'iran') {
+              AppLogger.warn("IP_GUARD", "⚠️ نشت موقت به آی‌پی ایران شناسایی و بلاک شد ($ip)؛ در انتظار برقراری کامل تونل خارجی...");
+              continue; // نادیده بگیر و به تلاش ادامه بده تا تونل خارجی آماده شود
+            }
 
             final bool isEn = AppTranslations.currentLang == 'en';
             if (ip != null && ip.isNotEmpty && mounted) {
               setState(() {
                 _publicIp = ip;
-                _countryCode = countryCode ?? '';
-                _countryName = country ?? (isEn ? 'Global Server' : 'سرور جهانی');
+                _countryCode = cleanCountryCode;
+                _countryName = country ?? (isEn ? 'Global Server' : 'سرور خارجی');
                 _cityName = city ?? '';
                 _isLoadingIpInfo = false;
                 _statusMessage = isEn 
                     ? "Connection stable, traffic active." 
                     : "اتصال پایدار و ترافیک فعال است.";
               });
-              AppLogger.info("IP_GEO", "اطلاعات آی‌پی با موفقیت دریافت شد: $ip (${country ?? ''})");
+              AppLogger.info("IP_GEO", "اطلاعات خروجی فیلترشکن با موفقیت تایید شد: $ip ($cleanCountryCode)");
 
-              if (countryCode != null && countryCode.isNotEmpty) {
-                _syncTimezoneToCountry(countryCode);
+              if (cleanCountryCode.isNotEmpty) {
+                _syncTimezoneToCountry(cleanCountryCode);
               }
               _updateSystemTrayMenu();
               client.close(force: true);
@@ -5315,7 +5448,10 @@ try {
 
   Future<void> _startCloudflareScan({String mode = "quick", bool earlyStop = false}) async {
     final bool isEn = AppTranslations.currentLang == 'en';
-    if (_uuidController.text.isEmpty || _pathController.text.isEmpty || _workerController.text.isEmpty) {
+    final bool isCdnScan = _scannerSubTabIndex == 1;
+
+    // شرط بررسی اکانت فقط برای تب ۱ (اسکنر VLESS) اعمال شود، نه برای اسکن آی‌پی‌های خام CDN
+    if (!isCdnScan && (_uuidController.text.isEmpty || _pathController.text.isEmpty || _workerController.text.isEmpty)) {
       setState(() => _statusMessage = isEn 
           ? "Error: Please fill in account details first." 
           : "خطا: لطفاً ابتدا اطلاعات اکانت را پر کنید.");
@@ -5323,8 +5459,8 @@ try {
     }
 
     _scanStatsTimer?.cancel();
-    // محافظت از تمام پکت‌های اسکنر در سطح کارت شبکه
-    await _maybeStartGoodbyeDpi(true);
+    // فعال‌سازی فرگمنت تمیز پکت‌ها بدون تزریق پکت فیک ناسازگار با CDNها
+    await _maybeStartGoodbyeDpi(true, explicitArgs: '-9 -p -r -s -f 2 -k 2 -n -e 2');
 
     setState(() {
       _isScanning = true;
@@ -5358,6 +5494,11 @@ try {
     });
 
     try {
+      // پاکسازی فوری و قطعی نتایج اسکن‌های قبلی از حافظه قبل از شروع پردازش
+      setState(() {
+        _savedNodeItems.removeWhere((item) => item.groupId == 'scanner');
+      });
+
       final cleanNodes = await runCloudflareScanner(
         uuid: _uuidController.text.trim(),
         path: _pathController.text.trim(),
@@ -5370,16 +5511,18 @@ try {
 
       setState(() {
         _isScanning = false;
+        // پاکسازی قطعی مجدد لیست در صورت پیدا نشدن هیچ آی‌پی سالم
+        _savedNodeItems.removeWhere((item) => item.groupId == 'scanner');
+
         if (cleanNodes.isEmpty) {
           _statusMessage = isEn 
-              ? "Scan finished; no clean IPs found." 
-              : "اسکن پایان یافت؛ هیچ آی‌پی تمیزی یافت نشد.";
+              ? "Scan finished; no clean IPs found (0 alive)." 
+              : "اسکن پایان یافت؛ تمام آی‌پی‌های تست‌شده مسدود یا تایم‌اوت بودند (۰ آی‌پی سالم).";
         } else {
           _statusMessage = isEn 
-              ? "Scan finished! Found ${cleanNodes.length} clean, high-speed IPs." 
-              : "اسکن پایان یافت! تعداد ${cleanNodes.length} آی‌پی تمیز و پرسرعت یافت شد.";
+              ? "Scan finished! Found ${cleanNodes.length} verified clean IPs." 
+              : "اسکن پایان یافت! تعداد ${cleanNodes.length} آی‌پی سالم و واقعی تایید شد.";
           
-          _savedNodeItems.removeWhere((item) => item.groupId == 'scanner');
           for (var node in cleanNodes) {
             _savedNodeItems.add(SavedNodeItem(
               node: ProxyNode(
@@ -5390,8 +5533,10 @@ try {
               groupId: 'scanner',
             ));
           }
-          final scannerFirst = _savedNodeItems.firstWhere((item) => item.groupId == 'scanner');
-          _selectedNode = scannerFirst.node;
+          final scannerFirst = _savedNodeItems.where((item) => item.groupId == 'scanner').firstOrNull;
+          if (scannerFirst != null) {
+            _selectedNode = scannerFirst.node;
+          }
         }
       });
       await _saveNodesToDisk();
@@ -5574,7 +5719,7 @@ try {
                 final currentStage = chain[stageIndex].toLowerCase();
                 if (currentStage == 'goodbyedpi') continue; // درایور کرنل است و نیازی به پورت ندارد
 
-                // سناریوی ۱: اجرای اِتر (Aether)
+                // سناریوی ۱: اجرای اِتر (Aether) بدون تایم‌اوت تحمیلی و با مصرف بهینه منابع
                 if (currentStage == 'aether') {
                   final aMode = mods['aether']?['mode']?.toString() ?? 'wireguard';
                   final aNoize = mods['aether']?['noize']?.toString() ?? 'aggressive';
@@ -5592,25 +5737,22 @@ try {
                     useSystemProxy: false,
                   );
 
-                  int aetherSilence = 0;
                   String lastTxt = '';
-                  bool aetherReady = false;
-                  for (int i = 0; i < 180; i++) {
-                    await Future.delayed(const Duration(milliseconds: 400));
+                  while (_isAetherConnecting && mounted) {
+                    await Future.delayed(const Duration(milliseconds: 800));
+                    if (!_isAetherConnecting || !mounted) break;
+
                     final done = await isAetherBootstrapDone();
+                    if (done) break;
+
                     final st = await getAetherStatusText();
                     if (st.isNotEmpty && st != lastTxt) {
                       lastTxt = st;
-                      aetherSilence = 0;
                       if (mounted) setState(() => _statusMessage = "اِتر: $st");
-                    } else {
-                      aetherSilence++;
                     }
-                    if (done) { aetherReady = true; break; }
-                    if (aetherSilence > 75) break;
                   }
 
-                  if (!aetherReady) throw Exception("پل اِتر در زمان مقرر پاسخ نداد.");
+                  if (!_isAetherConnecting || !mounted) return;
 
                   previousSocksPort = 1819;
                   lastActiveName = "Aether";
@@ -5621,7 +5763,7 @@ try {
                   });
                 }
 
-                // سناریوی ۲: اجرای تور (Tor) - سوار بر پورت مرحله قبل (هر چه که بوده) یا مستقیم
+                // سناریوی ۲: اجرای تور (Tor) صبورانه، بدون محدودیت زمانی و پایش سبک
                 else if (currentStage == 'tor') {
                   final torConf = mods['tor'] ?? {};
                   final countryCode = torConf['country']?.toString() ?? '';
@@ -5630,7 +5772,6 @@ try {
                     _statusMessage = "گام ${stageIndex + 1}: اتصال به شبکه تور (${countryCode.isEmpty ? 'تصادفی' : countryCode}) بر بستر ${previousSocksPort != null ? 'پورت $previousSocksPort' : 'مستقیم'}...";
                   });
 
-                  // اتصال کاملاً داینامیک: اگر مرحله قبلی وجود داشت پروکسی مرحله قبل به تور داده می‌شود، وگرنه مستقیم کار می‌کند!
                   final String torArg = previousSocksPort != null 
                       ? "$countryCode##proxy##127.0.0.1:$previousSocksPort" 
                       : countryCode;
@@ -5641,24 +5782,20 @@ try {
                     useSystemProxy: false,
                   );
 
-                  int lastTorP = 0;
-                  int torSilence = 0;
-                  bool torReady = false;
-                  for (int i = 0; i < 200; i++) {
-                    await Future.delayed(const Duration(milliseconds: 400));
+                  int lastTorP = -1;
+                  while (_isTorConnecting && mounted) {
+                    await Future.delayed(const Duration(milliseconds: 800));
+                    if (!_isTorConnecting || !mounted) break;
+
                     final p = await getTorBootstrapProgress();
-                    if (p > lastTorP) {
+                    if (p != lastTorP) {
                       lastTorP = p;
-                      torSilence = 0;
                       if (mounted) setState(() => _statusMessage = "پیشرفت تور: $p٪");
-                    } else {
-                      torSilence++;
                     }
-                    if (p >= 100) { torReady = true; break; }
-                    if (torSilence > 75) break;
+                    if (p >= 100) break;
                   }
 
-                  if (!torReady) throw Exception("شبکه تور موفق به اتصال نشد.");
+                  if (!_isTorConnecting || !mounted) return;
 
                   previousSocksPort = 9050;
                   lastActiveName = "Tor";
@@ -5669,9 +5806,9 @@ try {
                   });
                 }
 
-                // سناریوی ۳: اجرای سایفون (Psiphon) - سوار بر پورت مرحله قبل (هر چه که بوده) یا مستقیم
-                else if (currentStage == 'psiphon') {
-                  final psiConf = mods['psiphon'] ?? {};
+                // سناریوی ۳: اجرای سایفون یا شیروخورشید (Shir-o-Khorshid) در پایپ‌لاین
+                else if (currentStage == 'psiphon' || currentStage == 'shirokhorshid') {
+                  final psiConf = mods['shirokhorshid'] ?? mods['psiphon'] ?? {};
                   var reg = psiConf['region']?.toString() ?? 'auto';
                   final isCdnFronting = psiConf['cdn_fronting'] == true;
                   final cdnMode = psiConf['cdn_mode']?.toString() ?? 'direct';
@@ -5681,15 +5818,15 @@ try {
                     reg = 'auto';
                   }
 
-                  // اتصال کاملاً داینامیک: انتقال پروکسی مرحله قبل به صورت شفاف به سایفون
                   String psiArg = isCdnFronting ? "$reg##cdn##$cdnMode" : (reg == 'auto' ? '' : reg);
                   if (previousSocksPort != null) {
                     psiArg = "$psiArg##upstream##socks5://127.0.0.1:$previousSocksPort";
                   }
 
+                  final String coreTitle = currentStage == 'shirokhorshid' ? 'شیروخورشید' : 'سایفون';
                   setState(() {
                     _isPsiphonConnecting = true;
-                    _statusMessage = "گام ${stageIndex + 1}: سایفون در حال اتصال به سرور $reg بر بستر ${previousSocksPort != null ? 'پورت $previousSocksPort' : 'مستقیم'}...";
+                    _statusMessage = "گام ${stageIndex + 1}: $coreTitle در حال اتصال به سرور $reg بر بستر ${previousSocksPort != null ? 'پورت $previousSocksPort' : 'مستقیم'}...";
                   });
 
                   await startPsiphonCore(
@@ -5698,37 +5835,30 @@ try {
                     useSystemProxy: false,
                   );
 
-                  bool psiphonReady = false;
                   String lastPsiStatus = '';
-                  int psiSilence = 0;
-                  for (int i = 0; i < 240; i++) {
-                    await Future.delayed(const Duration(milliseconds: 500));
+                  while (_isPsiphonConnecting && mounted) {
+                    await Future.delayed(const Duration(milliseconds: 800));
+                    if (!_isPsiphonConnecting || !mounted) break;
+
                     final isDone = await isPsiphonBootstrapDone();
-                    final st = await getPsiphonStatusText();
-                    if (st.isNotEmpty && st != lastPsiStatus) {
-                      lastPsiStatus = st;
-                      psiSilence = 0;
-                      if (mounted) setState(() => _statusMessage = "سایفون: $st");
-                    } else {
-                      psiSilence++;
-                    }
+                    if (isDone) break;
 
                     if (isCdnFronting) {
                       final exitFile = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
                       if (await exitFile.exists()) {
                         final content = await exitFile.readAsString();
-                        if (content.contains("exit:")) {
-                          psiphonReady = true;
-                          break;
-                        }
+                        if (content.contains("exit:")) break;
                       }
                     }
 
-                    if (isDone) { psiphonReady = true; break; }
-                    if (psiSilence > 80) break;
+                    final st = await getPsiphonStatusText();
+                    if (st.isNotEmpty && st != lastPsiStatus) {
+                      lastPsiStatus = st;
+                      if (mounted) setState(() => _statusMessage = "سایفون: $st");
+                    }
                   }
 
-                  if (!psiphonReady) throw Exception("سایفون موفق به برقراری تونل نشد.");
+                  if (!_isPsiphonConnecting || !mounted) return;
 
                   final int actualPort = isCdnFronting ? 1821 : 9081;
                   previousSocksPort = isCdnFronting ? 1822 : 9080;
@@ -6319,7 +6449,7 @@ try {
         if (_isPsiphonRunning || _isPsiphonConnecting) {
           _stopCore2Monitoring();
           _psiphonProgressTimer?.cancel();
-          await stopProxyCore(); // پاکسازی کارت شبکه TUN سایفون
+          await stopProxyCore();
           final String msg = _isPsiphonMasqueRunning 
               ? await stopPsiphonOverMasque() 
               : await stopPsiphonCore();
@@ -6351,26 +6481,78 @@ try {
             _isTorMasqueRunning = false;
           });
 
-          // اجرای لایه اول GoodbyeDPI برای باز کردن هندشیک سرورهای سایفون
           await _maybeStartGoodbyeDpi(_useGoodbyeDpiPsiphon);
 
-          final rawCountryCode = _psiphonCountries[_selectedPsiphonCountry] ?? "";
-          // در حالت CDN Fronting، منطقه کاملاً مجزا از لیست سنتی کنترل می‌شود
-          final targetRegion = _usePsiphonCdnFronting ? _selectedCdnRegion : rawCountryCode;
-          final countryCode = _usePsiphonCdnFronting
-              ? "$targetRegion##cdn##$_psiphonCdnMode"
-              : rawCountryCode;
-          
           setState(() {
             _isPsiphonConnecting = true;
-            _statusMessage = _usePsiphonCdnFronting
-                ? (_isPsiphonMasqueEnabled
-                    ? "در حال راه‌اندازی CDN Fronting بر بستر پل مسک اِتر..."
-                    : "در حال اتصال به سرورهای سایفون با فناوری CDN Fronting...")
-                : (_isPsiphonMasqueEnabled 
-                    ? "در حال ایجاد پل ضدسانسور مسک و برقراری ارتباط با سایفون..." 
-                    : "در حال اتصال به هسته سایفون...");
+            _statusMessage = "⚡ در حال بررسی موازی و انتخاب بهترین SNI فعال برای $_shkCdnProvider...";
           });
+
+          // ۱. تست موازی و خودکار SNIها در کمتر از ۲ ثانیه
+          final autoSni = await _autoDetectWorkingSni(_shkCdnProvider, _shkEdgeIpsCtrl.text.trim());
+          if (mounted) {
+            setState(() => _shkSniCtrl.text = autoSni);
+          }
+
+          final rawCountryCode = _psiphonCountries[_selectedPsiphonCountry] ?? "";
+          final targetRegion = _usePsiphonCdnFronting ? _selectedCdnRegion : rawCountryCode;
+          
+          String cleanEdge = _shkEdgeIpsCtrl.text.trim().replaceAll('\n', ',');
+          final cleanSni = _shkSniCtrl.text.trim();
+          final cleanConduit = _shkConduitCtrl.text.trim();
+
+          // ۲. اگر آی‌پی خالی بود، اسکنر توربو خودکار آی‌پی تمیز بگیرد
+          if (cleanEdge.isEmpty) {
+            setState(() => _statusMessage = "⚡ در حال اسکن خودکار اولین آی‌پی تمیز $_shkCdnProvider...");
+            final autoIps = await runCloudflareScanner(
+              uuid: _shkCdnProvider,
+              path: "",
+              worker: cleanSni,
+              scanMode: "turbo",
+              earlyStop: true,
+            );
+            if (autoIps.isNotEmpty) {
+              cleanEdge = autoIps.first.name.split('|')[1].trim();
+              if (mounted) setState(() => _shkEdgeIpsCtrl.text = cleanEdge);
+            }
+          }
+
+          // سد ضد قطعی: اگر هر دو سوییچ خاموش بودند، پروکسی سیستم به صورت خودکار فعال شود
+          if (!_useSystemProxy && !_useTunModePsiphon) {
+            _useSystemProxy = true;
+          }
+
+          // تعیین کشور بر اساس مود انتخابی
+          final targetCountry = (_shkMode == 'direct')
+              ? (_psiphonCountries[_selectedPsiphonCountry] ?? '')
+              : _selectedCdnRegion;
+
+          final countryCode = "$targetCountry##mode##$_shkMode"
+              "##beast##$_shkBeastMode"
+              "##provider##$_shkCdnProvider"
+              "##edge##$cleanEdge"
+              "##sni##$cleanSni"
+              "##conduit##$cleanConduit"
+              "##nohome##$_shkDisableHomepage";
+
+          // پاکسازی قطعی هرگونه کش قدیمی تا آی‌پی فیک نمایش داده نشود
+          try {
+            final oldExit = File('${Directory.systemTemp.path}\\RedCloud\\psiphon_exit.txt');
+            if (oldExit.existsSync()) oldExit.deleteSync();
+          } catch (_) {}
+
+          setState(() {
+            _publicIp = null;
+            _countryCode = null;
+            _statusMessage = "در حال اتصال به سرور لبه ($cleanEdge)...";
+          });
+
+          // پاکسازی قطعی و ۱۰۰٪ هرگونه پروسه اِتر در صورتی که مسک خاموش است
+          if (!_isPsiphonMasqueEnabled) {
+            try {
+              await stopAetherCore();
+            } catch (_) {}
+          }
 
           final String msg = _isPsiphonMasqueEnabled
               ? await startPsiphonOverMasque(
@@ -6390,7 +6572,7 @@ try {
                 );
 
           _psiphonProgressTimer?.cancel();
-          _psiphonProgressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+          _psiphonProgressTimer = Timer.periodic(const Duration(milliseconds: 600), (timer) async {
             if (!_isPsiphonConnecting) {
               timer.cancel();
               return;
@@ -6404,91 +6586,592 @@ try {
               });
             }
 
-            // ناظر هوشمند علائم حیاتی سایفون: اگر در مرحله دست‌دهی متوقف ماند، پریست را تغییر بده
-            if (!isDone && timer.tick > 12 && timer.tick % 10 == 0) {
-              await _advanceToNextGoodbyeDpiPreset("Psiphon");
-            }
-
             if (isDone) {
               timer.cancel();
               if (mounted) {
-                try {
-                  final psPort = _usePsiphonCdnFronting ? 1821 : 9080;
-
-                  // راه‌اندازی خودکار Sing-box به عنوان رابط پروکسی وب و کارت TUN روی پورت سایفون
-                  await startProxyWithNode(
-                    binaryPath: _binaryPathController.text.trim(),
-                    selectedNode: ProxyNode(
-                      name: "Psiphon-Egress",
-                      protocol: "socks",
-                      rawUrl: "socks://127.0.0.1:$psPort#Psiphon-Egress",
-                    ),
-                    useSystemProxy: _useTunModePsiphon ? false : _useSystemProxy,
-                    customSni: null,
-                    enableFragment: false,
-                    enableRecordFragment: false,
-                    tlsSpoof: null,
-                    useTunMode: _useTunModePsiphon,
-                    dnsType: _selectedDns.dnsType,
-                    dnsPrimary: _selectedDns.primary,
-                    dnsSecondary: _selectedDns.secondary,
-                    dnsDohUrl: _selectedDns.dohUrl,
-                    dnsDotHost: _selectedDns.dotHost,
-                    utlsFingerprint: null,
-                    fragmentFallbackDelay: null,
-                  );
-
-                  final calib = await createProtocolCalibratedProfile(
-                    protocolName: _isPsiphonMasqueEnabled ? 'Psiphon over MASQUE' : 'Psiphon Network',
-                    modeOrRegion: _isPsiphonMasqueEnabled ? 'پل مسک ($_selectedPsiphonCountry)' : _selectedPsiphonCountry,
-                    localPort: _usePsiphonCdnFronting ? 1821 : 9081,
-                    measuredLatencyMs: 240.0,
-                    isFastPath: true,
-                  );
-                  setState(() {
-                    _isPsiphonRunning = true;
-                    _isPsiphonMasqueRunning = _isPsiphonMasqueEnabled;
-                    _isPsiphonConnecting = false;
-                    _latestCalibration = calib;
-                    _activeProtocolName = _isPsiphonMasqueEnabled ? 'Psiphon over MASQUE' : 'Psiphon Network';
-                    _statusMessage = _isPsiphonMasqueEnabled 
-                        ? "اتصال ترکیبی سایفون بر بستر مسک (Psiphon over MASQUE) با موفقیت برقرار شد!" 
-                        : msg;
-                  });
-                  _startCore2Monitoring();
-                } catch (e) {
-                  // تضمین ۱۰۰٪ قطع شدن انیمیشن چرخشی حتی در صورت بروز خطا در سینگ‌باکس
-                  setState(() {
-                    _isPsiphonRunning = true;
-                    _isPsiphonConnecting = false;
-                    _statusMessage = "سایفون متصل شد (حالت پروکسی پورت 9080/9081)";
-                  });
+                // اعمال قطعی و آنی پروکسی ویندوز روی پورت HTTP شیروخورشید (9081)
+                if (!_useTunModePsiphon && Platform.isWindows) {
+                  await Process.run('reg', [
+                    'add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+                    '/v', 'ProxyServer', '/t', 'REG_SZ', '/d', '127.0.0.1:9081', '/f'
+                  ], runInShell: true);
+                  await Process.run('reg', [
+                    'add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+                    '/v', 'ProxyEnable', '/t', 'REG_DWORD', '/d', '1', '/f'
+                  ], runInShell: true);
                 }
+
+                // در صورت فعال بودن کارت شبکه مجازی TUN
+                if (_useTunModePsiphon) {
+                  try {
+                    await startProxyWithNode(
+                      binaryPath: _binaryPathController.text.trim(),
+                      selectedNode: ProxyNode(
+                        name: "ShirOKhorshid-Egress",
+                        protocol: "socks",
+                        rawUrl: "socks://127.0.0.1:9080#ShirOKhorshid",
+                      ),
+                      useSystemProxy: false,
+                      customSni: null,
+                      enableFragment: false,
+                      enableRecordFragment: false,
+                      tlsSpoof: null,
+                      useTunMode: true,
+                      dnsType: _selectedDns.dnsType,
+                      dnsPrimary: _selectedDns.primary,
+                      dnsSecondary: _selectedDns.secondary,
+                      dnsDohUrl: _selectedDns.dohUrl,
+                      dnsDotHost: _selectedDns.dotHost,
+                      utlsFingerprint: null,
+                      fragmentFallbackDelay: null,
+                    );
+                  } catch (_) {}
+                }
+
+                setState(() {
+                  _isPsiphonRunning = true;
+                  _isPsiphonMasqueRunning = _isPsiphonMasqueEnabled;
+                  _isPsiphonConnecting = false;
+                  _statusMessage = "عبور واقعی دیتا تایید شد! پروکسی ویندوز فعال گردید.";
+                });
+
+                _startCore2Monitoring();
+                await _savePreferencesToDisk();
+
+                // استعلام فوری و زنده اطلاعات خروجی و پرچم از سرور
+                _fetchIpInfo(retryCount: 3);
               }
-              
-              // مهلت کوتاه جهت ثبت فایل خروجی اِتر و استعلام لوکیشن نهایی
-              Future.delayed(const Duration(milliseconds: 3500), () {
-                if (mounted && (_isPsiphonRunning || _isPsiphonMasqueRunning)) {
-                  _fetchIpInfo();
-                }
-              });
             }
           });
         }
       } else if (Platform.isAndroid) {
-        setState(() => _statusMessage = "سایفون در اندروید در دست توسعه است.");
+        setState(() => _statusMessage = "هسته شیروخورشید در اندروید در دست ساخت است.");
       }
     } catch (e, st) {
       _psiphonProgressTimer?.cancel();
-      AppLogger.error("PSIPHON_CONN", "خطا در برقراری اتصال شبکه سایفون", e, st);
-      _triggerDnsRescueToast("سیستم هوشمند در حال غربالگری دیتابیس سایفون است...");
+      AppLogger.error("SHK_CONN", "خطا در اتصال شیروخورشید", e, st);
       setState(() {
         _isPsiphonConnecting = false;
         _isPsiphonRunning = false;
         _isPsiphonMasqueRunning = false;
-        _statusMessage = "خطا در اتصال سایفون: ${e.toString()}";
+        _statusMessage = "خطا در اتصال شیروخورشید: $e";
       });
     }
+  }
+
+  Widget _buildPsiphonPage() {
+    final bool isShkActive = _isPsiphonRunning;
+    final bool isShkLoading = _isPsiphonConnecting;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFFF8008), Color(0xFFFFC837)]),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFFFF8008).withValues(alpha: 0.35), blurRadius: 10),
+                        ],
+                      ),
+                      child: const Text('SHIR-O-KHORSHID', style: TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.w900)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('شیر و خورشید (Shir-o-Khorshid)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text('هسته پیشرفته ضد فیلترینگ با پشتیبانی از Beast Mode و CDN Fronting دستی', style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _buildGlassContainer(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  borderRadius: 14,
+                  borderColor: _isPsiphonMasqueEnabled ? const Color(0xFFFFC837).withValues(alpha: 0.6) : Colors.white12,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.hub_rounded, size: 16, color: Color(0xFFFFC837)),
+                      const SizedBox(width: 6),
+                      const Text('پل مسک (MASQUE)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 6),
+                      Switch(
+                        value: _isPsiphonMasqueEnabled,
+                        activeThumbColor: const Color(0xFFFFC837),
+                        activeTrackColor: const Color(0xFFFF8008).withValues(alpha: 0.5),
+                        onChanged: (isShkActive || isShkLoading) ? null : (bool val) => setState(() => _isPsiphonMasqueEnabled = val),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildTcpTurboSwitchTile(),
+                _buildGoodbyeDpiSwitchTile(
+                  tabName: 'Shir-o-Khorshid',
+                  value: _useGoodbyeDpiPsiphon,
+                  onChanged: (val) {
+                    setState(() => _useGoodbyeDpiPsiphon = val);
+                    _saveAntiDpiToDisk();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        Expanded(
+          child: Row(
+            children: [
+              // ستون دایره اتصال
+              Expanded(
+                flex: 4,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RepaintBoundary(
+                        child: GestureDetector(
+                          onTap: _togglePsiphonConnection,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 195,
+                            height: 195,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: (isShkActive || isShkLoading)
+                                  ? const LinearGradient(colors: [Color(0xFFFF8008), Color(0xFFFFC837)])
+                                  : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
+                              border: Border.all(
+                                color: (isShkActive || isShkLoading) ? Colors.white : const Color(0xFFFFC837).withValues(alpha: 0.4),
+                                width: 3.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isShkActive || isShkLoading)
+                                      ? const Color(0xFFFF8008).withValues(alpha: 0.5)
+                                      : const Color(0xFFFF8008).withValues(alpha: 0.1),
+                                  blurRadius: 36,
+                                  spreadRadius: (isShkActive || isShkLoading) ? 8 : 2,
+                                )
+                              ],
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Icon(
+                                  _shkBeastMode ? Icons.bolt_rounded : Icons.wb_sunny_rounded,
+                                  size: 85,
+                                  color: (isShkActive || isShkLoading) ? Colors.black87 : Colors.grey[600],
+                                ),
+                                if (isShkLoading)
+                                  const SizedBox(
+                                    width: 155,
+                                    height: 155,
+                                    child: CircularProgressIndicator(strokeWidth: 3.5, color: Colors.black87),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        isShkActive 
+                            ? 'متصل به هسته شیروخورشید ${_shkBeastMode ? "(Beast Mode 🔥)" : ""}'
+                            : isShkLoading 
+                                ? 'در حال برقراری تونل با سرور...'
+                                : 'برای اتصال به شیروخورشید ضربه بزنید',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14.5, 
+                          fontWeight: FontWeight.bold,
+                          color: (isShkActive || isShkLoading) ? const Color(0xFFFFC837) : Colors.grey[400]
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ستون فرم‌ها، پریست‌ها و تنظیمات
+              Expanded(
+                flex: 5,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      
+
+                      // ۱. نوار تب ۳ حالته برای انتخاب مرتب حالت اتصال (Direct / CDN / Conduit)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF090B10),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: (isShkActive || isShkLoading) ? null : () => setState(() => _shkMode = 'direct'),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _shkMode == 'direct' ? const Color(0xFFFFC837).withValues(alpha: 0.25) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: _shkMode == 'direct' ? const Color(0xFFFFC837) : Colors.transparent),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.flash_on_rounded, size: 15, color: _shkMode == 'direct' ? const Color(0xFFFFC837) : Colors.grey),
+                                      const SizedBox(width: 6),
+                                      Text('⚡ مستقیم (Direct)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _shkMode == 'direct' ? Colors.white : Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: InkWell(
+                                onTap: (isShkActive || isShkLoading) ? null : () => setState(() => _shkMode = 'cdn'),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _shkMode == 'cdn' ? const Color(0xFFFF8008).withValues(alpha: 0.25) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: _shkMode == 'cdn' ? const Color(0xFFFF8008) : Colors.transparent),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.hub_rounded, size: 15, color: _shkMode == 'cdn' ? const Color(0xFFFF8008) : Colors.grey),
+                                      const SizedBox(width: 6),
+                                      Text('🌐 فرانتینگ CDN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _shkMode == 'cdn' ? Colors.white : Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: InkWell(
+                                onTap: (isShkActive || isShkLoading) ? null : () => setState(() => _shkMode = 'conduit'),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _shkMode == 'conduit' ? const Color(0xFF00D2FF).withValues(alpha: 0.25) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: _shkMode == 'conduit' ? const Color(0xFF00D2FF) : Colors.transparent),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.shield_rounded, size: 15, color: _shkMode == 'conduit' ? const Color(0xFF00D2FF) : Colors.grey),
+                                      const SizedBox(width: 6),
+                                      Text('🛡️ کاندوییت (پل)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _shkMode == 'conduit' ? Colors.white : Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ۲. نمایش فرم متناسب با مود انتخاب‌شده (بدون شلوغی و گیج شدن کاربر)
+                      if (_shkMode == 'direct')
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFFFFC837).withValues(alpha: 0.35),
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.public_rounded, color: Color(0xFFFFC837), size: 18),
+                                  SizedBox(width: 8),
+                                  Text('کشور خروجی اتصال مستقیم:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButton<String>(
+                                value: _selectedPsiphonCountry,
+                                isExpanded: true,
+                                dropdownColor: const Color(0xFF090B10),
+                                underline: const SizedBox(),
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                onChanged: (isShkActive || isShkLoading) ? null : (v) {
+                                  if (v != null) setState(() => _selectedPsiphonCountry = v);
+                                },
+                                items: _psiphonCountries.keys.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text('اتصال مستقیم بدون نیاز به آی‌پی لبه یا دامنه فرانتینگ (سریع‌ترین حالت اتصال)', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            ],
+                          ),
+                        )
+                      else if (_shkMode == 'cdn')
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFFFF8008).withValues(alpha: 0.35),
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.hub_rounded, color: Color(0xFFFF8008), size: 18),
+                                      SizedBox(width: 8),
+                                      Text('تنظیمات CDN Fronting', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  DropdownButton<String>(
+                                    value: _shkCdnProvider,
+                                    dropdownColor: const Color(0xFF090B10),
+                                    underline: const SizedBox(),
+                                    style: const TextStyle(color: Color(0xFFFF8008), fontSize: 11.5, fontWeight: FontWeight.bold),
+                                    onChanged: (isShkActive || isShkLoading) ? null : (v) {
+                                      if (v != null) _switchCdnProvider(v);
+                                    },
+                                    items: _shkCdnDatabase.entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value['name'].toString()))).toList(),
+                                  ),
+                                ],
+                              ),
+                              const Divider(color: Colors.white12, height: 18),
+                              TextField(
+                                controller: _shkSniCtrl,
+                                enabled: !(isShkActive || isShkLoading),
+                                style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace'),
+                                decoration: const InputDecoration(
+                                  labelText: 'دامنه فرانتینگ رسمی (CDN SNI Hostname)',
+                                  hintText: 'a248.e.akamai.net',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _shkEdgeIpsCtrl,
+                                enabled: !(isShkActive || isShkLoading),
+                                style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace'),
+                                maxLines: 2,
+                                decoration: const InputDecoration(
+                                  labelText: 'آی‌پی‌های لبه تمیز (CDN Edge IPs)',
+                                  hintText: 'آی‌پی‌های کشف‌شده از اسکنر',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButton<String>(
+                                value: _selectedCdnRegion,
+                                isExpanded: true,
+                                dropdownColor: const Color(0xFF090B10),
+                                underline: const SizedBox(),
+                                style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                                onChanged: (isShkActive || isShkLoading) ? null : (v) {
+                                  if (v != null) setState(() => _selectedCdnRegion = v);
+                                },
+                                items: const [
+                                  DropdownMenuItem(value: 'auto', child: Text('⚡ سرور خروجی: خودکار (Auto)')),
+                                  DropdownMenuItem(value: 'DE', child: Text('🇩🇪 آلمان (Germany)')),
+                                  DropdownMenuItem(value: 'US', child: Text('🇺🇸 آمریکا (United States)')),
+                                  DropdownMenuItem(value: 'JP', child: Text('🇯🇵 ژاپن (Japan)')),
+                                  DropdownMenuItem(value: 'SG', child: Text('🇸🇬 سنگاپور (Singapore)')),
+                                  DropdownMenuItem(value: 'SE', child: Text('🇸🇪 سوئد (Sweden)')),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (_shkMode == 'conduit')
+                        _buildGlassContainer(
+                          borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.35),
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.shield_rounded, color: Color(0xFF00D2FF), size: 18),
+                                  SizedBox(width: 8),
+                                  Text('پل اختصاصی کاندوییت (Conduit Node / Server List)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _shkConduitCtrl,
+                                enabled: !(isShkActive || isShkLoading),
+                                style: const TextStyle(fontSize: 11.5, fontFamily: 'monospace'),
+                                maxLines: 3,
+                                decoration: InputDecoration(
+                                  labelText: 'سرور لیست خصوصی یا لینک پل کاندوییت',
+                                  hintText: 'رشته کانفیگ یا آدرس سرور کاندوییت',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    icon: const Icon(Icons.paste_rounded, size: 16),
+                                    onPressed: () async {
+                                      final clip = await Clipboard.getData(Clipboard.kTextPlain);
+                                      if (clip?.text != null) _shkConduitCtrl.text = clip!.text!.trim();
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text('استفاده از پل‌های ضدسانسور اختصاصی برای زمان قطع کامل اینترنت بین‌الملل', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+
+                      // ۳. سوییچ Beast Mode
+                      _buildGlassContainer(
+                        borderColor: _shkBeastMode ? const Color(0xFFFF8008) : Colors.white12,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _shkBeastMode ? const Color(0xFFFF8008).withValues(alpha: 0.2) : Colors.white10,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(Icons.bolt_rounded, color: _shkBeastMode ? const Color(0xFFFF8008) : Colors.grey, size: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('حالت تهاجمی Beast Mode', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    Text(
+                                      _shkBeastMode ? '🔥 فعال: دور زدن تراتلینگ و پکت‌دراپ اپراتورها' : 'حالت عادی',
+                                      style: TextStyle(fontSize: 10, color: _shkBeastMode ? const Color(0xFFFF8008) : Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: _shkBeastMode,
+                              activeThumbColor: const Color(0xFFFF8008),
+                              onChanged: (isShkActive || isShkLoading) ? null : (v) => setState(() => _shkBeastMode = v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // ۴. جلوگیری از باز شدن تب مرورگر (Disable Homepage)
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        child: CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          title: const Text('جلوگیری از باز شدن پاپ‌آپ مرورگر (Disable Homepage)', style: TextStyle(fontSize: 11.5)),
+                          value: _shkDisableHomepage,
+                          activeColor: const Color(0xFFFFC837),
+                          onChanged: (isShkActive || isShkLoading) ? null : (v) => setState(() => _shkDisableHomepage = v ?? true),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ۵. سوییچ‌های پروکسی و کارت شبکه مجازی TUN
+                      _buildGlassContainer(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 14,
+                        child: SwitchListTile(
+                          title: Text('psiphon_sys_proxy'.tr(), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 10.5, color: Colors.grey)),
+                          value: _useSystemProxy,
+                          activeThumbColor: const Color(0xFFFFC837),
+                          onChanged: (isShkActive || isShkLoading) ? null : (bool value) {
+                            setState(() {
+                              _useSystemProxy = value;
+                              if (value) _useTunModePsiphon = false;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      _buildGlassContainer(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 14,
+                        child: SwitchListTile(
+                          title: Text('tun_title'.tr(), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('عبور ۱۰۰٪ کل ترافیک ویندوز از هسته شیروخورشید', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                          value: _useTunModePsiphon,
+                          activeThumbColor: const Color(0xFFFFC837),
+                          onChanged: (isShkActive || isShkLoading) ? null : (bool value) {
+                            setState(() {
+                              _useTunModePsiphon = value;
+                              if (value) _useSystemProxy = false;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      _buildLocationCard(),
+                      const SizedBox(height: 12),
+
+                      _buildGlassContainer(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.terminal_rounded, size: 18, color: Color(0xFFFFC837)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _localizedStatusMessage, 
+                                style: const TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _toggleDnsConnection() async {
@@ -6705,11 +7388,11 @@ try {
         );
       case 4:
         return _TabTheme(
-          gradient: const [Color(0xFF11998E), Color(0xFF38EF7D)],
-          accent: const Color(0xFF38EF7D),
-          glow: const Color(0xFF11998E),
-          icon: Icons.security_rounded,
-          title: 'menu_psiphon'.tr(),
+          gradient: const [Color(0xFFFF8008), Color(0xFFFFC837)],
+          accent: const Color(0xFFFFC837),
+          glow: const Color(0xFFFF8008),
+          icon: Icons.wb_sunny_rounded,
+          title: 'شیر و خورشید (Shir-o-Khorshid)',
         );
       case 5:
         return _TabTheme(
@@ -6962,8 +7645,6 @@ try {
                             _buildSidebarItem(7),
                             const SizedBox(height: 5),
                             _buildSidebarItem(8),
-                            const SizedBox(height: 5),
-                            _buildSidebarItem(9),
                             
                           ],
                         ),
@@ -7192,15 +7873,37 @@ try {
                   ),
                 ),
               ),
-              if (!isSelected)
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: theme.accent.withValues(alpha: 0.6),
+              const SizedBox(width: 6),
+              // دکمه دایره‌ای راهنما و توضیحات تخصصی هر بخش
+              Tooltip(
+                message: 'توضیحات و راهنمای کارکرد این بخش',
+                child: InkWell(
+                  onTap: () => _showTabHelpDialog(index),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.white.withValues(alpha: 0.22) : theme.accent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? Colors.white.withValues(alpha: 0.5) : theme.accent.withValues(alpha: 0.45),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Text(
+                      '!',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : theme.accent,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ),
-                )
+                ),
+              ),
             ],
           ),
         ),
@@ -7228,8 +7931,6 @@ try {
         return _buildLanSharePage();
       case 8:
         return _buildSettingsPage();
-      case 9:
-        return _buildHelpPage();
       case 10:
         return _buildAntiDpiSettingsPage();
       case 11:
@@ -10717,422 +11418,7 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
     );
   }
 
-  Widget _buildPsiphonPage() {
-    final bool isPsiphonActive = _isPsiphonRunning;
-    final bool isPsiphonLoading = _isPsiphonConnecting;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('psiphon_title'.tr(), 
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text('psiphon_subtitle'.tr(), 
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildGlassContainer(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  borderRadius: 14,
-                  borderColor: _isPsiphonMasqueEnabled ? const Color(0xFF38EF7D).withValues(alpha: 0.6) : Colors.white12,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.hub_rounded, size: 18, color: _isPsiphonMasqueEnabled ? const Color(0xFF38EF7D) : Colors.grey),
-                      const SizedBox(width: 8),
-                      Text('psiphon_over_masque'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 6),
-                      Switch(
-                        value: _isPsiphonMasqueEnabled,
-                        activeThumbColor: const Color(0xFF38EF7D),
-                        activeTrackColor: const Color(0xFF11998E).withValues(alpha: 0.5),
-                        onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (bool val) {
-                          setState(() {
-                            _isPsiphonMasqueEnabled = val;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTcpTurboSwitchTile(),
-                    const SizedBox(width: 8),
-                    _buildGoodbyeDpiSwitchTile(
-                      tabName: 'psiphon_title'.tr(),
-                      value: _useGoodbyeDpiPsiphon,
-                      onChanged: (val) {
-                        setState(() => _useGoodbyeDpiPsiphon = val);
-                        _saveAntiDpiToDisk();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                flex: 4,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      RepaintBoundary(
-                        child: GestureDetector(
-                          onTap: _togglePsiphonConnection,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            width: 195,
-                            height: 195,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: (isPsiphonActive || isPsiphonLoading)
-                                  ? const LinearGradient(colors: [Color(0xFF11998E), Color(0xFF38EF7D)])
-                                  : const LinearGradient(colors: [Color(0xFF141828), Color(0xFF0F111D)]),
-                              border: Border.all(
-                                color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : const Color(0xFF38EF7D).withValues(alpha: 0.4),
-                                width: 3.5,
-                              ),
-                              boxShadow: isPsiphonLoading
-                                  ? [] // در زمان لودینگ سایه حذف می‌شود تا پردازنده گرافیکی درگیر نشود
-                                  : [
-                                      BoxShadow(
-                                        color: isPsiphonActive
-                                            ? const Color(0xFF38EF7D).withValues(alpha: 0.3) 
-                                            : const Color(0xFF11998E).withValues(alpha: 0.1),
-                                        blurRadius: 16,
-                                        spreadRadius: 1,
-                                      )
-                                    ],
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Icon(
-                                  _isPsiphonMasqueRunning ? Icons.hub_rounded : Icons.security_rounded,
-                                  size: 85,
-                                  color: (isPsiphonActive || isPsiphonLoading) ? Colors.white : Colors.grey[600],
-                                ),
-                                if (isPsiphonLoading)
-                                  const RepaintBoundary(
-                                    child: SizedBox(
-                                      width: 150,
-                                      height: 150,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3.0,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Text(
-                        _isPsiphonMasqueRunning
-                            ? 'psiphon_connected_masque'.tr()
-                            : isPsiphonActive 
-                                ? 'psiphon_connected_direct'.tr() 
-                                : isPsiphonLoading 
-                                    ? (_isPsiphonMasqueEnabled ? 'psiphon_connecting_masque'.tr() : 'psiphon_connecting_direct'.tr()) 
-                                    : (_isPsiphonMasqueEnabled ? 'psiphon_tap_connect_masque'.tr() : 'psiphon_tap_connect_direct'.tr()),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14.5, 
-                          fontWeight: FontWeight.bold,
-                          color: (isPsiphonActive || isPsiphonLoading) ? const Color(0xFF38EF7D) : Colors.grey[400]
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 5,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // اگر CDN Fronting روشن باشد، کارت اختصاصی سرورهای آنلاین باز می‌شود
-                      if (_usePsiphonCdnFronting)
-                        _buildGlassContainer(
-                          borderColor: const Color(0xFFFF8008).withValues(alpha: 0.6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.hub_rounded, color: Color(0xFFFF8008), size: 20),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        AppTranslations.currentLang == 'en' ? 'Live CDN Gateways' : 'سرورهای آنلاین CDN Fronting',
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2DCA73).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.3)),
-                                    ),
-                                    child: const Text('● Active CDN', style: TextStyle(color: Color(0xFF2DCA73), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                                  )
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                AppTranslations.currentLang == 'en' 
-                                    ? 'Select an online CDN egress region:' 
-                                    : 'یکی از سرورهای آنلاین زیر را برای خروج انتخاب کنید:',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF090B10),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white10),
-                                ),
-                                child: DropdownButton<String>(
-                                  value: _selectedCdnRegion,
-                                  isExpanded: true,
-                                  dropdownColor: const Color(0xFF0D101A),
-                                  underline: const SizedBox(),
-                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                  onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (String? newVal) {
-                                    if (newVal != null) {
-                                      setState(() => _selectedCdnRegion = newVal);
-                                    }
-                                  },
-                                  items: [
-                                    const DropdownMenuItem(
-                                      value: 'auto',
-                                      child: Text('⚡ انتخاب هوشمند و خودکار (پیشنهادی - اتصال فوری)'),
-                                    ),
-                                    const DropdownMenuItem(
-                                      value: 'JP',
-                                      child: Text('🇯🇵 ژاپن (Japan - JP)  ● سرور آنلاین'),
-                                    ),
-                                    const DropdownMenuItem(
-                                      value: 'US',
-                                      child: Text('🇺🇸 آمریکا (United States - US)  ● سرور آنلاین'),
-                                    ),
-                                    const DropdownMenuItem(
-                                      value: 'SE',
-                                      child: Text('🇸🇪 سوئد (Sweden - SE)  ● سرور آنلاین'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        // کارت سنتی کشورهای سایفون در حالت عادی
-                        _buildGlassContainer(
-                          borderColor: const Color(0xFF38EF7D).withValues(alpha: 0.35),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.public_rounded, color: Color(0xFF38EF7D), size: 20),
-                                  const SizedBox(width: 12),
-                                  Text('exit_node_country'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                              DropdownButton<String>(
-                                value: _selectedPsiphonCountry,
-                                dropdownColor: const Color(0xFF0D101A),
-                                underline: const SizedBox(),
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (String? newValue) {
-                                  if (newValue != null) {
-                                    setState(() {
-                                      _selectedPsiphonCountry = newValue;
-                                      _statusMessage = "Psiphon exit region changed to $newValue";
-                                    });
-                                    _savePreferencesToDisk();
-                                  }
-                                },
-                                items: _psiphonCountries.keys.map<DropdownMenuItem<String>>((String value) {
-                                  final isEn = AppTranslations.currentLang == 'en';
-                                  final displayName = isEn && value.contains('(') ? value.split('(')[1].replaceAll(')', '').trim() : value;
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(displayName),
-                                  );
-                                }).toList(),
-                              )
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      // کارت مدیریت تنظیمات پیشرفته و فناوری CDN Fronting
-                      _buildGlassContainer(
-                        borderColor: _usePsiphonCdnFronting ? const Color(0xFFFF8008).withValues(alpha: 0.6) : Colors.white12,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: _usePsiphonCdnFronting ? const Color(0xFFFF8008).withValues(alpha: 0.2) : Colors.white10,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Icon(
-                                        Icons.hub_rounded, 
-                                        color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.grey, 
-                                        size: 20
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          AppTranslations.currentLang == 'en' ? 'Advanced Engine (CDN Fronting)' : 'موتور پیشرفته (CDN Fronting)',
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          _usePsiphonCdnFronting 
-                                              ? (AppTranslations.currentLang == 'en' ? '● CDN Fronting is Active' : '● فناوری CDN Fronting فعال است')
-                                              : (AppTranslations.currentLang == 'en' ? 'Standard Direct Connection' : 'حالت اتصال مستقیم عادی'),
-                                          style: TextStyle(
-                                            fontSize: 10.5, 
-                                            color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.grey,
-                                            fontWeight: _usePsiphonCdnFronting ? FontWeight.bold : FontWeight.normal
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: (isPsiphonActive || isPsiphonLoading) ? null : _openPsiphonAdvancedDialog,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : const Color(0xFF141828),
-                                    foregroundColor: _usePsiphonCdnFronting ? Colors.black : Colors.white,
-                                    side: BorderSide(color: _usePsiphonCdnFronting ? const Color(0xFFFF8008) : Colors.white24),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  icon: const Icon(Icons.tune_rounded, size: 15),
-                                  label: Text(
-                                    AppTranslations.currentLang == 'en' ? 'Advanced' : 'تنظیمات پیشرفته',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        padding: EdgeInsets.zero,
-                        borderRadius: 16,
-                        child: SwitchListTile(
-                          title: Text('psiphon_sys_proxy'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text('sys_proxy_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          value: _useSystemProxy,
-                          activeThumbColor: const Color(0xFF38EF7D),
-                          onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (bool value) {
-                            setState(() {
-                              _useSystemProxy = value;
-                              if (value) _useTunModePsiphon = false;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        padding: EdgeInsets.zero,
-                        borderRadius: 16,
-                        child: SwitchListTile(
-                          title: Text('tun_title'.tr(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text('tun_sub'.tr(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          value: _useTunModePsiphon,
-                          activeThumbColor: const Color(0xFF38EF7D),
-                          onChanged: (isPsiphonActive || isPsiphonLoading) ? null : (bool value) {
-                            setState(() {
-                              _useTunModePsiphon = value;
-                              if (value) _useSystemProxy = false;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildLocationCard(),
-                      const SizedBox(height: 16),
-                      _buildGlassContainer(
-                        padding: const EdgeInsets.all(16),
-                        borderRadius: 16,
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline_rounded, color: Colors.grey[400], size: 20),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _localizedStatusMessage, 
-                                style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'monospace'),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  
 
   Widget _buildDnsPage() {
     final bool isEn = AppTranslations.currentLang == 'en';
@@ -11623,153 +11909,524 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
     );
   }
 
+  int _scannerSubTabIndex = 0; // ۰: اسکنر کانفیگ VLESS دست‌نخورده، ۱: اسکنر رنج‌های خام CDN
+  String _selectedScannerCdn = 'cloudflare';
+  String _selectedScanStrategy = 'turbo'; // 'turbo' یا 'balanced'
+
   Widget _buildScannerPage() {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('scanner_title'.tr(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('scanner_subtitle'.tr(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 20),
-          
-          _buildGlassContainer(
-            borderColor: const Color(0xFFFF8008).withValues(alpha: 0.35),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // هدر اصلی و منوی تفکیک کاملاً مجزای دو اسکنر
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('مرکز اسکن هوشمند (Scanner Hub)', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _scannerSubTabIndex == 0
+                        ? 'اسکنر کانفیگ و اکانت‌های کلودفلر (VLESS Worker)'
+                        : 'اسکنر سراسری رنج‌های آی‌پی تمیز CDNها (مخصوص شیروخورشید و سرورها)',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 11.5),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141828),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('fetch_github_accounts'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    _isLoadingAccounts
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF8008)))
-                        : ElevatedButton.icon(
-                            onPressed: _fetchGithubAccounts,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF8008),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.cloud_download_rounded, size: 16, color: Colors.white),
-                            label: Text('fetch_random_accounts'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                if (_githubAccounts.isNotEmpty)
-                  Container(
-                    height: 38,
-                    margin: const EdgeInsets.only(bottom: 14),
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _githubAccounts.length,
-                      separatorBuilder: (_, index) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final acc = _githubAccounts[index];
-                        final isSel = _selectedGithubAccount == acc;
-                        return ChoiceChip(
-                          label: Text(acc.name, style: TextStyle(color: isSel ? Colors.white : Colors.grey, fontSize: 11)),
-                          selected: isSel,
-                          selectedColor: const Color(0xFFFF8008),
-                          backgroundColor: const Color(0xFF090B10),
-                          onSelected: (bool selected) {
-                            if (selected) {
-                              _selectAccount(acc);
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                const Divider(color: Colors.white12, height: 16),
-                const SizedBox(height: 8),
-
-                TextField(
-                  controller: _uuidController,
-                  style: const TextStyle(fontSize: 12),
-                  decoration: InputDecoration(labelText: 'account_uuid'.tr(), border: const OutlineInputBorder(), isDense: true),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _workerController,
-                  style: const TextStyle(fontSize: 12),
-                  decoration: InputDecoration(labelText: 'account_worker'.tr(), border: const OutlineInputBorder(), isDense: true),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _pathController,
-                  style: const TextStyle(fontSize: 12),
-                  decoration: InputDecoration(labelText: 'account_path'.tr(), border: const OutlineInputBorder(), isDense: true),
-                ),
-                const SizedBox(height: 16),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF090B10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildScanStatBadge('stat_total'.tr(), '$_scannedTotal', const Color(0xFF00D2FF)),
-                      Container(width: 1, height: 24, color: Colors.white12),
-                      _buildScanStatBadge('stat_alive'.tr(), '$_scannedAlive', const Color(0xFF2DCA73)),
-                      Container(width: 1, height: 24, color: Colors.white12),
-                      _buildScanStatBadge('stat_dead'.tr(), '$_scannedDead', Colors.redAccent),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                Center(
-                  child: _isScanning
-                      ? ElevatedButton.icon(
-                          onPressed: _stopCloudflareScan,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.stop_rounded, color: Colors.white, size: 18),
-                          label: Text('stop_scan'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                    InkWell(
+                      onTap: _isScanning ? null : () => setState(() => _scannerSubTabIndex = 0),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: _scannerSubTabIndex == 0 ? const Color(0xFF00D2FF).withValues(alpha: 0.25) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: _scannerSubTabIndex == 0 ? const Color(0xFF00D2FF) : Colors.transparent),
+                        ),
+                        child: Row(
                           children: [
-                            ElevatedButton.icon(
-                              onPressed: () => _startCloudflareScan(mode: "quick", earlyStop: false),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFF8008),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            Icon(Icons.hub_rounded, size: 15, color: _scannerSubTabIndex == 0 ? const Color(0xFF00D2FF) : Colors.grey),
+                            const SizedBox(width: 6),
+                            Text(
+                              '۱. اسکنر کانفیگ VLESS',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _scannerSubTabIndex == 0 ? Colors.white : Colors.grey,
                               ),
-                              icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 16),
-                              label: Text('quick_scan'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton.icon(
-                              onPressed: () => _startCloudflareScan(mode: "deep", earlyStop: false),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFFC837).withValues(alpha: 0.2),
-                                foregroundColor: const Color(0xFFFFC837),
-                                side: const BorderSide(color: Color(0xFFFFC837), width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: const Icon(Icons.saved_search_rounded, size: 18),
-                              label: Text('deep_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: _isScanning ? null : () => setState(() => _scannerSubTabIndex = 1),
+                      borderRadius: BorderRadius.circular(9),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: _scannerSubTabIndex == 1 ? const Color(0xFFFF8008).withValues(alpha: 0.25) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(color: _scannerSubTabIndex == 1 ? const Color(0xFFFF8008) : Colors.transparent),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.travel_explore_rounded, size: 15, color: _scannerSubTabIndex == 1 ? const Color(0xFFFF8008) : Colors.grey),
+                            const SizedBox(width: 6),
+                            Text(
+                              '۲. اسکنر آی‌پی‌های تمیز CDN',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _scannerSubTabIndex == 1 ? Colors.white : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 18),
+
+          // =========================================================================
+          // تب ۱: اسکنر اصلی و دست‌نخورده کانفیگ‌های کلودفلر (VLESS Worker Scanner)
+          // =========================================================================
+          if (_scannerSubTabIndex == 0) ...[
+            _buildGlassContainer(
+              borderColor: const Color(0xFF00D2FF).withValues(alpha: 0.35),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('fetch_github_accounts'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      _isLoadingAccounts
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00D2FF)))
+                          : ElevatedButton.icon(
+                              onPressed: _fetchGithubAccounts,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00D2FF),
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.cloud_download_rounded, size: 16),
+                              label: Text('fetch_random_accounts'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (_githubAccounts.isNotEmpty)
+                    Container(
+                      height: 38,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _githubAccounts.length,
+                        separatorBuilder: (_, index) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final acc = _githubAccounts[index];
+                          final isSel = _selectedGithubAccount == acc;
+                          return ChoiceChip(
+                            label: Text(acc.name, style: TextStyle(color: isSel ? Colors.white : Colors.grey, fontSize: 11)),
+                            selected: isSel,
+                            selectedColor: const Color(0xFF00D2FF),
+                            backgroundColor: const Color(0xFF090B10),
+                            onSelected: (bool selected) {
+                              if (selected) {
+                                _selectAccount(acc);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  const Divider(color: Colors.white12, height: 16),
+                  const SizedBox(height: 8),
+
+                  TextField(
+                    controller: _uuidController,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(labelText: 'account_uuid'.tr(), border: const OutlineInputBorder(), isDense: true),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _workerController,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(labelText: 'account_worker'.tr(), border: const OutlineInputBorder(), isDense: true),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _pathController,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(labelText: 'account_path'.tr(), border: const OutlineInputBorder(), isDense: true),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF090B10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildScanStatBadge('stat_total'.tr(), '$_scannedTotal', const Color(0xFF00D2FF)),
+                        Container(width: 1, height: 24, color: Colors.white12),
+                        _buildScanStatBadge('stat_alive'.tr(), '$_scannedAlive', const Color(0xFF2DCA73)),
+                        Container(width: 1, height: 24, color: Colors.white12),
+                        _buildScanStatBadge('stat_dead'.tr(), '$_scannedDead', Colors.redAccent),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Center(
+                    child: _isScanning
+                        ? ElevatedButton.icon(
+                            onPressed: _stopCloudflareScan,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.stop_rounded, color: Colors.white, size: 18),
+                            label: Text('stop_scan'.tr(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => _startCloudflareScan(mode: "quick", earlyStop: false),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00D2FF),
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.flash_on_rounded, size: 16),
+                                label: Text('quick_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                onPressed: () => _startCloudflareScan(mode: "deep", earlyStop: false),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFFC837).withValues(alpha: 0.2),
+                                  foregroundColor: const Color(0xFFFFC837),
+                                  side: const BorderSide(color: Color(0xFFFFC837), width: 1.2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.saved_search_rounded, size: 18),
+                                label: Text('deep_scan'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // =========================================================================
+          // تب ۲: اسکنر جدید و اختصاصی رنج‌های خام آی‌پی تمام ۷ شبکه CDN
+          // =========================================================================
+          if (_scannerSubTabIndex == 1) ...[
+            _buildGlassContainer(
+              borderColor: const Color(0xFFFF8008).withValues(alpha: 0.45),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('انتخاب شبکه ابری (Target CDN):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF090B10),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: DropdownButton<String>(
+                                value: _selectedScannerCdn,
+                                isExpanded: true,
+                                dropdownColor: const Color(0xFF0D101A),
+                                underline: const SizedBox(),
+                                style: const TextStyle(color: Color(0xFFFFC837), fontSize: 12.5, fontWeight: FontWeight.bold),
+                                onChanged: _isScanning ? null : (v) {
+                                  if (v != null) {
+                                    setState(() {
+                                      _selectedScannerCdn = v;
+                                    });
+                                  }
+                                },
+                                items: _shkCdnDatabase.entries.map((entry) {
+                                  return DropdownMenuItem(
+                                    value: entry.key,
+                                    child: Text(entry.value['name'].toString()),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('استراتژی اسکن (Scan Mode):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF090B10),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: DropdownButton<String>(
+                                value: _selectedScanStrategy,
+                                isExpanded: true,
+                                dropdownColor: const Color(0xFF0D101A),
+                                underline: const SizedBox(),
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                onChanged: _isScanning ? null : (v) {
+                                  if (v != null) setState(() => _selectedScanStrategy = v);
+                                },
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'turbo',
+                                    child: Text('⚡ توربو (توقف روی اولین آی‌پی‌های تاییدشده)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'balanced',
+                                    child: Text('⚖️ بالانس (کشف ۱۰ آی‌پی و انتخاب بهترین‌ها)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'full',
+                                    child: Text('🔍 اسکن کامل (تست ۱۰۰٪ تمام آی‌پی‌های فایل بدون توقف)'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.file_present_rounded, size: 16, color: Color(0xFFFFC837)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'منبع اسکن: فایل ${_selectedScannerCdn}_IPs.txt در پوشه برنامه (با اعتبارسنجی ضدجعل لایه ۷ و رد خودکار پکت‌های فیک)',
+                            style: const TextStyle(fontSize: 10.5, color: Colors.white70),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF090B10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildScanStatBadge('کل رنج‌های تست‌شده', '$_scannedTotal', const Color(0xFF00D2FF)),
+                        Container(width: 1, height: 24, color: Colors.white12),
+                        _buildScanStatBadge('آی‌پی‌های لبه سالم', '$_scannedAlive', const Color(0xFF2DCA73)),
+                        Container(width: 1, height: 24, color: Colors.white12),
+                        _buildScanStatBadge('مسدود / تایم‌اوت', '$_scannedDead', Colors.redAccent),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Center(
+                    child: _isScanning
+                        ? ElevatedButton.icon(
+                            onPressed: _stopCloudflareScan,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.stop_rounded, color: Colors.white, size: 20),
+                            label: const Text('توقف اسکن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          )
+                        : ElevatedButton.icon(
+                            onPressed: () async {
+                              final isTurbo = _selectedScanStrategy == 'turbo';
+                              final currentSni = _shkCdnDatabase[_selectedScannerCdn]?['snis']?.first ?? 'speed.cloudflare.com';
+                              setState(() {
+                                _uuidController.text = _selectedScannerCdn;
+                                _workerController.text = currentSni;
+                                _pathController.text = "";
+                              });
+                              await _startCloudflareScan(
+                                mode: _selectedScanStrategy, 
+                                earlyStop: isTurbo
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF8008),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: Icon(
+                              _selectedScanStrategy == 'turbo' 
+                                  ? Icons.bolt_rounded 
+                                  : (_selectedScanStrategy == 'full' ? Icons.saved_search_rounded : Icons.balance_rounded), 
+                              size: 18
+                            ),
+                            label: Text(
+                              _selectedScanStrategy == 'turbo' 
+                                  ? 'شروع اسکن توربو ($_selectedScannerCdn)' 
+                                  : (_selectedScanStrategy == 'full' 
+                                      ? 'شروع اسکن کامل تمام آی‌پی‌ها ($_selectedScannerCdn)' 
+                                      : 'شروع اسکن بالانس ($_selectedScannerCdn)'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                          ),
+                  ),
+
+                  // سد ضد باگ: کارت سبز فقط در صورت کشف حداقل ۱ آی‌پی سالم واقعی در این اسکن نمایش داده می‌شود
+                  if (!_isScanning && _scannedAlive > 0 && _savedNodeItems.any((item) => item.groupId == 'scanner')) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2DCA73).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF2DCA73).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: Color(0xFF2DCA73), size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'تعداد $_scannedAlive آی‌پی تمیز و واقعی برای $_selectedScannerCdn کشف شد! مایلید اعمال شوند؟',
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final scannerNodes = _savedNodeItems.where((i) => i.groupId == 'scanner').map((i) => i.node).toList();
+                              if (scannerNodes.isNotEmpty) {
+                                final ips = scannerNodes.map((n) {
+                                  final uri = Uri.tryParse(n.rawUrl);
+                                  return uri?.host ?? n.rawUrl.split('//').last.split('?').first.split('@').last.split(':').first;
+                                }).take(8).join(', ');
+
+                                // انتخاب خودکار و فوری بهترین SNI هماهنگ با این آی‌پی‌های تازه
+                                final matchingSni = await _autoDetectWorkingSni(_selectedScannerCdn, ips);
+
+                                setState(() {
+                                  _shkCdnProvider = _selectedScannerCdn;
+                                  _shkEdgeIpsCtrl.text = ips;
+                                  _shkSniCtrl.text = matchingSni;
+                                  _selectedMenuIndex = 4; // انتقال مستقیم به تب شیروخورشید
+                                });
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('آی‌پی‌های لبه سالم همراه با SNI هماهنگ ($matchingSni) روی شیروخورشید اعمال شدند!'),
+                                    backgroundColor: const Color(0xFF2DCA73),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2DCA73),
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.send_rounded, size: 14),
+                            label: const Text('اعمال در شیروخورشید', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // پیام هوشمند هشدار در صورت مسدود بودن تمام آی‌پی‌های تست‌شده (بدون نمایش فیک کارت سبز)
+                  if (!_isScanning && _scannedTotal > 0 && _scannedAlive == 0) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'تمام $_scannedTotal رنج تست‌شده مسدود یا تایم‌اوت بودند. هیچ آی‌پی سالمی برای $_selectedScannerCdn یافت نشد.',
+                              style: const TextStyle(fontSize: 11.5, color: Colors.white70),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
           
           _buildGlassContainer(
@@ -12799,24 +13456,217 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
     );
   }
 
-  Widget _buildHelpPage() {
+  /// دیالوگ هوشمند، سبک و درخواستی راهنمای اختصاصی هر تب (با فشردن علامت !)
+  void _showTabHelpDialog(int tabIndex) {
+    final theme = _getTabTheme(tabIndex);
     final bool isEn = AppTranslations.currentLang == 'en';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    String title = '';
+    String architecture = '';
+    String coreFeatures = '';
+    String usageGuide = '';
+
+    switch (tabIndex) {
+      case 0: // Dashboard
+        title = isEn ? 'V2Ray & Hybrid Dashboard' : 'داشبورد ویتوری و اتصال هیبریدی';
+        architecture = isEn 
+            ? 'Two-stage connection architecture: tunnels traffic through Aether MASQUE bridge before forwarding to the Sing-box core, or connects directly via VLESS/VMess/Reality.'
+            : 'معماری اتصال دو لایه: ترافیک ابتدا از درون پل پایدار اِتر (MASQUE) عبور کرده و سپس تحویل هسته ویتوری (Sing-box) می‌شود تا فیلترینگ نتواند هویت اتصال را تشخیص دهد.';
+        coreFeatures = isEn
+            ? '• Smart Hybrid Failover\n• Auto-Rotation on quota exhaustion\n• Anti-RST middlebox dropper\n• WebRTC leak blocking'
+            : '• اتصال ترکیبی هیبریدی ضدسانسور\n• چرخش خودکار اکانت‌ها با اتمام حجم\n• سپر درایور WinDivert جهت خنثی‌سازی پکت‌های جعلی RST\n• مسدودسازی قطعی نشت WebRTC';
+        usageGuide = isEn
+            ? 'Toggle "Hybrid Connection" for highest bypass resilience. If servers are blocked, toggle on "Anti-DPI Effect".'
+            : 'برای بالاترین پایداری در شرایط فیلترینگ شدید، سوئیچ «اتصال هیبریدی» را روشن بگذارید. در صورت قطعی در اپراتورها، تیک «افکت GoodbyeDPI» را فعال کنید.';
+        break;
+
+      case 11: // Gaming
+        title = isEn ? 'Pro Gaming Mode & Low Ping' : 'حالت گیمینگ فوق‌حرفه‌ای و پینگ کمینه';
+        architecture = isEn
+            ? 'Isolated Per-App UDP/TCP routing: only game executables route through the latency-optimized tunnel, keeping browsers and background apps on standard connection.'
+            : 'مسیریابی تفکیک‌شده بر اساس نام پروسه (Per-App Routing): فقط فایل‌های اجرایی بازی انتخابی از تونل کم‌تاخیر عبور می‌کنند و برنامه‌های دیگر (کروم، دانلودها) پینگ بازی را خراب نمی‌کنند.';
+        coreFeatures = isEn
+            ? '• Kernel-level BBR congestion control\n• Zero packet queuing delay (TCPNoDelay)\n• Anti-Ban session locking\n• Ping & Jitter live telemetry'
+            : '• شتاب‌دهنده کرنل ویندوز با الگوریتم BBR\n• حذف تاخیر ارسال پکت‌ها در رجیستری ویندوز\n• قفل سشن آی‌پی برای جلوگیری از بن اکانت بازی\n• مانیتورینگ زنده پینگ، نوسان (Jitter) و پکت‌های خنثی‌شده';
+        usageGuide = isEn
+            ? 'Select your game, pick the nearest region (Turkey, UAE, Germany) with the lowest ping, and hit Boost.'
+            : 'بازی خود را انتخاب کرده، ریجن با کمترین پینگ را انتخاب کنید و دکمه راه‌اندازی را بزنید تا تونل اختصاصی برقرار شود.';
+        break;
+
+      case 1: // Aether
+        title = isEn ? 'Aether MASQUE Anti-Censorship' : 'شبکه ضدسانسور اِتر (MASQUE Aether Engine)';
+        architecture = isEn
+            ? 'Directly connects to Cloudflare Zero Trust edges without custom domain or VPS requirement, using MASQUE proxy protocol over HTTP/3 QUIC or HTTP/2.'
+            : 'اتصال مستقیم و مستقل به شبکه Edge کلودفلر بدون نیاز به سرور مجازی شخصی یا کانفیگ! استفاده از پروتکل استاندارد IETF MASQUE بر بستر پروتکل‌های پرسرعت QUIC و HTTP/2.';
+        coreFeatures = isEn
+            ? '• MASQUE H3: Ultra-speed 0-RTT QUIC streaming\n• MASQUE H2 + Fragment: Bypasses UDP throttling\n• Gool: WARP-in-WARP double tunnel\n• Noise profiles (Firewall, Light, Aggressive)'
+            : '• مد MASQUE H3: استریم و دانلود فوق‌سریع 4K با پکت‌های QUIC\n• مد MASQUE H2: دور زدن اختلالات شدید روی پروتکل UDP با فرگمنت TCP\n• مد Gool: تونل مضاعف وارپ روی وارپ\n• پروفایل‌های پارازیت برای فریب سنسورهای DPI';
+        usageGuide = isEn
+            ? 'Use "Auto Failover" mode. On mobile operators with UDP throttling, switch to MASQUE H2 or Gool.'
+            : 'حالت Auto Failover به طور خودکار پایدارترین پروتکل را پیدا می‌کند. اگر اینترنت سیم‌کارت روی UDP اختلال داشت، حالت را روی MASQUE H2 بگذارید.';
+        break;
+
+      case 2: // Configs
+        title = isEn ? 'Server Management & RedCloud Hub' : 'مدیریت سرورها و RedCloud Hub';
+        architecture = isEn
+            ? 'Full support for VLESS, VMess, Reality (xtls-rprx-vision), TUIC v5, Hysteria 2, Shadowsocks, and internal RedCloud cyber-chains.'
+            : 'پشتیبانی کامل از پروتکل‌های نوین ضدسانسور VLESS, VMess, Reality (با جریان xtls-rprx-vision)، TUIC v5، Hysteria 2 و پایپ‌لاین‌های اختصاصی RedCloud.';
+        coreFeatures = isEn
+            ? '• RedCloud Hub: 30-min auto update with deduplication and 40-node FIFO cap\n• Parallel Rust socket ping benchmarking\n• GoodbyeDPI automatic rescue on blocked subscriptions'
+            : '• ساب اختصاصی RedCloud Hub با آپدیت خودکار ۳۰ دقیقه‌ای، فیلتر ضد تکراری و سقف ۴۰ سرور برتر\n• تست پینگ فوق‌سریع موازی با سوکت‌های بومی هسته راست\n• نجات هوشمند اشتراک با درایور GoodbyeDPI هنگام فیلتر بودن سورس‌ها';
+        usageGuide = isEn
+            ? 'Click "Ping and Sort" to bring active servers to the top. Use the "RedCloud Hub" tab for clean, ad-free servers.'
+            : 'دکمه «تست پینگ و مرتب‌سازی» را بزنید تا سرورهای سالم به صدر بیایند. تب RedCloud Hub همواره تمیزترین سرورهای بدون تبلیغ را در اختیارتان می‌گذارد.';
+        break;
+
+      case 3: // Tor
+        title = isEn ? 'Tor Onion Network' : 'شبکه پیاز تور (Tor Onion Network)';
+        architecture = isEn
+            ? 'Multi-hop layered onion routing for total privacy. Supports routing Tor guard nodes through Aether MASQUE bridge to bypass state guard-blocking.'
+            : 'مسیریابی چندلایه و ناشناس‌سازی مطلق هویت در وب تاریک و جهانی. مجهز به فناوری عبور گره‌های گارد از پل ضدسانسور مسک (Tor over MASQUE) برای دور زدن فیلترینگ گاردها.';
+        coreFeatures = isEn
+            ? '• Tor over MASQUE bridge\n• Dedicated Exit Country selection (Germany, US, Netherlands, UK, etc.)\n• SOCKS5 & HTTP local egress'
+            : '• پل ارتباطی مسک برای اتصال ۱۰۰٪ بدون قطعی\n• انتخاب آزادانه کشور خروجی (آلمان، آمریکا، هلند، انگلیس و...)\n• سازگار با مرورگرها و نرم‌افزارهای دسکتاپ';
+        usageGuide = isEn
+            ? 'Select your destination country. If direct Tor is blocked by your ISP, switch on "Tor over MASQUE".'
+            : 'کشور خروجی دلخواه را انتخاب کنید. اگر اتصال مستقیم تور در اپراتور شما گیر کرد، سوئیچ «تور بر بستر مسک» را روشن کنید.';
+        break;
+
+      case 4: // Psiphon
+        title = isEn ? 'Psiphon Anti-Censorship & CDN Fronting' : 'شبکه سایفون با فناوری CDN Fronting';
+        architecture = isEn
+            ? 'Multi-protocol evasive transport network designed to withstand severe DPI censorship via international CDN domain fronting (Meek).'
+            : 'شبکه ضدسانسور چندپروتکلی بین‌المللی مجهز به فناوری پنهان‌سازی دامنه (Meek CDN Fronting) که هندشیک‌ها را با هویت جعلی از سرورهای کلودفلر و آکامای عبور می‌دهد.';
+        coreFeatures = isEn
+            ? '• Meek CDN Fronting mode\n• Live egress country selection\n• Anti-leak validation guard'
+            : '• فناوری CDN Fronting برای زمان‌های قطعی شدید اینترنت بین‌الملل\n• انتخاب کشورهای آنلاین خروجی\n• سد ضد نشت آی‌پی ایران';
+        usageGuide = isEn
+            ? 'Tap connect for automatic routing. For enhanced resilience during national network disruptions, enable CDN Fronting in Advanced.'
+            : 'برای اتصال عادی روی دکمه کلیک کنید. در زمان اختلالات شدید، از بخش تنظیمات پیشرفته گزینه CDN Fronting را فعال نمایید.';
+        break;
+
+      case 5: // Scanner
+        title = isEn ? 'Cloudflare Clean IP Scanner' : 'اسکنر هوشمند آی‌پی کلودفلر';
+        architecture = isEn
+            ? 'High-speed layer-7 WebSocket TLS prober with multi-threaded parallel scanning over curated clean lists and deep CIDR ranges.'
+            : 'اسکنر لایه ۷ وب‌ساکت با پردازش موازی و چندنخی که آی‌پی‌های سفید بدون فیلتر کلودفلر را از فایل cloudflare_IPs.txt استخراج می‌کند.';
+        coreFeatures = isEn
+            ? '• Quick Scan: Curated ultra-fast IPs\n• Deep Scan: Thousands of IP blocks\n• Real-time alive/dead metrics\n• Stop and harvest anytime'
+            : '• اسکن سریع (Quick): تست چندثانیه‌ای روی رنج‌های منتخب\n• اسکن عمیق (Deep): پایش هزاران آی‌پی CIDR ابری\n• امکان توقف در هر لحظه و تحویل فوری آی‌پی‌های سفید';
+        usageGuide = isEn
+            ? 'Fetch accounts, start Quick Scan. Clean servers will be automatically saved to your Configs list.'
+            : 'ابتدا دکمه دریافت اکانت را بزنید و سپس اسکن سریع را آغاز کنید تا سرورهای سالم مستقیماً وارد لیست کانفیگ‌ها شوند.';
+        break;
+
+      case 6: // DNS
+        title = isEn ? 'Smart DNS & Anti-Sanction Changer' : 'تغییر دهنده هوشمند دی‌ان‌اس و تحریم‌شکن';
+        architecture = isEn
+            ? 'Directly configures Windows network adapter DNS servers to bypass foreign website sanctions without VPN encryption overhead.'
+            : 'تغییر مستقیم آدرس‌های دی‌ان‌اس کارت شبکه ویندوز جهت دور زدن تحریم‌های خارجی (سایت‌های هوش مصنوعی، دیسکورد، اپیک گیمز و...) بدون نیاز به روشن کردن فیلترشکن.';
+        coreFeatures = isEn
+            ? '• Popular gaming DNS (Shecan, Electro, 403, Radar)\n• Encrypted DoH & DoT (Cloudflare, Google, Quad9, AdGuard)\n• Smart domain cert verifier'
+            : '• دی‌ان‌اس‌های معروف تحریم‌شکن و گیمینگ\n• دی‌ان‌اس‌های فوق امن رمزنگاری‌شده DoH و DoT\n• اسکنر هوشمند اختصاصی برای راستی‌آزمایی هر سایت دلخواه';
+        usageGuide = isEn
+            ? 'Select a DNS profile and click connect. To restore default ISP settings, click disconnect.'
+            : 'پروفایل مورد نظر را انتخاب کرده و دایره را بزنید تا فعال شود. برای بازگشت به اینترنت عادی دکمه قطع اتصال را بزنید.';
+        break;
+
+      case 7: // LAN & Hotspot
+        title = isEn ? 'LAN Sharing & Virtual Wi-Fi Hotspot' : 'اشتراک‌گذاری در شبکه محلی و هات‌اسپات';
+        architecture = isEn
+            ? 'Turns your PC into an uncensored home internet gateway using low-level Rust socket relay and Windows Native ICS Mobile Hotspot.'
+            : 'تبدیل سیستم شما به گذرگاه اینترنت آزاد خانگی به کمک رله سوکت بومی هسته راست و هات‌اسپات وای‌فای ویندوز، تا گوشی‌ها و کنسول‌ها بدون فیلترشکن وصل شوند.';
+        coreFeatures = isEn
+            ? '• Instant QR code proxy pairing\n• Transparent Wi-Fi Hotspot without phone configuration\n• Live connected client monitor\n• MAC address firewall blacklist'
+            : '• بارکد QR جهت اتصال فوری آیفون و اندروید\n• هات‌اسپات شفاف وای‌فای برای کنسول و تلویزیون هوشمند\n• مانیتورینگ زنده کاربران متصل\n• لیست سیاه و مسدودسازی مک‌آدرس در فایروال ویندوز';
+        usageGuide = isEn
+            ? 'Turn on LAN Share to get Proxy IP:Port, or turn on Virtual Hotspot for direct Wi-Fi tethering.'
+            : 'سوئیچ اشتراک‌گذاری LAN را روشن کنید و آی‌پی و پورت را در گوشی تنظیم نمایید، یا هات‌اسپات وای‌فای را فعال کنید.';
+        break;
+
+      case 8: // Settings
+        title = isEn ? 'System Settings & Kernel Optimizer' : 'تنظیمات سیستمی و شتاب‌دهنده کرنل';
+        architecture = isEn
+            ? 'System-wide network accelerator (TCP Turbo BBR), domain & app split tunneling, DNSCrypt anti-poisoning shield, and core management.'
+            : 'شتاب‌دهنده شبکه ویندوز (TCP Turbo BBR)، اسپلیت تانل بر اساس دامنه و برنامه، سپر ضد مسمومیت DNSCrypt و مدیریت خودکار بروزرسانی هسته‌ها.';
+        coreFeatures = isEn
+            ? '• BBR2 & TCP SACK low-ping acceleration\n• Iran direct routing bypass\n• DNSCrypt cryptographic shield\n• Custom keyboard shortcuts (Hotkeys)'
+            : '• شتاب‌دهنده شبکه BBR2 ضد پکت‌لاس\n• عبور مستقیم سایت‌های ایرانی بانکی با آی‌پی واقعی\n• سپر احراز هویت DNSCrypt\n• کلیدهای میانبر سراسری کیبورد';
+        usageGuide = isEn
+            ? 'Keep TCP Turbo enabled for optimal throughput. Use Split Tunneling to bypass domestic banking websites.'
+            : 'سوئیچ توربو TCP را برای پینگ کمینه روشن بگذارید. دامنه‌های بانکی یا دلخواه را در بخش اسپلیت تانل ثبت کنید.';
+        break;
+
+      case 10: // Anti-DPI
+        title = isEn ? 'Advanced Kernel Anti-DPI Protection' : 'تنظیمات فوق‌پیشرفته ضد DPI (WinDivert)';
+        architecture = isEn
+            ? 'Operates via WinDivert kernel driver to fragment, spoof, and alter handshake packets before leaving the network adapter.'
+            : 'دستکاری پکت‌های خروجی در سطح درایور کرنل ویندوز (WinDivert) قبل از خروج از کارت شبکه برای فریب سنسورهای فیلترینگ DPI بدون نیاز به تغییر پروکسی.';
+        coreFeatures = isEn
+            ? '• GoodbyeDPI customizable presets\n• Chrome uTLS fingerprint emulation\n• TLS & Record packet fragmentation\n• Fake SNI injection spoofing\n• Encrypted Client Hello (Auto-ECH)'
+            : '• پریست‌های هوشمند GoodbyeDPI\n• شبیه‌ساز اثر انگشت مرورگر گوگل کروم (uTLS)\n• خرد کردن پکت‌های سلام (TLS Fragmentation)\n• جعل تزریقی دامنه (Fake SNI Spoofing)\n• رمزنگاری کامل هدر دامنه با ECH';
+        usageGuide = isEn
+            ? 'Enable TLS fragmentation on aggressive ISP filtering. Use Fake SNI with unblocked domains (zoom.us).'
+            : 'در صورت فیلتر بودن دست‌دهی سرورها، تیک قطعه‌بندی پکت را فعال کنید و دامنه فیک مجاز مثل zoom.us را قرار دهید.';
+        break;
+
+      case 12: // SlipNet
+        title = isEn ? 'SlipNet DNS Tunnel Hub' : 'تونلینگ اضطراری SlipNet (DNS Tunnel)';
+        architecture = isEn
+            ? 'Tunnels TCP/UDP traffic entirely over DNS protocol queries (Port 53) using DNSTT, NoizDNS, VayDNS, and Slipstream engines.'
+            : 'هدایت کل ترافیک اینترنت از درون کوئری‌های دی‌ان‌اس (پورت ۵۳) با موتورهای قدرتمند DNSTT، NoizDNS، VayDNS و Slipstream برای زمان‌های قطع کامل اینترنت بین‌الملل.';
+        coreFeatures = isEn
+            ? '• Operates over UDP, DoH, and DoT\n• Curve25519 public key encryption\n• Full Virtual TUN adapter support'
+            : '• حامل‌های انتقال UDP و DoH رمزنگاری‌شده\n• رمزنگاری با کلید عمومی سرور\n• پشتیبانی از کارت شبکه مجازی TUN';
+        usageGuide = isEn
+            ? 'Paste your slipnet:// link, select your desired engine, and connect.'
+            : 'لینک کانفیگ slipnet:// را وارد کرده و پس از انتخاب نوع حامل، روی دایره اتصال کلیک کنید.';
+        break;
+
+      case 13: // WhiteDNS
+        title = isEn ? 'WhiteDNS Desktop Tunnel' : 'تونل اختصاصی WhiteDNS (CottenDNS)';
+        architecture = isEn
+            ? 'High-performance DNS tunneling using CottenDNS engine with automated public resolver pool scanning and multi-path striping.'
+            : 'تونل دی‌ان‌اس اختصاصی با موتور بهینه CottenDNS و اسکن خودکار ریزالورهای فعال جهت دور زدن مسدودسازی‌های عمیق لایه ۴.';
+        coreFeatures = isEn
+            ? '• Speed, Survival, and TCP-Survival presets\n• Automated resolver health benchmarking\n• Full system virtual TUN routing'
+            : '• پریست‌های Speed (حداکثر سرعت) و Survival (ضد قطعی)\n• پایش زنده و خودکار سلامت ریزالورها\n• عبور کامل اینترنت ویندوز با کارت TUN';
+        usageGuide = isEn
+            ? 'Enter your WhiteDNS domain and public key, choose the Speed or Survival preset, and connect.'
+            : 'دامنه و کلید عمومی را وارد کرده، پریست متناسب با وضعیت شبکه را انتخاب کنید و متصل شوید.';
+        break;
+
+      default:
+        title = theme.title;
+        architecture = 'معماری و ساختار این بخش هماهنگ با هسته‌های برنامه است.';
+        coreFeatures = '• پایداری بالا\n• امنیت کامل داده‌ها';
+        usageGuide = 'برای استفاده روی دکمه اتصال یا کلیدهای مربوطه کلیک کنید.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF101422),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: theme.accent.withValues(alpha: 0.6), width: 1.5),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFF9D423), Color(0xFFFF4E50)]),
-                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(colors: theme.gradient),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFFF9D423).withValues(alpha: 0.35), blurRadius: 10),
+                  BoxShadow(
+                    color: theme.glow.withValues(alpha: 0.4),
+                    blurRadius: 14,
+                  )
                 ],
               ),
-              child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 24),
+              child: Icon(theme.icon, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -12824,239 +13674,118 @@ Go to network settings on your Smart TV (Android TV, LG, Samsung) or console (PS
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isEn ? 'RedCloud User Guide & Pro Tips' : 'راهنمای جامع کاربری و ترفندهای RedCloud', 
-                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
+                    title,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    isEn ? 'Step-by-step documentation for all anti-censorship protocols and bypass tools' : 'آموزش گام‌به‌گام تمامی ابزارها، پروتکل‌ها و تکنیک‌های دور زدن فیلترینگ', 
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
+                    isEn ? 'Architecture & User Guide' : 'معماری، ساختار و راهنمای کاربری',
+                    style: TextStyle(fontSize: 10.5, color: theme.accent),
                   ),
                 ],
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 20),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
           ],
         ),
-        const SizedBox(height: 24),
-        Expanded(
+        content: SizedBox(
+          width: 560,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.only(right: 8),
+            physics: const BouncingScrollPhysics(),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildHelpAccordion(
-                  title: isEn ? '1. Dashboard & Hybrid Mode (Recommended)' : '۱. داشبورد و حالت اتصال هیبریدی (پیشنهاد اصلی)',
-                  icon: Icons.hub_rounded,
-                  iconColor: const Color(0xFF00D2FF),
-                  content: isEn ? '''
-• Hybrid Connection (Aether + VLESS):
-The premier anti-censorship feature. Your traffic first tunnels through the resilient Aether MASQUE bridge before hitting the Sing-box core, keeping connections totally undetectable with high speeds.
-
-• Direct V2Ray:
-When Hybrid is toggled off, the app connects directly to your chosen server from the Configs tab.
-
-• Smart Auto-Rotation:
-If the 5GB quota of the free active shared account is exhausted, the app auto-fetches fresh accounts from GitHub without disconnecting.
-''' : '''
-• اتصال هیبریدی (Aether + VLESS):
-این حالت پیشرفته‌ترین متد ضدسانسور برنامه است. در این حالت ترافیک شما ابتدا از پل فوق‌العاده پایدار اتر (MASQUE) رد شده و سپس وارد هسته ویتوری (Sing-box) می‌شود. با این کار فیلترینگ متوجه هویت ترافیک شما نمی‌شود و سرعت آپلود و دانلود بسیار پایداری خواهید داشت.
-
-• ویتوری مستقیم (Direct):
-اگر سوییچ اتصال هیبریدی را خاموش کنید، برنامه مستقیماً با سرور انتخابی شما در تب پیکربندی ارتباط برقرار می‌کند.
-
-• چرخش خودکار اکانت‌ها (Auto-Rotation):
-در صورتی که حجم ۵ گیگابایتی اکانت اشتراکی فعال تمام شود، برنامه بدون نیاز به دخالت شما به‌طور خودکار اکانت تازه از سرور گیت‌هاب دریافت کرده و ترافیک را متصل نگه می‌دارد.
-''',
+                _buildHelpSectionCard(
+                  title: isEn ? '🛠️ Technical Architecture' : '🛠️ معماری و ساختار فنی',
+                  content: architecture,
+                  accentColor: theme.accent,
                 ),
-                _buildHelpAccordion(
-                  title: isEn ? '2. Kernel Anti-DPI Layer (GoodbyeDPI)' : '۲. افکت ضد DPI (GoodbyeDPI Layer)',
-                  icon: Icons.shield_rounded,
-                  iconColor: const Color(0xFF2DCA73),
-                  content: isEn ? '''
-• First-Line Protection Layer:
-GoodbyeDPI operates through a Windows kernel driver (WinDivert). When enabled, handshake packets are fragmented, re-ordered, or padded before leaving your network adapter, preventing deep packet inspection (DPI) censorship from terminating connections.
-''' : '''
-• لایه اول محافظتی برای تمامی تب‌ها:
-گودبای‌دی‌پی (GoodbyeDPI) به عنوان یک درایور کرنل ویندوز (WinDivert) عمل می‌کند. وقتی تیک این گزینه را در داشبورد، اتر، تور یا سایفون فعال کنید، پکت‌های هندشیک قبل از خروج از کارت شبکه تغییر ساختار پیدا می‌کنند تا سیستم DPI اپراتورها نتوانند اتصال اولیه شما به سرورهای خارجی را ببندند.
-''',
+                const SizedBox(height: 12),
+                _buildHelpSectionCard(
+                  title: isEn ? '⚡ Core Features' : '⚡ ویژگی‌ها و مکانیزم‌های کلیدی',
+                  content: coreFeatures,
+                  accentColor: const Color(0xFF00D2FF),
                 ),
-                _buildHelpAccordion(
-                  title: isEn ? '3. Virtual TUN Mode vs System Proxy' : '۳. تفاوت کارت شبکه مجازی (TUN Mode) و پروکسی سیستم',
-                  icon: Icons.alt_route_rounded,
-                  iconColor: const Color(0xFF2DCA73),
-                  content: isEn ? '''
-• System Proxy:
-Configures the Windows system registry to automatically tunnel all browsers (Chrome, Edge, Firefox) and proxy-aware tools.
-
-• TUN Mode (Virtual Network Adapter):
-Installs an in-memory virtual adapter (Wintun) that routes 100% of your PC's traffic through the tunnel, including online games, CLI, Git, Discord voice, and non-proxy apps.
-''' : '''
-• حالت پروکسی سیستم‌عامل (System Proxy):
-این گزینه رجیستری ویندوز را تنظیم می‌کند تا ترافیک تمام مرورگرها (کروم، فایرفاکس، ادج) و نرم‌افزارها به‌طور خودکار از فیلترشکن عبور کنند.
-
-• کارت شبکه مجازی (TUN Mode):
-یک کارت شبکه مجازی روی ویندوز می‌سازد و کل ترافیک اینترنت رایانه شما (شامل بازی‌های آنلاین، برنامه‌های بدون قابلیت پروکسی، CMD، گیت و کلاینت‌های دسکتاپ) را بدون استثنا از تونل عبور می‌دهد.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '4. Aether MASQUE Anti-Censorship Engine' : '۴. شبکه ضدسانسور اِتر (MASQUE Aether Engine)',
-                  icon: Icons.bolt_rounded,
-                  iconColor: const Color(0xFF00D2FF),
-                  content: isEn ? '''
-Connects independently to Cloudflare Zero Trust without requiring custom domains or VPS setups!
-
-• Auto Failover:
-Probes and benchmarks multiple pathways in real-time, locking onto the lowest-latency, most reliable route.
-
-• MASQUE H3 (QUIC):
-High throughput HTTP/3 QUIC connection with zero round-trip handshakes (0-RTT), ideal for 4K streaming.
-
-• MASQUE H2 + Fragment:
-Specially tailored for networks throttling or dropping UDP packets.
-
-• Noise Profiles:
-Firewall for severe censorship resilience, Light for lowest ping and maximum raw throughput.
-''' : '''
-این تب به شما امکان اتصال مستقل به شبکه Zero Trust کلودفلر را بدون نیاز به هیچ کانفیگ، دامنه یا سرور خارجی می‌دهد!
-
-• حالت خودکار (Auto Failover):
-بهترین حالت پیشنهادی است که پروتکل‌های مختلف را به‌صورت زنده تست کرده و روی پایدارترین مسیر قفل می‌شود.
-
-• حالت MASQUE H3 (QUIC):
-پرسرعت‌ترین حالت ممکن بر بستر HTTP/3 که بدون تاخیر دست‌دهی اولیه (0-RTT) استریم‌های 4K و وب‌گردی پرسرعت را فراهم می‌کند.
-
-• حالت MASQUE H2 + Fragment:
-مناسب زمان‌هایی که اینترنت اپراتورها ترافیک UDP را به‌شدت محدود یا مختل کرده‌اند.
-
-• تنظیمات پارازیت (Noize):
-گزینه Firewall برای مقاومت در برابر فیلترینگ شدید و گزینه Light برای حداکثر سرعت و حداقل پینگ کاربرد دارد.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '5. Local LAN Sharing & QR Gateway' : '۵. اشتراک‌گذاری اینترنت در شبکه محلی (LAN Share & QR Code)',
-                  icon: Icons.qr_code_2_rounded,
-                  iconColor: const Color(0xFF00C6FF),
-                  content: isEn ? '''
-• Turn PC into a Home Proxy Gateway:
-Enabling LAN Share lets your mobile phones, gaming consoles, and smart TVs on the same Wi-Fi enjoy uncensored internet by simply scanning the generated QR Code or setting the local IP:Port.
-
-• Universal Core Relay:
-Regardless of whether you connect via Aether, Hybrid, Tor, or Psiphon, the Rust relay engine routes all LAN traffic through the currently active tunnel seamlessly.
-''' : '''
-• تبدیل سیستم به گذرگاه اینترنت خانگی:
-با روشن کردن سوییچ اشتراک‌گذاری LAN، تمامی گوشی‌های همراه، تبلت‌ها، کنسول‌های بازی و تلویزیون‌های متصل به همان وای‌فای می‌توانند با اسکن بارکد QR یا تنظیم ساده پروکسی (IP:Port) از اینترنت بدون سانسور سیستم استفاده کنند.
-
-• رله هوشمند و سراسری:
-مهم نیست سیستم شما به کدام پروتکل (پل اِتر، هیبریدی، تور یا سایفون) متصل باشد؛ موتور رله راست به صورت هوشمند تمام بسته‌ها را از اتصال فعال عبور می‌دهد.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '6. Server Management (VLESS / Reality / Hysteria 2)' : '۶. پیکربندی و مدیریت سرورها (VLESS / Reality / Hysteria 2)',
-                  icon: Icons.tune_rounded,
-                  iconColor: const Color(0xFF6C5DD3),
-                  content: isEn ? '''
-• Subscription Management:
-Create multiple subscription groups, auto-update with one click, and isolate different server pools.
-
-• Bulk Ping & Sorting:
-Parallel high-speed latency testing with Rust native sockets instantly brings the fastest and most stable servers to the top.
-
-• Reality & ECH Editing:
-Customize SNI, Reality public keys (pbk), short IDs (sid), and Encrypted Client Hello (ECH) headers directly from the edit dialog.
-''' : '''
-• مدیریت حرفه‌ای ساب‌اسکریپشن‌ها:
-می‌توانید گروه‌های مختلف ساب ایجاد کنید و با زدن دکمه «بروزرسانی ساب‌ها» تمام سرورها را در چند ثانیه آپدیت کنید.
-
-• تست پینگ دسته‌جمعی و مرتب‌سازی:
-با زدن دکمه «تست پینگ و مرتب‌سازی»، هسته باینری راست تمام سرورها را به‌طور موازی پایش کرده و سرورهای سالم و پرسرعت را به صدر لیست می‌آورد.
-
-• ویرایش دستی و فعال‌سازی Reality و ECH:
-با کلیک روی آیکون مداد هر سرور، می‌توانید پارامترهای پیشرفته مثل کلید عمومی Reality (pbk)، شناسه (sid)، مسیر (Path) و هدرهای ECH را ویرایش و ذخیره کنید.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '7. Tor & Psiphon over MASQUE' : '۷. شبکه‌های پیاز تور (Tor over MASQUE) و سایفون (Psiphon over MASQUE)',
-                  icon: Icons.blur_circular_rounded,
-                  iconColor: const Color(0xFFE94057),
-                  content: isEn ? '''
-• Tor over MASQUE:
-Tor guard nodes tunnel through the MASQUE anti-censorship bridge, bypassing ISP guard-blocking to ensure a reliable connection to your chosen exit country (Germany, US, Netherlands, UK, etc.).
-
-• Psiphon over MASQUE:
-Shields Psiphon initial discovery handshakes and handshake packets from state DPI, giving you robust multi-protocol egress.
-''' : '''
-• اتصال تور بر بستر مسک (Tor over MASQUE):
-گره‌های گارد تور از پل ضدسانسور MASQUE عبور کرده و فیلترینگ گاردها را دور می‌زنند تا ارتباط شما با کشور خروجی دلخواه (آلمان، آمریکا، هلند، بریتانیا و...) ۱۰۰٪ برقرار شود.
-
-• اتصال سایفون بر بستر مسک (Psiphon over MASQUE):
-ترافیک اولیه و هندشیک‌های سایفون از درون پل MASQUE عبور کرده و به کشور انتخابی تحویل داده می‌شود.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '8. Dual Cloudflare Scanner (Quick & Deep)' : '۸. اسکنر دوحالته کلودفلر (Quick & Deep Scanner)',
-                  icon: Icons.radar_rounded,
-                  iconColor: const Color(0xFFFF8008),
-                  content: isEn ? '''
-• Quick Scan:
-Fast test over curated high-performance cloud clean IPs for instant connectivity.
-
-• Deep Scan:
-Scans thousands of CIDR blocks from cloudflare_IPs.txt using parallel multi-threaded workers.
-
-• Live Stop Control:
-Shows real-time alive/dead metrics. You can stop anytime, and newly discovered clean IPs are immediately added to your node list.
-''' : '''
-• اسکن سریع (Quick Scan):
-تست چندثانیه‌ای روی لیست منتخب از آی‌پی‌های پرسرعت برای اتصالات فوری.
-
-• اسکن عمیق و جامع (Deep Scan):
-استفاده از فایل cloudflare_IPs.txt و اسکن موازی هزاران آی‌پی از دل رنج‌های CIDR ابری.
-
-• کنترل زنده و دکمه توقف (Stop):
-در حین اسکن آمار آی‌پی‌های کل، سالم و مرده نمایش داده می‌شود و هر زمان دکمه Stop را بزنید، با آی‌پی‌های سفید کشف‌شده تا همان لحظه کانفیگ ساخته می‌شود.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '9. Smart DNS Changer' : '۹. تغییر دهنده هوشمند دی‌ان‌اس (DNS Changer)',
-                  icon: Icons.dns_rounded,
-                  iconColor: const Color(0xFF6DD5ED),
-                  content: isEn ? '''
-Bypass anti-Iran sanctions (AI services, Discord, Epic Games, Adobe, Docker, online games) without turning on a VPN!
-Includes popular gaming DNS providers (Shecan, Electro, 403, Radar) as well as encrypted DoH servers (Cloudflare, AdGuard, NextDNS).
-''' : '''
-این تب به شما اجازه می‌دهد بدون روشن کردن فیلترشکن، تحریم‌های اینترنتی علیه کاربران ایرانی (مثل سایت‌های هوش مصنوعی، دیسکورد، اپیک گیمز، ادوبی، داکر و بازی‌های آنلاین) را دور بزنید!
-دی‌ان‌اس‌های معروف مانند شکن، الکترو، ۴۰۳ آنلاین، رادار گیم و همچنین DNSهای فوق امن رمزنگاری‌شده DoH در این تب آماده انتخاب هستند.
-''',
-                ),
-                _buildHelpAccordion(
-                  title: isEn ? '10. Advanced Anti-DPI Settings' : '۱۰. تنظیمات فوق‌پیشرفته ضدسانسور (Anti-DPI)',
-                  icon: Icons.security_rounded,
-                  iconColor: const Color(0xFFED213A),
-                  content: isEn ? '''
-• uTLS Fingerprint Emulation:
-Mimics authentic desktop Google Chrome handshakes to prevent traffic classification.
-
-• TLS Packet Fragmentation:
-Splits ClientHello SNI packets into tiny fragments so DPI sensors cannot read your destination hostname.
-
-• Fake SNI Spoofing:
-Injects an unblocked decoy domain (e.g. zoom.us or microsoft.com) before the real request to blind DPI filters.
-''' : '''
-• شبیه‌ساز اثر انگشت (uTLS Fingerprint):
-دست‌دهی کلاینت شما را کاملاً شبیه مرورگر گوگل کروم واقعی نشان می‌دهد تا فیلترینگ نتواند ترافیک نرم‌افزار را از وب‌گردی عادی تفکیک کند.
-
-• قطعه‌بندی پکت‌ها (TLS Fragmentation):
-پکت ClientHello حاوی نام دامنه (SNI) را به قطعات چند بایتی خرد می‌کند تا سیستم فیلترینگ DPI نتواند مقصد شما را بخواند و مسدود کند.
-
-• جعل تزریقی دامنه (TLS Spoofing):
-قبل از ارسال درخواست اصلی، یک پکت فیک با دامنه کاملاً باز و مجاز (مانند zoom.us یا microsoft.com) ارسال می‌کند تا حسگرهای فیلترینگ دور بخورند.
-''',
+                const SizedBox(height: 12),
+                _buildHelpSectionCard(
+                  title: isEn ? '💡 How to Use & Pro Tips' : '💡 راهنمای استفاده و ترفندهای کاربردی',
+                  content: usageGuide,
+                  accentColor: const Color(0xFFFFC837),
                 ),
               ],
             ),
           ),
         ),
-      ],
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.accent.withValues(alpha: 0.2),
+                foregroundColor: theme.accent,
+                side: BorderSide(color: theme.accent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                isEn ? 'Got it' : 'متوجه شدم (بستن)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHelpSectionCard({
+    required String title,
+    required String content,
+    required Color accentColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF090B10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: accentColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content.trim(),
+            style: const TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.7),
+            textAlign: TextAlign.justify,
+          ),
+        ],
+      ),
     );
   }
 

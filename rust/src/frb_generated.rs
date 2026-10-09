@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 836619671;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -2123613374;
 
 // Section: executor
 
@@ -1734,6 +1734,45 @@ fn wire__crate__api__simple__ping_proxy_server_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok =
                         Ok::<_, ()>(crate::api::simple::ping_proxy_server(api_host, api_port))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__simple__probe_sni_against_edge_ip_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "probe_sni_against_edge_ip",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_edge_ip = <String>::sse_decode(&mut deserializer);
+            let api_sni = <String>::sse_decode(&mut deserializer);
+            let api_port = <u16>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::simple::probe_sni_against_edge_ip(
+                        api_edge_ip,
+                        api_sni,
+                        api_port,
+                    ))?;
                     std::result::Result::Ok(output_ok)
                 })())
             }
@@ -4267,141 +4306,147 @@ fn pde_ffi_dispatcher_primary_impl(
         49 => wire__crate__api__simple__parse_slipnet_uri_impl(port, ptr, rust_vec_len, data_len),
         50 => wire__crate__api__simple__ping_dns_server_impl(port, ptr, rust_vec_len, data_len),
         51 => wire__crate__api__simple__ping_proxy_server_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__simple__record_live_connection_metric_impl(
+        52 => wire__crate__api__simple__probe_sni_against_edge_ip_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        53 => wire__crate__api__simple__reset_system_dns_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__simple__restore_original_timezone_impl(
+        53 => wire__crate__api__simple__record_live_connection_metric_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        55 => {
+        54 => wire__crate__api__simple__reset_system_dns_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__simple__restore_original_timezone_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        56 => {
             wire__crate__api__simple__run_cloudflare_scanner_impl(port, ptr, rust_vec_len, data_len)
         }
-        56 => wire__crate__api__simple__run_dns_rescue_scan_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__simple__scan_and_rank_dns_for_target_impl(
+        57 => wire__crate__api__simple__run_dns_rescue_scan_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__simple__scan_and_rank_dns_for_target_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        58 => wire__crate__api__simple__set_system_dns_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__simple__start_aether_core_impl(port, ptr, rust_vec_len, data_len),
-        60 => {
+        59 => wire__crate__api__simple__set_system_dns_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__simple__start_aether_core_impl(port, ptr, rust_vec_len, data_len),
+        61 => {
             wire__crate__api__simple__start_anti_rst_filter_impl(port, ptr, rust_vec_len, data_len)
         }
-        61 => wire__crate__api__simple__start_dnscrypt_core_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__simple__start_dnstt_core_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__simple__start_gaming_boost_impl(port, ptr, rust_vec_len, data_len),
-        64 => {
+        62 => wire__crate__api__simple__start_dnscrypt_core_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__simple__start_dnstt_core_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__simple__start_gaming_boost_impl(port, ptr, rust_vec_len, data_len),
+        65 => {
             wire__crate__api__simple__start_goodbyedpi_core_impl(port, ptr, rust_vec_len, data_len)
         }
-        65 => wire__crate__api__simple__start_hybrid_connection_impl(
+        66 => wire__crate__api__simple__start_hybrid_connection_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        66 => wire__crate__api__simple__start_lan_relay_impl(port, ptr, rust_vec_len, data_len),
-        67 => {
+        67 => wire__crate__api__simple__start_lan_relay_impl(port, ptr, rust_vec_len, data_len),
+        68 => {
             wire__crate__api__simple__start_proxy_with_node_impl(port, ptr, rust_vec_len, data_len)
         }
-        68 => wire__crate__api__simple__start_psiphon_core_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__simple__start_psiphon_over_masque_impl(
+        69 => wire__crate__api__simple__start_psiphon_core_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__simple__start_psiphon_over_masque_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        70 => wire__crate__api__simple__start_redcloud_pipeline_impl(
+        71 => wire__crate__api__simple__start_redcloud_pipeline_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        71 => wire__crate__api__simple__start_slipnet_core_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__simple__start_smart_optimized_proxy_impl(
+        72 => wire__crate__api__simple__start_slipnet_core_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__simple__start_smart_optimized_proxy_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        73 => wire__crate__api__simple__start_tor_core_impl(port, ptr, rust_vec_len, data_len),
-        74 => {
+        74 => wire__crate__api__simple__start_tor_core_impl(port, ptr, rust_vec_len, data_len),
+        75 => {
             wire__crate__api__simple__start_tor_over_masque_impl(port, ptr, rust_vec_len, data_len)
         }
-        75 => wire__crate__api__simple__start_udp2raw_core_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__simple__start_whitedns_core_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__simple__stop_aether_core_impl(port, ptr, rust_vec_len, data_len),
-        78 => {
+        76 => wire__crate__api__simple__start_udp2raw_core_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__simple__start_whitedns_core_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__simple__stop_aether_core_impl(port, ptr, rust_vec_len, data_len),
+        79 => {
             wire__crate__api__simple__stop_anti_rst_filter_impl(port, ptr, rust_vec_len, data_len)
         }
-        79 => wire__crate__api__simple__stop_cloudflare_scanner_impl(
+        80 => wire__crate__api__simple__stop_cloudflare_scanner_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        80 => wire__crate__api__simple__stop_dns_domain_scanner_impl(
+        81 => wire__crate__api__simple__stop_dns_domain_scanner_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        81 => wire__crate__api__simple__stop_dnscrypt_core_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__simple__stop_dnstt_core_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__simple__stop_gaming_boost_impl(port, ptr, rust_vec_len, data_len),
-        84 => {
+        82 => wire__crate__api__simple__stop_dnscrypt_core_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__simple__stop_dnstt_core_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__simple__stop_gaming_boost_impl(port, ptr, rust_vec_len, data_len),
+        85 => {
             wire__crate__api__simple__stop_goodbyedpi_core_impl(port, ptr, rust_vec_len, data_len)
         }
-        85 => {
+        86 => {
             wire__crate__api__simple__stop_hybrid_connection_impl(port, ptr, rust_vec_len, data_len)
         }
-        86 => wire__crate__api__simple__stop_lan_relay_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__simple__stop_proxy_core_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__simple__stop_psiphon_core_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__simple__stop_psiphon_over_masque_impl(
+        87 => wire__crate__api__simple__stop_lan_relay_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__simple__stop_proxy_core_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__simple__stop_psiphon_core_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__simple__stop_psiphon_over_masque_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        90 => {
+        91 => {
             wire__crate__api__simple__stop_redcloud_pipeline_impl(port, ptr, rust_vec_len, data_len)
         }
-        91 => wire__crate__api__simple__stop_slipnet_core_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__simple__stop_tor_core_impl(port, ptr, rust_vec_len, data_len),
-        93 => {
+        92 => wire__crate__api__simple__stop_slipnet_core_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__simple__stop_tor_core_impl(port, ptr, rust_vec_len, data_len),
+        94 => {
             wire__crate__api__simple__stop_tor_over_masque_impl(port, ptr, rust_vec_len, data_len)
         }
-        94 => wire__crate__api__simple__stop_udp2raw_core_impl(port, ptr, rust_vec_len, data_len),
-        95 => wire__crate__api__simple__stop_whitedns_core_impl(port, ptr, rust_vec_len, data_len),
-        96 => wire__crate__api__simple__sync_timezone_to_country_impl(
+        95 => wire__crate__api__simple__stop_udp2raw_core_impl(port, ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__simple__stop_whitedns_core_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__simple__sync_timezone_to_country_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        97 => wire__crate__api__simple__test_and_verify_gaming_dns_impl(
+        98 => wire__crate__api__simple__test_and_verify_gaming_dns_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        98 => wire__crate__api__simple__update_radar_metrics_file_impl(
+        99 => wire__crate__api__simple__update_radar_metrics_file_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        99 => wire__crate__api__simple__verify_dns_ip_impl(port, ptr, rust_vec_len, data_len),
-        100 => wire__crate__api__simple__write_app_log_impl(port, ptr, rust_vec_len, data_len),
-        101 => wire__crate__api__simple__write_log_impl(port, ptr, rust_vec_len, data_len),
+        100 => wire__crate__api__simple__verify_dns_ip_impl(port, ptr, rust_vec_len, data_len),
+        101 => wire__crate__api__simple__write_app_log_impl(port, ptr, rust_vec_len, data_len),
+        102 => wire__crate__api__simple__write_log_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
