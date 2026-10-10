@@ -125,6 +125,10 @@ jobs:
             Copy-Item "geoip6" -Destination "build\windows\x64\runner\Release\geoip6-plus-asn" -Force -ErrorAction SilentlyContinue
         }
 
+        # ۶. دانلود موتور رسمی سایفون (هسته اجرایی شیروخورشید) از مخزن رسمی
+        Write-Host "Downloading official Psiphon/Shir-o-Khorshid Core from Psiphon-Labs..."
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Psiphon-Labs/psiphon-tunnel-core-binaries/master/windows/psiphon-tunnel-core-i686.exe" -OutFile "psiphon-tunnel-core.exe"
+        Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\psiphon-tunnel-core.exe" -Force
         Copy-Item "psiphon-tunnel-core.exe" -Destination "shirokhorshid.exe" -Force
         Copy-Item "psiphon-tunnel-core.exe" -Destination "build\windows\x64\runner\Release\shirokhorshid.exe" -Force
 
